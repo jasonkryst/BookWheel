@@ -21,6 +21,8 @@ This solution is split into separate application and test projects:
 - Book count plus page status summary in the books panel
 - Delete confirmation modal for book removal
 - Login form reset on logout so credentials are not left in the UI
+- Wheel entropy shuffle when adding books
+- Import/export modal with JSON tabs for merge import and JSON export
 - Persistent storage in `App_Data/books.json`
 - Encrypted credential storage in `App_Data/user.cred`
 - Structured audit logs for failed login and rate-limit events
@@ -249,6 +251,8 @@ Current integration tests cover:
 
 Frontend-focused tests also verify that the HTML, JavaScript, and CSS expose the account setup mode, selected-book UI, pagination summary, delete confirmation flow, logout form reset behavior, and theme toggle behavior.
 
+The frontend also includes import/export interactions (JSON tabbed modal) and wheel shuffle behavior when books are added.
+
 ## Project Documents
 
 Additional project documentation is available in:
@@ -263,6 +267,14 @@ The application includes a toolbar toggle for switching between dark and light m
 - Theme choice is persisted in browser `localStorage` under `bookwheel-theme`.
 - On first load, when no saved preference exists, the UI follows the system color preference (`prefers-color-scheme`).
 - The toggle updates the root `data-theme` attribute so CSS variables can switch the entire palette.
+
+## Import and Export (JSON)
+
+Use the toolbar `Import/Export` button to open the transfer modal.
+
+- Import tab accepts JSON in either `[{"title":"..."}]` form or `{ "books": [{"title":"..."}] }` form.
+- Import merges into existing books and skips case-insensitive title matches.
+- Export tab generates JSON of the current book list and supports clipboard copy.
 
 ## Development Notes
 

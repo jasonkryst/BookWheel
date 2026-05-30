@@ -19,7 +19,9 @@ const booksTotalCountEl = document.getElementById('booksTotalCount');
 const selectedBookEl = document.getElementById('selectedBook');
 const spinBtn = document.getElementById('spinBtn');
 const logoutBtn = document.getElementById('logoutBtn');
+const importExportBtn = document.getElementById('importExportBtn');
 const themeToggleBtn = document.getElementById('themeToggleBtn');
+const themeToggleIcon = document.getElementById('themeToggleIcon');
 const canvas = document.getElementById('wheelCanvas');
 const ctx = canvas.getContext('2d');
 const editDialog = document.getElementById('editDialog');
@@ -33,8 +35,21 @@ const deleteConfirmMessage = document.getElementById('deleteConfirmMessage');
 const deleteError = document.getElementById('deleteError');
 const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
 const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+const transferDialog = document.getElementById('transferDialog');
+const importTabBtn = document.getElementById('importTabBtn');
+const exportTabBtn = document.getElementById('exportTabBtn');
+const importPanel = document.getElementById('importPanel');
+const exportPanel = document.getElementById('exportPanel');
+const importJsonFile = document.getElementById('importJsonFile');
+const importFileBtn = document.getElementById('importFileBtn');
+const downloadExportBtn = document.getElementById('downloadExportBtn');
+const cancelTransferBtn = document.getElementById('cancelTransferBtn');
+const closeExportBtn = document.getElementById('closeExportBtn');
+const transferMessage = document.getElementById('transferMessage');
+const transferError = document.getElementById('transferError');
 
 let activeBooks = [];
+let wheelBooks = [];
 let spinning = false;
 let currentRotation = 0;
 let currentPage = 1;
@@ -44,6 +59,40 @@ const BOOKS_PER_PAGE = 10;
 const THEME_STORAGE_KEY = 'bookwheel-theme';
 const DARK_THEME = 'dark';
 const LIGHT_THEME = 'light';
+
+function shuffleArray(items) {
+  for (let i = items.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+  return items;
+}
+
+function normalizeTitle(title) {
+  return title.trim().toLocaleLowerCase();
+}
+
+function setWheelBooksFromActive(shuffleWheel = false) {
+  const activeById = new Map(activeBooks.map(book => [book.id, book]));
+  const existingIds = new Set();
+  const preserved = [];
+
+  wheelBooks.forEach(book => {
+    if (!activeById.has(book.id) || existingIds.has(book.id)) {
+      return;
+    }
+
+    preserved.push(activeById.get(book.id));
+    existingIds.add(book.id);
+  });
+
+  const additions = activeBooks.filter(book => !existingIds.has(book.id));
+  wheelBooks = [...preserved, ...additions];
+
+  if (shuffleWheel) {
+    shuffleArray(wheelBooks);
+  }
+}
 
 function getPreferredTheme() {
   const persisted = localStorage.getItem(THEME_STORAGE_KEY);
@@ -60,9 +109,11 @@ function applyTheme(theme) {
 
   if (themeToggleBtn) {
     const nextThemeLabel = theme === DARK_THEME ? 'Light mode' : 'Dark mode';
-    themeToggleBtn.textContent = nextThemeLabel;
     themeToggleBtn.setAttribute('aria-label', `Switch to ${nextThemeLabel}`);
     themeToggleBtn.setAttribute('title', `Switch to ${nextThemeLabel}`);
+    if (themeToggleIcon) {
+      themeToggleIcon.textContent = theme === DARK_THEME ? '☾' : '☀';
+    }
   }
 
   drawWheel();
@@ -153,7 +204,7 @@ function drawWheel() {
   const wheelTextColor = computedStyles.getPropertyValue('--input-bg').trim() || '#0b1220';
   const emptyStateColor = computedStyles.getPropertyValue('--muted').trim() || '#94a3b8';
 
-  if (!activeBooks.length) {
+  if (!wheelBooks.length) {
     ctx.save();
     ctx.fillStyle = emptyStateColor;
     ctx.font = '20px Arial';
@@ -164,8 +215,8 @@ function drawWheel() {
     return;
   }
 
-  const step = (Math.PI * 2) / activeBooks.length;
-  activeBooks.forEach((book, index) => {
+  const step = (Math.PI * 2) / wheelBooks.length;
+  wheelBooks.forEach((book, index) => {
     const start = index * step - Math.PI / 2;
     const end = start + step;
 
@@ -192,6 +243,7 @@ function renderActiveBooks() {
   activeBooksEl.innerHTML = '';
   if (!activeBooks.length) {
     activeBooksEl.innerHTML = '<span class="message">No active books</span>';
+    renderBookCount();
     renderPagination();
     return;
   }
@@ -233,6 +285,7 @@ function renderActiveBooks() {
 async function refreshBooks(options = {}) {
   const data = await requestJson('/api/books');
   activeBooks = data.activeBooks || data.books || [];
+  setWheelBooksFromActive(Boolean(options.shuffleWheel));
   if (options.goToLastPage) {
     currentPage = getTotalPages();
   } else {
@@ -313,6 +366,146 @@ async function confirmDelete() {
   await refreshBooks();
 }
 
+function setTransferTab(tabName) {
+  const showImport = tabName === 'import';
+  importPanel.classList.toggle('hidden', !showImport);
+  exportPanel.classList.toggle('hidden', showImport);
+  importTabBtn.classList.toggle('active', showImport);
+  exportTabBtn.classList.toggle('active', !showImport);
+  importTabBtn.setAttribute('aria-selected', showImport ? 'true' : 'false');
+  exportTabBtn.setAttribute('aria-selected', showImport ? 'false' : 'true');
+}
+
+function openTransferDialog() {
+  transferMessage.textContent = '';
+  transferError.textContent = '';
+  if (importJsonFile) {
+    importJsonFile.value = '';
+  }
+  setTransferTab('import');
+
+  if (typeof transferDialog.showModal === 'function') {
+    transferDialog.showModal();
+  } else {
+    transferDialog.setAttribute('open', 'open');
+  }
+}
+
+function closeTransferDialog() {
+  transferMessage.textContent = '';
+  transferError.textContent = '';
+
+  if (typeof transferDialog.close === 'function') {
+    transferDialog.close();
+  } else {
+    transferDialog.removeAttribute('open');
+  }
+}
+
+function parseImportTitles(rawJson) {
+  const parsed = JSON.parse(rawJson);
+  const source = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray(parsed?.books)
+      ? parsed.books
+      : null;
+
+  if (!source) {
+    throw new Error('Invalid JSON format. Use an array or an object with a books array.');
+  }
+
+  const titles = [];
+  source.forEach(item => {
+    let title = '';
+    if (typeof item === 'string') {
+      title = item;
+    } else if (item && typeof item.title === 'string') {
+      title = item.title;
+    }
+
+    const trimmed = title.trim();
+    if (trimmed) {
+      titles.push(trimmed);
+    }
+  });
+
+  return titles;
+}
+
+async function importBooksFromJsonFile() {
+  transferMessage.textContent = '';
+  transferError.textContent = '';
+
+  const importFile = importJsonFile.files?.[0] || null;
+  if (!importFile) {
+    transferError.textContent = 'Choose a JSON file to import.';
+    return;
+  }
+
+  const rawJson = (await importFile.text()).trim();
+  if (!rawJson) {
+    transferError.textContent = 'The selected file is empty.';
+    return;
+  }
+
+  const importTitles = parseImportTitles(rawJson);
+  if (!importTitles.length) {
+    transferError.textContent = 'No valid titles found in JSON.';
+    return;
+  }
+
+  const existingTitles = new Set(activeBooks.map(book => normalizeTitle(book.title)));
+  const seenImportTitles = new Set();
+  const titlesToAdd = [];
+  let skippedMatches = 0;
+
+  importTitles.forEach(title => {
+    const normalized = normalizeTitle(title);
+    if (seenImportTitles.has(normalized) || existingTitles.has(normalized)) {
+      skippedMatches += 1;
+      return;
+    }
+
+    seenImportTitles.add(normalized);
+    titlesToAdd.push(title);
+  });
+
+  let addedCount = 0;
+  for (const title of titlesToAdd) {
+    await requestJson('/api/books', {
+      method: 'POST',
+      body: JSON.stringify({ title })
+    });
+    addedCount += 1;
+  }
+
+  if (addedCount > 0) {
+    await refreshBooks({ goToLastPage: true, shuffleWheel: true });
+  }
+
+  transferMessage.textContent = `Import complete. Added ${addedCount}, skipped ${skippedMatches} matches.`;
+}
+
+function downloadExportJsonFile() {
+  const exportPayload = {
+    books: activeBooks.map(book => ({ title: book.title }))
+  };
+
+  const payload = JSON.stringify(exportPayload, null, 2);
+  const blob = new Blob([payload], { type: 'application/json' });
+  const downloadUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  const timestamp = new Date().toISOString().replace(/[\:\.]/g, '-');
+  anchor.href = downloadUrl;
+  anchor.download = `bookwheel-export-${timestamp}.json`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(downloadUrl);
+
+  transferMessage.textContent = 'Export file download started.';
+}
+
 editForm.addEventListener('submit', async event => {
   event.preventDefault();
   editError.textContent = '';
@@ -340,6 +533,43 @@ confirmDeleteBtn.addEventListener('click', async () => {
     confirmDeleteBtn.disabled = false;
     cancelDeleteBtn.disabled = false;
   }
+});
+
+importTabBtn.addEventListener('click', () => {
+  transferError.textContent = '';
+  transferMessage.textContent = '';
+  setTransferTab('import');
+});
+
+exportTabBtn.addEventListener('click', () => {
+  transferError.textContent = '';
+  transferMessage.textContent = '';
+  setTransferTab('export');
+});
+
+importFileBtn.addEventListener('click', async () => {
+  importFileBtn.disabled = true;
+  try {
+    await importBooksFromJsonFile();
+  } catch (error) {
+    transferError.textContent = error.message;
+  } finally {
+    importFileBtn.disabled = false;
+  }
+});
+
+downloadExportBtn.addEventListener('click', () => {
+  transferError.textContent = '';
+  transferMessage.textContent = '';
+  downloadExportJsonFile();
+});
+
+cancelTransferBtn.addEventListener('click', () => {
+  closeTransferDialog();
+});
+
+closeExportBtn.addEventListener('click', () => {
+  closeTransferDialog();
 });
 
 loginForm.addEventListener('submit', async event => {
@@ -395,7 +625,7 @@ bookForm.addEventListener('submit', async event => {
     });
     bookTitle.value = '';
     bookMessage.textContent = 'Book added.';
-    await refreshBooks({ goToLastPage: true });
+    await refreshBooks({ goToLastPage: true, shuffleWheel: true });
   } catch (error) {
     bookMessage.textContent = error.message;
   }
@@ -467,6 +697,10 @@ logoutBtn.addEventListener('click', async () => {
 
 if (themeToggleBtn) {
   themeToggleBtn.addEventListener('click', toggleTheme);
+}
+
+if (importExportBtn) {
+  importExportBtn.addEventListener('click', openTransferDialog);
 }
 
 (async () => {

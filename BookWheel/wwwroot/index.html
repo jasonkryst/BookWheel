@@ -29,7 +29,12 @@
       <header class="toolbar card">
         <h1>Book Wheel</h1>
         <div class="toolbar-actions">
-          <button id="themeToggleBtn" type="button" class="secondary">Toggle theme</button>
+          <button id="importExportBtn" type="button" class="secondary icon-btn" title="Import or export books" aria-label="Import or export books">
+            <span class="icon-glyph" aria-hidden="true">⇅</span>
+          </button>
+          <button id="themeToggleBtn" type="button" class="secondary icon-btn" title="Switch theme" aria-label="Switch theme">
+            <span id="themeToggleIcon" class="icon-glyph" aria-hidden="true">☾</span>
+          </button>
           <button id="logoutBtn" class="secondary">Log out</button>
         </div>
       </header>
@@ -89,6 +94,40 @@
         <button type="button" id="confirmDeleteBtn" class="book-remove-btn">Remove</button>
       </div>
       <p id="deleteError" class="error"></p>
+    </form>
+  </dialog>
+
+  <dialog id="transferDialog" class="modal transfer-modal">
+    <form method="dialog" class="stack">
+      <h2>Import / Export books</h2>
+
+      <div class="tab-row">
+        <button type="button" id="importTabBtn" class="secondary tab-btn active" aria-controls="importPanel" aria-selected="true">Import</button>
+        <button type="button" id="exportTabBtn" class="secondary tab-btn" aria-controls="exportPanel" aria-selected="false">Export</button>
+      </div>
+
+      <section id="importPanel" class="tab-panel">
+        <p class="message">Import JSON data and merge into your list. Existing title matches are skipped case-insensitively.</p>
+        <label>
+          Choose JSON file
+          <input id="importJsonFile" type="file" accept="application/json,.json" />
+        </label>
+        <div class="actions modal-actions">
+          <button type="button" id="cancelTransferBtn" class="secondary">Close</button>
+          <button type="button" id="importFileBtn">Import File</button>
+        </div>
+      </section>
+
+      <section id="exportPanel" class="tab-panel hidden">
+        <p class="message">Download your current books as a JSON file.</p>
+        <div class="actions modal-actions">
+          <button type="button" id="closeExportBtn" class="secondary">Close</button>
+          <button type="button" id="downloadExportBtn" class="secondary">Download JSON</button>
+        </div>
+      </section>
+
+      <p id="transferMessage" class="message"></p>
+      <p id="transferError" class="error"></p>
     </form>
   </dialog>
 

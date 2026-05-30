@@ -25,8 +25,13 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("id=\"authMessage\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"authSubmitBtn\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"themeToggleBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"importExportBtn\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"deleteDialog\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"confirmDeleteBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"transferDialog\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"importJsonFile\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"importFileBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"downloadExportBtn\"", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -48,6 +53,15 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("Book title is required.", script, StringComparison.Ordinal);
         Assert.Contains("resetAuthForm", script, StringComparison.Ordinal);
         Assert.Contains("deleteDialog", script, StringComparison.Ordinal);
+        Assert.Contains("shuffleArray", script, StringComparison.Ordinal);
+        Assert.Contains("shuffleWheel", script, StringComparison.Ordinal);
+        Assert.Contains("importExportBtn", script, StringComparison.Ordinal);
+        Assert.Contains("setTransferTab", script, StringComparison.Ordinal);
+        Assert.Contains("importJsonFile", script, StringComparison.Ordinal);
+        Assert.Contains("importFileBtn", script, StringComparison.Ordinal);
+        Assert.Contains("downloadExportBtn", script, StringComparison.Ordinal);
+        Assert.Contains("downloadExportJsonFile", script, StringComparison.Ordinal);
+        Assert.Contains("toLocaleLowerCase", script, StringComparison.Ordinal);
         Assert.Contains("Last selected:", script, StringComparison.Ordinal);
         Assert.Contains("normalizedRotation", script, StringComparison.Ordinal);
         Assert.Contains("rotationDelta", script, StringComparison.Ordinal);

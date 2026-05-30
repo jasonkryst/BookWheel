@@ -162,6 +162,20 @@ button:disabled {
   gap: 10px;
 }
 
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+}
+
+.icon-glyph {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
 .wheel-card { display: grid; justify-items: center; gap: 14px; }
 .wheel-wrap {
   position: relative;
@@ -277,6 +291,62 @@ button:disabled {
 
 .modal-actions {
   justify-content: flex-end;
+}
+
+.transfer-modal {
+  width: min(720px, calc(100% - 24px));
+}
+
+.tab-row {
+  background: color-mix(in srgb, var(--input-bg) 72%, transparent);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 14px;
+  padding: 6px;
+  display: flex;
+  gap: 8px;
+}
+
+.tab-btn {
+  flex: 1 1 0;
+  text-align: center;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease, transform 120ms ease;
+}
+
+.tab-btn:hover {
+  transform: translateY(-1px);
+}
+
+.tab-btn.active {
+  background: var(--accent);
+  color: var(--button-primary-text);
+  border-color: color-mix(in srgb, var(--accent) 70%, #ffffff 30%);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+.tab-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 14px;
+  padding: 14px;
+  background: color-mix(in srgb, var(--card) 96%, transparent);
+}
+
+.tab-panel.hidden {
+  display: none;
+}
+
+.json-textarea {
+  width: 100%;
+  min-height: 200px;
+  resize: vertical;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  padding: 12px;
+  font: 0.95rem/1.4 Consolas, "Courier New", monospace;
+  background: var(--input-bg);
+  color: var(--text);
 }
 
 @media (max-width: 900px) {
