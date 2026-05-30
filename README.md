@@ -64,6 +64,21 @@ dotnet restore BookWheel.slnx
 dotnet build BookWheel.slnx
 ```
 
+## Version Stamping (CI/CD and Docker)
+
+The footer version is sourced from `AssemblyInformationalVersion`.
+
+- Local default: `1.0.5-local` (set in `BookWheel/BookWheel.csproj`)
+- CI builds: `.github/workflows/dotnet.yml` sets `APP_VERSION` and passes it via `/p:InformationalVersion=...`
+- Docker builds: `Dockerfile` accepts `ARG APP_VERSION` and passes it to `dotnet publish`
+
+Examples:
+
+```bash
+dotnet build BookWheel.slnx /p:InformationalVersion=1.0.5
+docker build --build-arg APP_VERSION=1.0.5 -t jasonkryst/bookwheel:1.0.5 .
+```
+
 ## Running the Application
 
 Option 1 (from solution root):
@@ -276,6 +291,7 @@ Use the toolbar import/export icon button to open the transfer modal.
 - Import merges into existing books and skips case-insensitive title matches.
 - Import flow uses JSON file upload (`.json`).
 - Export tab generates a JSON file download of the current book list.
+- The download area is shown only when the Export tab is selected.
 
 ## Development Notes
 

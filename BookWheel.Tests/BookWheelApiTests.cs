@@ -281,6 +281,21 @@ public sealed class BookWheelApiTests
         Assert.Contains(titleErrors, message => string.Equals(message, "The Title field is required.", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task Version_Endpoint_Returns_NonEmpty_Version_String()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/version");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var doc = await ReadJsonAsync(response);
+        var version = doc.RootElement.GetProperty("version").GetString();
+
+        Assert.False(string.IsNullOrWhiteSpace(version));
+    }
+
     private static async Task LoginAsync(HttpClient client)
     {
         var response = await client.PostAsJsonAsync("/api/auth/login", new

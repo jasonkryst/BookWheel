@@ -47,6 +47,7 @@ const cancelTransferBtn = document.getElementById('cancelTransferBtn');
 const closeExportBtn = document.getElementById('closeExportBtn');
 const transferMessage = document.getElementById('transferMessage');
 const transferError = document.getElementById('transferError');
+const appVersionEl = document.getElementById('appVersion');
 
 let activeBooks = [];
 let wheelBooks = [];
@@ -194,6 +195,23 @@ async function requestJson(url, options = {}) {
   }
 
   return payload;
+}
+
+function renderAppVersion(version) {
+  if (!appVersionEl) {
+    return;
+  }
+
+  appVersionEl.textContent = `Version: ${version || 'unknown'}`;
+}
+
+async function loadAppVersion() {
+  try {
+    const versionInfo = await requestJson('/api/version');
+    renderAppVersion(versionInfo?.version);
+  } catch {
+    renderAppVersion('unknown');
+  }
 }
 
 function drawWheel() {
@@ -705,6 +723,7 @@ if (importExportBtn) {
 
 (async () => {
   applyTheme(getPreferredTheme());
+  await loadAppVersion();
 
   try {
     const status = await requestJson('/api/auth/status');

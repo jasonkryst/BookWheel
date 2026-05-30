@@ -1,5 +1,6 @@
 using BookWheel.Logging;
 using BookWheel.Services;
+using System.Reflection;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -66,6 +67,15 @@ app.UseRateLimiter();
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
+app.MapGet("/api/version", () =>
+{
+	var assembly = Assembly.GetExecutingAssembly();
+	var informationalVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+	var assemblyVersion = assembly.GetName().Version?.ToString();
+	var resolvedVersion = informationalVersion ?? assemblyVersion ?? "unknown";
+
+	return Results.Ok(new { version = resolvedVersion });
+});
 app.MapControllers();
 
 app.Run();

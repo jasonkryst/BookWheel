@@ -33,6 +33,7 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("id=\"importJsonFile\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"importFileBtn\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"downloadExportBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"appVersion\"", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -62,6 +63,9 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("importFileBtn", script, StringComparison.Ordinal);
         Assert.Contains("downloadExportBtn", script, StringComparison.Ordinal);
         Assert.Contains("downloadExportJsonFile", script, StringComparison.Ordinal);
+        Assert.Contains("/api/version", script, StringComparison.Ordinal);
+        Assert.Contains("loadAppVersion", script, StringComparison.Ordinal);
+        Assert.Contains("Version:", script, StringComparison.Ordinal);
         Assert.Contains("toLocaleLowerCase", script, StringComparison.Ordinal);
         Assert.Contains("Last selected:", script, StringComparison.Ordinal);
         Assert.Contains("normalizedRotation", script, StringComparison.Ordinal);
@@ -121,5 +125,6 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("[data-theme=\"light\"]", css, StringComparison.Ordinal);
         Assert.Contains("color-scheme", css, StringComparison.Ordinal);
         Assert.Contains("--bg", css, StringComparison.Ordinal);
+        Assert.Contains(".tab-panel.hidden", css, StringComparison.Ordinal);
     }
 }

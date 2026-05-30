@@ -51,6 +51,13 @@ body {
   margin: 24px auto 48px;
 }
 
+.app-footer {
+  width: min(1180px, calc(100% - 32px));
+  margin: -24px auto 24px;
+  display: flex;
+  justify-content: center;
+}
+
 .card {
   background: color-mix(in srgb, var(--card) 92%, transparent);
   border: 1px solid var(--card-border);

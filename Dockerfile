@@ -2,6 +2,7 @@
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
+ARG APP_VERSION=1.0.5-docker
 
 COPY BookWheel.slnx ./
 COPY BookWheel/BookWheel.csproj BookWheel/
@@ -9,7 +10,7 @@ COPY BookWheel.Tests/BookWheel.Tests.csproj BookWheel.Tests/
 RUN dotnet restore BookWheel/BookWheel.csproj
 
 COPY . .
-RUN dotnet publish BookWheel/BookWheel.csproj -c Release -o /app/publish /p:UseAppHost=false
+RUN dotnet publish BookWheel/BookWheel.csproj -c Release -o /app/publish /p:UseAppHost=false /p:InformationalVersion=$APP_VERSION
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
