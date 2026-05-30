@@ -16,6 +16,7 @@ const booksPageInfo = document.getElementById('booksPageInfo');
 const selectedBookEl = document.getElementById('selectedBook');
 const spinBtn = document.getElementById('spinBtn');
 const logoutBtn = document.getElementById('logoutBtn');
+const themeToggleBtn = document.getElementById('themeToggleBtn');
 const canvas = document.getElementById('wheelCanvas');
 const ctx = canvas.getContext('2d');
 const editDialog = document.getElementById('editDialog');
@@ -31,6 +32,38 @@ let currentRotation = 0;
 let currentPage = 1;
 let authMode = 'login';
 const BOOKS_PER_PAGE = 20;
+const THEME_STORAGE_KEY = 'bookwheel-theme';
+const DARK_THEME = 'dark';
+const LIGHT_THEME = 'light';
+
+function getPreferredTheme() {
+  const persisted = localStorage.getItem(THEME_STORAGE_KEY);
+  if (persisted === DARK_THEME || persisted === LIGHT_THEME) {
+    return persisted;
+  }
+
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? DARK_THEME : LIGHT_THEME;
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem(THEME_STORAGE_KEY, theme);
+
+  if (themeToggleBtn) {
+    const nextThemeLabel = theme === DARK_THEME ? 'Light mode' : 'Dark mode';
+    themeToggleBtn.textContent = nextThemeLabel;
+    themeToggleBtn.setAttribute('aria-label', `Switch to ${nextThemeLabel}`);
+    themeToggleBtn.setAttribute('title', `Switch to ${nextThemeLabel}`);
+  }
+
+  drawWheel();
+}
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute('data-theme') || DARK_THEME;
+  const nextTheme = currentTheme === DARK_THEME ? LIGHT_THEME : DARK_THEME;
+  applyTheme(nextTheme);
+}
 
 function getTotalPages() {
   return Math.max(1, Math.ceil(activeBooks.length / BOOKS_PER_PAGE));
@@ -94,10 +127,13 @@ function drawWheel() {
   const size = canvas.width;
   const radius = size / 2;
   ctx.clearRect(0, 0, size, size);
+  const computedStyles = getComputedStyle(document.documentElement);
+  const wheelTextColor = computedStyles.getPropertyValue('--input-bg').trim() || '#0b1220';
+  const emptyStateColor = computedStyles.getPropertyValue('--muted').trim() || '#94a3b8';
 
   if (!activeBooks.length) {
     ctx.save();
-    ctx.fillStyle = '#94a3b8';
+    ctx.fillStyle = emptyStateColor;
     ctx.font = '20px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -121,7 +157,7 @@ function drawWheel() {
     ctx.save();
     ctx.translate(radius, radius);
     ctx.rotate(start + step / 2);
-    ctx.fillStyle = '#0b1220';
+    ctx.fillStyle = wheelTextColor;
     ctx.font = 'bold 18px Arial';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
@@ -355,7 +391,13 @@ logoutBtn.addEventListener('click', async () => {
   showApp(false);
 });
 
+if (themeToggleBtn) {
+  themeToggleBtn.addEventListener('click', toggleTheme);
+}
+
 (async () => {
+  applyTheme(getPreferredTheme());
+
   try {
     const status = await requestJson('/api/auth/status');
     setAuthMode(status.setupRequired ? 'setup' : 'login');

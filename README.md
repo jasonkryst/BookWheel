@@ -13,6 +13,7 @@ This solution is split into separate application and test projects:
 - First-run account creation plus cookie-based login/logout
 - Add, edit, and remove books
 - Interactive spin wheel UI
+- Light/dark mode toggle with saved browser preference
 - Spin selection does not remove the selected book
 - "Last selected" message displayed below the wheel
 - Active books list with pagination after 20 books
@@ -212,7 +213,15 @@ Current integration tests cover:
 - Security regression checks for encrypted credential storage, failed-login audit logging, and rate limiting
 - Persistent log file creation and structured audit logging checks
 
-Frontend-focused tests also verify that the HTML, JavaScript, and CSS expose the account setup mode and selected-book UI.
+Frontend-focused tests also verify that the HTML, JavaScript, and CSS expose the account setup mode, selected-book UI, and theme toggle behavior.
+
+## Theme Toggle
+
+The application includes a toolbar toggle for switching between dark and light modes.
+
+- Theme choice is persisted in browser `localStorage` under `bookwheel-theme`.
+- On first load, when no saved preference exists, the UI follows the system color preference (`prefers-color-scheme`).
+- The toggle updates the root `data-theme` attribute so CSS variables can switch the entire palette.
 
 ## Development Notes
 

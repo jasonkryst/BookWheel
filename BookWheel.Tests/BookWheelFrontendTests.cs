@@ -23,6 +23,7 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("id=\"authTitle\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"authMessage\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"authSubmitBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"themeToggleBtn\"", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -45,6 +46,24 @@ public sealed class BookWheelFrontendTests
     }
 
     [Fact]
+    public async Task Frontend_Script_Should_Contain_Theme_Toggle_Behavior()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var script = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("THEME_STORAGE_KEY", script, StringComparison.Ordinal);
+        Assert.Contains("themeToggleBtn", script, StringComparison.Ordinal);
+        Assert.Contains("localStorage.getItem", script, StringComparison.Ordinal);
+        Assert.Contains("localStorage.setItem", script, StringComparison.Ordinal);
+        Assert.Contains("data-theme", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Frontend_Styles_Should_Include_Selected_Book_Emphasis()
     {
         using var factory = new BookWheelWebAppFactory();
@@ -58,5 +77,22 @@ public sealed class BookWheelFrontendTests
         Assert.Contains(".selected-book", css, StringComparison.Ordinal);
         Assert.Contains("font-size", css, StringComparison.Ordinal);
         Assert.Contains("text-shadow", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Styles_Should_Include_Light_And_Dark_Theme_Variables()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/css/site.css");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var css = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains(":root", css, StringComparison.Ordinal);
+        Assert.Contains("[data-theme=\"light\"]", css, StringComparison.Ordinal);
+        Assert.Contains("color-scheme", css, StringComparison.Ordinal);
+        Assert.Contains("--bg", css, StringComparison.Ordinal);
     }
 }
