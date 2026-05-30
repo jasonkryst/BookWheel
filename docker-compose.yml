@@ -1,0 +1,22 @@
+version: "3.9"
+
+services:
+  bookwheel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bookwheel:latest
+    container_name: bookwheel
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+    volumes:
+      - bookwheel_app_data:/app/App_Data
+      - bookwheel_dp_keys:/home/app/.aspnet/DataProtection-Keys
+    restart: unless-stopped
+
+volumes:
+  bookwheel_app_data:
+  bookwheel_dp_keys:

@@ -1,0 +1,17 @@
+**/[Bb]in/
+**/[Oo]bj/
+**/.vs/
+**/.idea/
+**/.history/
+**/*.user
+**/*.suo
+**/*.rsuser
+
+.git
+.gitignore
+README.md
+SECURITY_AUDIT_REPORT.md
+
+BookWheel/App_Data/user.cred
+BookWheel/App_Data/logs/
+BookWheel.Tests/TestResults/

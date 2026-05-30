@@ -48,3 +48,7 @@ Desktop.ini
 *.tmp
 *.temp
 *.cache
+
+# Local container overrides
+.env
+docker-compose.override.yml

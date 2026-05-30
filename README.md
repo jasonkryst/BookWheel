@@ -46,6 +46,7 @@ Book Wheel/
 
 - .NET SDK 8.0+
 - PowerShell or terminal capable of running `dotnet` CLI commands
+- Docker Desktop (or Docker Engine) for containerized runs
 
 ## Getting Started
 
@@ -72,6 +73,55 @@ dotnet run
 ```
 
 By default, the app serves static files and API endpoints from the same host.
+
+## Container Support
+
+This repository now includes:
+
+- `Dockerfile` for building and running the app container
+- `.dockerignore` for leaner and safer build contexts
+- `docker-compose.yml` for local container orchestration with persistent volumes
+
+### Build and Run with Docker
+
+From the solution root:
+
+```bash
+docker build -t bookwheel:latest .
+docker run --rm -p 8080:8080 --name bookwheel bookwheel:latest
+```
+
+Open `http://localhost:8080`.
+
+### Run with Docker Compose
+
+From the solution root:
+
+```bash
+docker-compose up --build
+```
+
+To run detached:
+
+```bash
+docker-compose up -d --build
+```
+
+To stop and remove containers:
+
+```bash
+docker-compose down
+```
+
+The compose setup persists:
+
+- App data (`/app/App_Data`) including books, credentials, and logs
+- ASP.NET Core Data Protection keys (`/home/app/.aspnet/DataProtection-Keys`)
+
+Note:
+
+- The container listens on HTTP port `8080` internally.
+- For production, terminate TLS at a reverse proxy or load balancer in front of the container.
 
 ## First-Run Account Setup
 
@@ -180,3 +230,5 @@ Frontend-focused tests also verify that the HTML, JavaScript, and CSS expose the
 - If the app starts but books are missing, check `BookWheel/App_Data/books.json` permissions.
 - If you need to reset the account, delete `BookWheel/App_Data/user.cred` and create a new account on next launch.
 - If you need to inspect logs, open the current day file under `BookWheel/App_Data/logs/`.
+- If the container starts but auth sessions break after restarts, verify Data Protection keys are persisted (compose handles this via `bookwheel_dp_keys`).
+- If port `8080` is busy, change the host side mapping in `docker-compose.yml` (for example, `8081:8080`).
