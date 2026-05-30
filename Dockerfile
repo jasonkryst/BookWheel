@@ -20,8 +20,9 @@ ENV ASPNETCORE_ENVIRONMENT=Production
 
 EXPOSE 8080
 
-RUN mkdir -p /app/App_Data/logs
-COPY --from=build /app/publish .
+RUN mkdir -p /app/App_Data/logs && chown -R app:app /app
+
+COPY --from=build /app/publish .d
 
 # Persist Data Protection keys for stable auth/credential protection across restarts.
 VOLUME ["/home/app/.aspnet/DataProtection-Keys", "/app/App_Data"]
