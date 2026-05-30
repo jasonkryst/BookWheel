@@ -19,11 +19,14 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("id=\"wheelCanvas\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"bookForm\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"activeBooks\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"booksTotalCount\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"selectedBook\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"authTitle\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"authMessage\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"authSubmitBtn\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"themeToggleBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"deleteDialog\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"confirmDeleteBtn\"", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -37,9 +40,17 @@ public sealed class BookWheelFrontendTests
 
         var script = await response.Content.ReadAsStringAsync();
 
-        Assert.Contains("const BOOKS_PER_PAGE = 20", script, StringComparison.Ordinal);
+        Assert.Contains("const BOOKS_PER_PAGE = 10", script, StringComparison.Ordinal);
         Assert.Contains("booksPagination", script, StringComparison.Ordinal);
+        Assert.Contains("booksTotalCount", script, StringComparison.Ordinal);
+        Assert.Contains("Page ${currentPage} of ${totalPages}", script, StringComparison.Ordinal);
+        Assert.Contains("trimmedTitle", script, StringComparison.Ordinal);
+        Assert.Contains("Book title is required.", script, StringComparison.Ordinal);
+        Assert.Contains("resetAuthForm", script, StringComparison.Ordinal);
+        Assert.Contains("deleteDialog", script, StringComparison.Ordinal);
         Assert.Contains("Last selected:", script, StringComparison.Ordinal);
+        Assert.Contains("normalizedRotation", script, StringComparison.Ordinal);
+        Assert.Contains("rotationDelta", script, StringComparison.Ordinal);
         Assert.Contains("/api/auth/status", script, StringComparison.Ordinal);
         Assert.Contains("/api/auth/setup", script, StringComparison.Ordinal);
         Assert.Contains("Create your Book Wheel account", script, StringComparison.Ordinal);

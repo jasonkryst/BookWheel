@@ -254,6 +254,33 @@ public sealed class BookWheelApiTests
         Assert.DoesNotContain(bookId, idsAfterRemove);
     }
 
+    [Fact]
+    public async Task Add_Book_With_Whitespace_Title_Returns_BadRequest()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        await LoginAsync(client);
+
+        var response = await client.PostAsJsonAsync("/api/books", new
+        {
+            title = "   "
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        using var doc = await ReadJsonAsync(response);
+        var errors = doc.RootElement.GetProperty("errors");
+        var titleErrors = errors.GetProperty("Title").EnumerateArray().Select(x => x.GetString()).ToList();
+        Assert.Contains(titleErrors, message => string.Equals(message, "The Title field is required.", StringComparison.Ordinal));
+    }
+
     private static async Task LoginAsync(HttpClient client)
     {
         var response = await client.PostAsJsonAsync("/api/auth/login", new

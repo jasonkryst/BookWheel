@@ -14,9 +14,13 @@ This solution is split into separate application and test projects:
 - Add, edit, and remove books
 - Interactive spin wheel UI
 - Light/dark mode toggle with saved browser preference
+- Theme toggle frontend test coverage
 - Spin selection does not remove the selected book
 - "Last selected" message displayed below the wheel
-- Active books list with pagination after 20 books
+- Active books list with pagination after 10 books
+- Book count plus page status summary in the books panel
+- Delete confirmation modal for book removal
+- Login form reset on logout so credentials are not left in the UI
 - Persistent storage in `App_Data/books.json`
 - Encrypted credential storage in `App_Data/user.cred`
 - Structured audit logs for failed login and rate-limit events
@@ -82,6 +86,7 @@ This repository now includes:
 - `Dockerfile` for building and running the app container
 - `.dockerignore` for leaner and safer build contexts
 - `docker-compose.yml` for local container orchestration with persistent volumes
+- Non-root container runtime with writable app data and Data Protection key paths
 
 ### Build and Run with Docker
 
@@ -123,6 +128,13 @@ Note:
 
 - The container listens on HTTP port `8080` internally.
 - For production, terminate TLS at a reverse proxy or load balancer in front of the container.
+
+If you previously created Docker volumes before the runtime permission fix, recreate them once:
+
+```bash
+docker compose down -v
+docker compose up --build -d
+```
 
 ## First-Run Account Setup
 
@@ -213,7 +225,14 @@ Current integration tests cover:
 - Security regression checks for encrypted credential storage, failed-login audit logging, and rate limiting
 - Persistent log file creation and structured audit logging checks
 
-Frontend-focused tests also verify that the HTML, JavaScript, and CSS expose the account setup mode, selected-book UI, and theme toggle behavior.
+Frontend-focused tests also verify that the HTML, JavaScript, and CSS expose the account setup mode, selected-book UI, pagination summary, delete confirmation flow, logout form reset behavior, and theme toggle behavior.
+
+## Project Documents
+
+Additional project documentation is available in:
+
+- `SECURITY_AUDIT_REPORT.md` for the latest audit summary, findings, and remediation priorities
+- `IMPROVEMENT_ROADMAP.md` for a forward-looking roadmap covering security, UX, operations, and product enhancements
 
 ## Theme Toggle
 

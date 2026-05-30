@@ -47,6 +47,7 @@
       <section class="grid management-grid">
         <div class="card books-card">
           <h2>Active books</h2>
+          <p id="booksTotalCount" class="message books-total-count"></p>
           <form id="bookForm" class="book-add-row">
             <input id="bookTitle" maxlength="200" placeholder="Book title" required />
             <button type="submit">Add</button>
@@ -76,6 +77,18 @@
         <button type="submit">Save</button>
       </div>
       <p id="editError" class="error"></p>
+    </form>
+  </dialog>
+
+  <dialog id="deleteDialog" class="modal">
+    <form method="dialog" class="stack">
+      <h2>Remove book</h2>
+      <p id="deleteConfirmMessage" class="message"></p>
+      <div class="actions modal-actions">
+        <button type="button" id="cancelDeleteBtn" class="secondary">Cancel</button>
+        <button type="button" id="confirmDeleteBtn" class="book-remove-btn">Remove</button>
+      </div>
+      <p id="deleteError" class="error"></p>
     </form>
   </dialog>
 

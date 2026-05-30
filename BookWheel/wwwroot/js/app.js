@@ -5,6 +5,8 @@ const loginError = document.getElementById('loginError');
 const authTitle = document.getElementById('authTitle');
 const authMessage = document.getElementById('authMessage');
 const authSubmitBtn = document.getElementById('authSubmitBtn');
+const usernameInput = document.getElementById('username');
+const passwordInput = document.getElementById('password');
 const bookForm = document.getElementById('bookForm');
 const bookTitle = document.getElementById('bookTitle');
 const bookMessage = document.getElementById('bookMessage');
@@ -13,6 +15,7 @@ const booksPaginationEl = document.getElementById('booksPagination');
 const booksPrevPageBtn = document.getElementById('booksPrevPageBtn');
 const booksNextPageBtn = document.getElementById('booksNextPageBtn');
 const booksPageInfo = document.getElementById('booksPageInfo');
+const booksTotalCountEl = document.getElementById('booksTotalCount');
 const selectedBookEl = document.getElementById('selectedBook');
 const spinBtn = document.getElementById('spinBtn');
 const logoutBtn = document.getElementById('logoutBtn');
@@ -25,13 +28,19 @@ const editBookId = document.getElementById('editBookId');
 const editBookTitle = document.getElementById('editBookTitle');
 const editError = document.getElementById('editError');
 const cancelEditBtn = document.getElementById('cancelEditBtn');
+const deleteDialog = document.getElementById('deleteDialog');
+const deleteConfirmMessage = document.getElementById('deleteConfirmMessage');
+const deleteError = document.getElementById('deleteError');
+const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
 
 let activeBooks = [];
 let spinning = false;
 let currentRotation = 0;
 let currentPage = 1;
 let authMode = 'login';
-const BOOKS_PER_PAGE = 20;
+let pendingDeleteBook = null;
+const BOOKS_PER_PAGE = 10;
 const THEME_STORAGE_KEY = 'bookwheel-theme';
 const DARK_THEME = 'dark';
 const LIGHT_THEME = 'light';
@@ -78,14 +87,27 @@ function renderPagination() {
   const hasMultiplePages = activeBooks.length > BOOKS_PER_PAGE;
 
   booksPaginationEl.classList.toggle('hidden', !hasMultiplePages);
-  booksPageInfo.textContent = hasMultiplePages ? `Page ${currentPage} of ${totalPages}` : '';
+  booksPageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
   booksPrevPageBtn.disabled = !hasMultiplePages || currentPage <= 1;
   booksNextPageBtn.disabled = !hasMultiplePages || currentPage >= totalPages;
+}
+
+function renderBookCount() {
+  const totalBooks = activeBooks.length;
+  const totalPages = getTotalPages();
+  const bookLabel = totalBooks === 1 ? '1 book total' : `${totalBooks} books total`;
+  booksTotalCountEl.textContent = `${bookLabel} • Page ${currentPage} of ${totalPages}`;
 }
 
 function showApp(show) {
   loginView.classList.toggle('hidden', show);
   appView.classList.toggle('hidden', !show);
+}
+
+function resetAuthForm() {
+  usernameInput.value = '';
+  passwordInput.value = '';
+  loginError.textContent = '';
 }
 
 function setAuthMode(mode) {
@@ -204,6 +226,7 @@ function renderActiveBooks() {
     activeBooksEl.appendChild(row);
   });
 
+  renderBookCount();
   renderPagination();
 }
 
@@ -250,15 +273,42 @@ async function saveEdit() {
 }
 
 async function removeBook(book) {
-  const confirmed = confirm(`Remove "${book.title}" from the active list?`);
-  if (!confirmed) {
+  pendingDeleteBook = book;
+  deleteError.textContent = '';
+  deleteConfirmMessage.textContent = `Remove "${book.title}" from the active list?`;
+  if (typeof deleteDialog.showModal === 'function') {
+    deleteDialog.showModal();
+  } else {
+    deleteDialog.setAttribute('open', 'open');
+  }
+}
+
+function closeDeleteDialog() {
+  pendingDeleteBook = null;
+  deleteError.textContent = '';
+  confirmDeleteBtn.disabled = false;
+  cancelDeleteBtn.disabled = false;
+
+  if (typeof deleteDialog.close === 'function') {
+    deleteDialog.close();
+  } else {
+    deleteDialog.removeAttribute('open');
+  }
+}
+
+async function confirmDelete() {
+  if (!pendingDeleteBook) {
     return;
   }
 
-  await requestJson(`/api/books/${book.id}`, {
+  confirmDeleteBtn.disabled = true;
+  cancelDeleteBtn.disabled = true;
+
+  await requestJson(`/api/books/${pendingDeleteBook.id}`, {
     method: 'DELETE'
   });
 
+  closeDeleteDialog();
   bookMessage.textContent = 'Book removed from the active list.';
   await refreshBooks();
 }
@@ -278,12 +328,26 @@ cancelEditBtn.addEventListener('click', () => {
   editDialog.close();
 });
 
+cancelDeleteBtn.addEventListener('click', () => {
+  closeDeleteDialog();
+});
+
+confirmDeleteBtn.addEventListener('click', async () => {
+  try {
+    await confirmDelete();
+  } catch (error) {
+    deleteError.textContent = error.message;
+    confirmDeleteBtn.disabled = false;
+    cancelDeleteBtn.disabled = false;
+  }
+});
+
 loginForm.addEventListener('submit', async event => {
   event.preventDefault();
   loginError.textContent = '';
   const originalButtonText = authSubmitBtn.textContent;
-  const username = document.getElementById('username').value.trim();
-  const password = document.getElementById('password').value;
+  const username = usernameInput.value.trim();
+  const password = passwordInput.value;
 
   if (!username || !password) {
     loginError.textContent = 'Username and password are required.';
@@ -317,11 +381,17 @@ loginForm.addEventListener('submit', async event => {
 bookForm.addEventListener('submit', async event => {
   event.preventDefault();
   bookMessage.textContent = '';
+  const trimmedTitle = bookTitle.value.trim();
+
+  if (!trimmedTitle) {
+    bookMessage.textContent = 'Book title is required.';
+    return;
+  }
 
   try {
     await requestJson('/api/books', {
       method: 'POST',
-      body: JSON.stringify({ title: bookTitle.value })
+      body: JSON.stringify({ title: trimmedTitle })
     });
     bookTitle.value = '';
     bookMessage.textContent = 'Book added.';
@@ -365,8 +435,10 @@ spinBtn.addEventListener('click', async () => {
     const selected = result.selected;
     const selectedIndex = wheelBooks.findIndex(book => book.id === selected.id);
     const slice = 360 / wheelBooks.length;
-    const targetAngle = 360 * 5 + (360 - ((selectedIndex * slice) + slice / 2));
-    currentRotation += targetAngle;
+    const targetAngle = 360 - ((selectedIndex * slice) + slice / 2);
+    const normalizedRotation = ((currentRotation % 360) + 360) % 360;
+    const rotationDelta = 360 * 5 + targetAngle - normalizedRotation;
+    currentRotation += rotationDelta;
     canvas.style.transform = `rotate(${currentRotation}deg)`;
 
     setTimeout(async () => {
@@ -388,6 +460,8 @@ spinBtn.addEventListener('click', async () => {
 logoutBtn.addEventListener('click', async () => {
   await requestJson('/api/auth/logout', { method: 'POST' });
   currentPage = 1;
+  resetAuthForm();
+  setAuthMode('login');
   showApp(false);
 });
 
