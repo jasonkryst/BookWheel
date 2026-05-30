@@ -1,0 +1,50 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+
+# Test output
+[Tt]est[Rr]esult*/
+CoverageReport/
+coverage/
+*.coverage
+*.coveragexml
+
+# Visual Studio and IDE files
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.rsuser
+*.userprefs
+
+# Rider / JetBrains
+.idea/
+*.sln.iml
+
+# VS Code workspace state
+.history/
+
+# NuGet / MSBuild
+packages/
+artifacts/
+project.lock.json
+
+# ASP.NET Core app runtime data
+BookWheel/App_Data/user.cred
+BookWheel/App_Data/logs/
+
+# Published output
+publish/
+wwwroot/lib/
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.cache

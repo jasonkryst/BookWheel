@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Book Wheel</title>
+  <link rel="stylesheet" href="css/site.css" />
+</head>
+<body>
+  <main class="shell">
+    <section id="loginView" class="card">
+      <h1 id="authTitle">Book Wheel Login</h1>
+      <p id="authMessage" class="message"></p>
+      <form id="loginForm" class="stack">
+        <label>
+          Username
+          <input id="username" autocomplete="username" required />
+        </label>
+        <label>
+          Password
+          <input id="password" type="password" autocomplete="current-password" required />
+        </label>
+        <button id="authSubmitBtn" type="submit">Log in</button>
+        <p id="loginError" class="error"></p>
+      </form>
+    </section>
+
+    <section id="appView" class="app hidden">
+      <header class="toolbar card">
+        <h1>Book Wheel</h1>
+        <button id="logoutBtn" class="secondary">Log out</button>
+      </header>
+
+      <section class="card wheel-card top-wheel">
+        <h2>Spin wheel</h2>
+        <div class="wheel-wrap">
+          <canvas id="wheelCanvas" width="420" height="420"></canvas>
+          <div class="pointer"></div>
+        </div>
+        <button id="spinBtn">Spin</button>
+        <p id="selectedBook" class="message selected-book"></p>
+      </section>
+
+      <section class="grid management-grid">
+        <div class="card books-card">
+          <h2>Active books</h2>
+          <form id="bookForm" class="book-add-row">
+            <input id="bookTitle" maxlength="200" placeholder="Book title" required />
+            <button type="submit">Add</button>
+          </form>
+          <div id="activeBooks" class="book-list"></div>
+          <div id="booksPagination" class="pagination hidden">
+            <button id="booksPrevPageBtn" type="button" class="secondary">Previous</button>
+            <span id="booksPageInfo" class="message"></span>
+            <button id="booksNextPageBtn" type="button" class="secondary">Next</button>
+          </div>
+          <p id="bookMessage" class="message"></p>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="editDialog" class="modal">
+    <form id="editForm" method="dialog" class="stack">
+      <h2>Edit book title</h2>
+      <input id="editBookId" type="hidden" />
+      <label>
+        Book title
+        <input id="editBookTitle" maxlength="200" required />
+      </label>
+      <div class="actions modal-actions">
+        <button type="button" id="cancelEditBtn" class="secondary">Cancel</button>
+        <button type="submit">Save</button>
+      </div>
+      <p id="editError" class="error"></p>
+    </form>
+  </dialog>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

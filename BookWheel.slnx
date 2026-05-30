@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="BookWheel/BookWheel.csproj" />
+  <Project Path="BookWheel.Tests/BookWheel.Tests.csproj" />
+</Solution>
