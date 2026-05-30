@@ -25,6 +25,7 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("id=\"authMessage\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"authSubmitBtn\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"themeToggleBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"themeToggleIcon\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"importExportBtn\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"deleteDialog\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"confirmDeleteBtn\"", html, StringComparison.Ordinal);
@@ -83,6 +84,7 @@ public sealed class BookWheelFrontendTests
 
         Assert.Contains("THEME_STORAGE_KEY", script, StringComparison.Ordinal);
         Assert.Contains("themeToggleBtn", script, StringComparison.Ordinal);
+        Assert.Contains("themeToggleIcon", script, StringComparison.Ordinal);
         Assert.Contains("localStorage.getItem", script, StringComparison.Ordinal);
         Assert.Contains("localStorage.setItem", script, StringComparison.Ordinal);
         Assert.Contains("data-theme", script, StringComparison.Ordinal);

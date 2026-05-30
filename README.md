@@ -13,7 +13,7 @@ This solution is split into separate application and test projects:
 - First-run account creation plus cookie-based login/logout
 - Add, edit, and remove books
 - Interactive spin wheel UI
-- Light/dark mode toggle with saved browser preference
+- Light/dark mode icon toggle with saved browser preference
 - Theme toggle frontend test coverage
 - Spin selection does not remove the selected book
 - "Last selected" message displayed below the wheel
@@ -22,7 +22,7 @@ This solution is split into separate application and test projects:
 - Delete confirmation modal for book removal
 - Login form reset on logout so credentials are not left in the UI
 - Wheel entropy shuffle when adding books
-- Import/export modal with JSON tabs for merge import and JSON export
+- Import/export icon button with JSON file upload/download modal tabs
 - Persistent storage in `App_Data/books.json`
 - Encrypted credential storage in `App_Data/user.cred`
 - Structured audit logs for failed login and rate-limit events
@@ -249,7 +249,7 @@ Current integration tests cover:
 - Security regression checks for encrypted credential storage, failed-login audit logging, and rate limiting
 - Persistent log file creation and structured audit logging checks
 
-Frontend-focused tests also verify that the HTML, JavaScript, and CSS expose the account setup mode, selected-book UI, pagination summary, delete confirmation flow, logout form reset behavior, and theme toggle behavior.
+Frontend-focused tests also verify that the HTML, JavaScript, and CSS expose the account setup mode, selected-book UI, pagination summary, delete confirmation flow, logout form reset behavior, icon-based theme toggle behavior, and file-based import/export behavior.
 
 The frontend also includes import/export interactions (JSON tabbed modal) and wheel shuffle behavior when books are added.
 
@@ -270,11 +270,12 @@ The application includes a toolbar toggle for switching between dark and light m
 
 ## Import and Export (JSON)
 
-Use the toolbar `Import/Export` button to open the transfer modal.
+Use the toolbar import/export icon button to open the transfer modal.
 
 - Import tab accepts JSON in either `[{"title":"..."}]` form or `{ "books": [{"title":"..."}] }` form.
 - Import merges into existing books and skips case-insensitive title matches.
-- Export tab generates JSON of the current book list and supports clipboard copy.
+- Import flow uses JSON file upload (`.json`).
+- Export tab generates a JSON file download of the current book list.
 
 ## Development Notes
 
