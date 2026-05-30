@@ -20,9 +20,11 @@ ENV ASPNETCORE_ENVIRONMENT=Production
 
 EXPOSE 8080
 
-RUN mkdir -p /app/App_Data/logs && chown -R app:app /app
+COPY --from=build /app/publish .
 
-COPY --from=build /app/publish .d
+# Ensure runtime writable paths are owned by the non-root app user.
+RUN mkdir -p /app/App_Data/logs /home/app/.aspnet/DataProtection-Keys \
+	&& chown -R app:app /app /home/app/.aspnet
 
 # Persist Data Protection keys for stable auth/credential protection across restarts.
 VOLUME ["/home/app/.aspnet/DataProtection-Keys", "/app/App_Data"]
