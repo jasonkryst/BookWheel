@@ -70,6 +70,8 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("Last selected:", script, StringComparison.Ordinal);
         Assert.Contains("normalizedRotation", script, StringComparison.Ordinal);
         Assert.Contains("rotationDelta", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("const wheelBooks = [...activeBooks];", script, StringComparison.Ordinal);
+        Assert.Contains("const selectedIndex = wheelBooks.findIndex", script, StringComparison.Ordinal);
         Assert.Contains("/api/auth/status", script, StringComparison.Ordinal);
         Assert.Contains("/api/auth/setup", script, StringComparison.Ordinal);
         Assert.Contains("Create your Book Wheel account", script, StringComparison.Ordinal);

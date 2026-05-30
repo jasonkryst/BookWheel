@@ -676,12 +676,20 @@ spinBtn.addEventListener('click', async () => {
   spinBtn.disabled = true;
   selectedBookEl.textContent = 'Spinning...';
 
-  const wheelBooks = [...activeBooks];
-
   try {
     const result = await requestJson('/api/books/spin', { method: 'POST' });
     const selected = result.selected;
+
+    if (!wheelBooks.length) {
+      throw new Error('Add books to spin.');
+    }
+
     const selectedIndex = wheelBooks.findIndex(book => book.id === selected.id);
+
+    if (selectedIndex < 0) {
+      throw new Error('Selected book was not found on the current wheel.');
+    }
+
     const slice = 360 / wheelBooks.length;
     const targetAngle = 360 - ((selectedIndex * slice) + slice / 2);
     const normalizedRotation = ((currentRotation % 360) + 360) % 360;
