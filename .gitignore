@@ -31,6 +31,7 @@ artifacts/
 project.lock.json
 
 # ASP.NET Core app runtime data
+BookWheel/App_Data/books.json
 BookWheel/App_Data/user.cred
 BookWheel/App_Data/logs/
 
