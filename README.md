@@ -136,6 +136,28 @@ docker compose down -v
 docker compose up --build -d
 ```
 
+### Upgrading Without Losing Data
+
+When you pull a newer image, Docker replaces the container filesystem from the new image. That is expected, and it means you should not rely on the image's `/app` directory for persistent data.
+
+Book Wheel persists the important mutable paths through Docker volumes:
+
+- `/app/App_Data` for books, credentials, and logs
+- `/home/app/.aspnet/DataProtection-Keys` for Data Protection keys
+
+To upgrade safely:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+Important:
+
+- Do not use `docker compose down -v` unless you intentionally want to delete persisted volumes.
+- Do not mount the entire `/app` directory as a volume, because that can hide the application files shipped in the image.
+- Store any user-generated or persistent content under the existing mounted data paths, not elsewhere under `/app`.
+
 ## First-Run Account Setup
 
 On the first visit, the login screen switches into account-creation mode if no credential file exists yet.
