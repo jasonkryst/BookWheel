@@ -29,3 +29,29 @@ jobs:
       run: dotnet build --no-restore /p:InformationalVersion="${{ env.APP_VERSION }}"
     - name: Test
       run: dotnet test --no-build --verbosity normal
+    - name: Security vulnerability scan
+      run: |
+        dotnet list BookWheel/BookWheel.csproj package --vulnerable --include-transitive
+        dotnet list BookWheel.Tests/BookWheel.Tests.csproj package --vulnerable --include-transitive
+    - name: Security focused regression tests
+      run: dotnet test BookWheel.Tests/BookWheel.Tests.csproj --filter "Failed_Login_Is_Recorded_As_Structured_Warning_Log|Login_Is_Rate_Limited_After_Repeated_Failed_Attempts|Login_Rate_Limiter_Uses_Forwarded_Client_Ip_When_Present|Non_Admin_User_Cannot_Access_User_Management_Endpoints|Password_Reset_Link_Can_Be_Generated_And_Used_Once|Disabled_User_Cannot_Log_In"
+    - name: Smoke tests
+      run: dotnet test BookWheel.Tests/BookWheel.Tests.csproj --filter "Startup_Health_And_Version_Endpoints_Return_Success|Writable_App_Data_Paths_Are_Available_During_Runtime|Docker_Artifacts_Define_Persistent_Data_And_Runtime_Probe_Configuration|Login_Theme_And_Book_Workflow_Is_End_To_End_Reachable"
+    - name: Build Docker image
+      run: docker build --build-arg APP_VERSION=${{ env.APP_VERSION }} -t bookwheel:${{ github.sha }} .
+    - name: Container startup smoke verification
+      run: |
+        docker run -d --name bookwheel-smoke -p 18080:8080 bookwheel:${{ github.sha }}
+        for i in {1..20}; do
+          if curl -fsS http://127.0.0.1:18080/health/ready > /dev/null; then
+            echo "ready"
+            exit 0
+          fi
+          sleep 2
+        done
+        echo "Container failed readiness check"
+        docker logs bookwheel-smoke
+        exit 1
+    - name: Cleanup smoke container
+      if: always()
+      run: docker rm -f bookwheel-smoke || true
