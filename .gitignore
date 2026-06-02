@@ -53,3 +53,6 @@ Desktop.ini
 # Local container overrides
 .env
 docker-compose.override.yml
+
+#Local
+App_Data/

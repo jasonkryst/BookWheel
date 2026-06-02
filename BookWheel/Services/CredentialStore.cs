@@ -597,7 +597,17 @@ public sealed class CredentialStore
             return null;
         }
 
-        return _protector.Unprotect(protectedPayload);
+        try
+        {
+            return _protector.Unprotect(protectedPayload);
+        }
+        catch (System.Security.Cryptography.CryptographicException)
+        {
+            // Key ring no longer contains the key used to encrypt this payload.
+            // The credential data is unrecoverable; treat it as absent so migration
+            // and startup diagnostics skip cleanly rather than crashing.
+            return null;
+        }
     }
 
     private async Task<List<PasswordResetTokenRecord>> ReadPasswordResetTokensUnsafeAsync()

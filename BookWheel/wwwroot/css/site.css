@@ -642,7 +642,7 @@ button:disabled {
 }
 
 .transfer-modal {
-  width: min(720px, calc(100% - 24px));
+  width: min(900px, calc(100% - 24px));
 }
 
 .tab-row {
