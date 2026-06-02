@@ -47,6 +47,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 var securityOptions = builder.Configuration.GetSection(SecurityOptions.SectionName).Get<SecurityOptions>() ?? new SecurityOptions();
 var observabilityOptions = builder.Configuration.GetSection(ObservabilityOptions.SectionName).Get<ObservabilityOptions>() ?? new ObservabilityOptions();
+var googleAnalyticsId = builder.Configuration["Analytics:GoogleAnalyticsId"] ?? string.Empty;
 
 var logDirectory = Path.Combine(builder.Environment.ContentRootPath, "App_Data", "logs");
 builder.Logging.AddProvider(new JsonFileLoggerProvider(logDirectory, new JsonFileLoggerOptions
@@ -173,7 +174,20 @@ if (observabilityOptions.EnableRequestCorrelationLogging)
 app.UseForwardedHeaders();
 app.UseRateLimiter();
 
-app.UseDefaultFiles();
+async Task WriteConfiguredIndexAsync(HttpContext context)
+{
+	var webRootPath = app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+	var indexPath = Path.Combine(webRootPath, "index.html");
+	var html = await File.ReadAllTextAsync(indexPath);
+	html = html.Replace("__GOOGLE_ANALYTICS_ID__", googleAnalyticsId, StringComparison.Ordinal);
+
+	context.Response.ContentType = "text/html; charset=utf-8";
+	await context.Response.WriteAsync(html);
+}
+
+app.MapGet("/", WriteConfiguredIndexAsync);
+app.MapGet("/index.html", WriteConfiguredIndexAsync);
+
 app.UseStaticFiles();
 app.MapGet("/api/version", () =>
 {
