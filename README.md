@@ -84,15 +84,15 @@ dotnet build BookWheel.slnx
 
 The footer version is sourced from `AssemblyInformationalVersion`.
 
-- Local default: `1.0.6-local` (set in `BookWheel/BookWheel.csproj`)
+- Local default: `1.0.7-local` (set in `BookWheel/BookWheel.csproj`)
 - CI builds: `.github/workflows/dotnet.yml` sets `APP_VERSION` and passes it via `/p:InformationalVersion=...`
 - Docker builds: `Dockerfile` accepts `ARG APP_VERSION` and passes it to `dotnet publish`
 
 Examples:
 
 ```bash
-dotnet build BookWheel.slnx /p:InformationalVersion=1.0.6
-docker build --build-arg APP_VERSION=1.0.6 -t jasonkryst/bookwheel:1.0.6 .
+dotnet build BookWheel.slnx /p:InformationalVersion=1.0.7
+docker build --build-arg APP_VERSION=1.0.7 -t jasonkryst/bookwheel:1.0.7 .
 ```
 
 ## Running the Application
