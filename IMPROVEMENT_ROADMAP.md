@@ -7,12 +7,30 @@ This document outlines practical ways to improve Book Wheel across product exper
 ## Current Strengths
 
 - Simple first-run account setup and login flow
+- First created user is automatically an administrator
+- Admin-only user management is available in the UI and API
+- Admin user removal supports confirmation and protects the first account
+- User removal cleans up user-scoped book data
+- Password resets use admin-generated, expiring reset links instead of direct admin password changes
+- Username-aware login lockout/backoff is enforced for repeated failed attempts
+- Account disable/lock and forced password reset controls are available to administrators
+- Books are now scoped to individual user accounts
 - Clean book management flow with add, edit, remove, and spin actions
 - Light/dark theme support with saved browser preference
 - Persistent storage for books, credentials, logs, and Data Protection keys
 - Working Docker-based deployment path
 - Security hardening already in place for encrypted credential storage, HTTPS redirection, HSTS, and login rate limiting
-- Automated integration coverage for key API, frontend, and security behavior
+- Forwarded headers are configured for reverse-proxy deployments
+- Health checks are available for storage, logging, and application readiness
+- Structured operational metrics are available for login outcomes, spin activity, and total books
+- Request correlation is included in responses and request lifecycle logs for troubleshooting
+- Optional centralized HTTP log shipping is supported for production sinks
+- Startup diagnostics validate storage directories and write access at boot
+- Log retention and size-based rotation are in place for JSONL audit logs
+- Data file corruption is quarantined with operator-facing recovery messaging
+- Backup and restore guidance is documented for `App_Data`
+- Automated integration coverage includes API, frontend, security regressions, proxy-aware throttling, health checks, and smoke tests
+- CI automation now runs build, tests, vulnerability scans, security filters, smoke filters, and Docker readiness checks
 
 ## Improvement Priorities
 
@@ -20,12 +38,12 @@ This document outlines practical ways to improve Book Wheel across product exper
 
 These items provide the highest operational value and align with the latest security audit.
 
-1. Add log retention and rotation.
-2. Restrict access to `App_Data/logs` and document recommended filesystem permissions.
-3. Configure forwarded headers for reverse-proxy deployments.
-4. Add username-aware throttling or short lockout/backoff for repeated failed logins.
-5. Configure explicit Data Protection key storage for production environments.
-6. Add CI secret scanning to prevent accidental credential or token commits.
+1. [Done] Add log retention and rotation.
+2. [Done] Restrict access to `App_Data/logs` and document recommended filesystem permissions.
+3. [Done] Configure forwarded headers for reverse-proxy deployments.
+4. [Done] Add username-aware throttling or short lockout/backoff for repeated failed logins.
+5. [Done] Configure explicit Data Protection key storage for production environments.
+6. [Done] Add CI secret scanning to prevent accidental credential or token commits.
 
 Expected outcome:
 
@@ -37,11 +55,11 @@ Expected outcome:
 
 The current interface is usable, but still minimal. The next step is making the tool feel faster, clearer, and more polished.
 
-1. Add confirmation and success toasts instead of relying only on inline text messages.
-2. Add empty-state guidance for first-time users with no books added yet.
-3. Improve loading and disabled states during login, save, delete, and spin actions.
-4. Add keyboard accessibility improvements for dialogs, lists, and wheel actions.
-5. Improve mobile layout polish for the wheel and management area.
+1. [Done] Add confirmation and success toasts instead of relying only on inline text messages.
+2. [Done] Add empty-state guidance for first-time users with no books added yet.
+3. [Done] Improve loading and disabled states during login, save, delete, and spin actions.
+4. [Done] Add keyboard accessibility improvements for dialogs, lists, and wheel actions.
+5. [Done] Improve mobile layout polish for the wheel and management area.
 6. Add optional categories, tags, or reading status to books.
 
 Expected outcome:
@@ -69,13 +87,13 @@ Expected outcome:
 
 ### Priority 4: Multi-User and Identity Improvements
 
-The current single-account model works for a personal or internal tool, but it limits future growth.
+The application now supports multiple accounts and admin-managed user creation, so the next phase should focus on stronger account lifecycle controls and enterprise-ready identity options.
 
-1. Move from single shared credentials to per-user accounts.
-2. Add password change and account recovery flows.
+1. Add user self-service password change from authenticated profile settings.
+2. [Done] Add account disable/lock and forced password reset support.
 3. Consider ASP.NET Core Identity or external OIDC if broader usage is expected.
-4. Add role separation if admin-only management becomes necessary.
-5. Scope book collections per user or household.
+4. Expand role separation beyond admin/non-admin if operational roles are needed.
+5. [Done] Add account and role audit events (create, update, delete, role changes, lockouts).
 
 Expected outcome:
 
@@ -87,11 +105,11 @@ Expected outcome:
 
 The current file-based approach is simple, but it will eventually become limiting.
 
-1. Add backup and restore guidance for `App_Data`.
-2. Add file corruption handling and recovery messaging.
-3. Add versioned data schema support for future migrations.
+1. [Done] Add backup and restore guidance for `App_Data`.
+2. [Done] Add file corruption handling and recovery messaging.
+3. [Done] Add versioned data schema support for future migrations.
 4. Consider moving from flat files to SQLite for stronger consistency and easier querying.
-5. Add health checks for storage, logging, and app readiness.
+5. [Done] Add health checks for storage, logging, and app readiness.
 
 Expected outcome:
 
@@ -103,11 +121,11 @@ Expected outcome:
 
 The app already captures useful audit logs, but operations can be improved substantially.
 
-1. Add structured application metrics such as login failures, book count, and spin count.
-2. Add request logging correlation guidance for troubleshooting.
-3. Support log shipping to a centralized sink in production.
-4. Add startup diagnostics for missing directories, permission issues, and storage configuration.
-5. Add a release checklist for Docker publish, image tagging, and deployment verification.
+1. [Done] Add structured application metrics such as login failures, book count, and spin count.
+2. [Done] Add request logging correlation guidance for troubleshooting.
+3. [Done] Support log shipping to a centralized sink in production.
+4. [Done] Add startup diagnostics for missing directories, permission issues, and storage configuration.
+5. [Done] Add a release checklist for Docker publish, image tagging, and deployment verification.
 
 Expected outcome:
 
@@ -119,11 +137,11 @@ Expected outcome:
 
 The project already has solid integration coverage for its size. The next step is broadening confidence around change.
 
-1. Add tests for error states such as missing data files, corrupt data files, and permission failures.
-2. Add proxy-aware rate-limiting tests once forwarded headers are introduced.
-3. Add container-focused smoke tests for startup and writable volume paths.
-4. Add browser-level UI tests for login, theme toggle, and book workflows.
-5. Add CI automation for build, test, and vulnerability scan steps.
+1. [Done] Add tests for error states such as missing data files, corrupt data files, and permission failures.
+2. [Done] Add proxy-aware rate-limiting tests once forwarded headers are introduced.
+3. [Done] Add container-focused smoke tests for startup and writable volume paths.
+4. [Done] Add browser-level UI tests for login, theme toggle, and book workflows.
+5. [Done] Add CI automation for build, test, and vulnerability scan steps.
 
 Expected outcome:
 
@@ -135,39 +153,39 @@ Expected outcome:
 
 ### Phase 1: Hardening
 
-- Log rotation and retention
-- Forwarded headers support
-- Explicit Data Protection key configuration
-- CI secret scanning
-- Docker deployment checklist
+- [Done] Log rotation and retention
+- [Done] Forwarded headers support
+- [Done] Explicit Data Protection key configuration
+- [Done] CI secret scanning
+- [Done] Docker deployment checklist
 
 ### Phase 2: UX and Workflow
 
-- Better feedback states
-- Accessibility improvements
+- [Done] Better feedback states
+- [Done] Accessibility improvements
 - Search, filter, and sorting
 - Spin history
 
 ### Phase 3: Data and Platform
 
-- Import/export
-- Backup and restore guidance
+- [Done] Import/export
+- [Done] Backup and restore guidance
 - SQLite migration evaluation
-- Health checks and operational metrics
+- [Done] Health checks and operational metrics
 
 ### Phase 4: Identity Expansion
 
-- Per-user accounts
-- Account management features
+- [Done] Account management features
 - Optional external identity provider
+- [Done] Account lifecycle controls (lockout, reset, deactivation)
 
 ## Recommended Next Three Changes
 
 If only three improvements are chosen next, these should provide the best immediate value:
 
-1. Add log retention/rotation and log directory hardening.
-2. Add forwarded headers support plus username-aware throttling.
-3. Add search/filter and spin history to improve day-to-day usability.
+1. Add search/filter and spin history to improve day-to-day usability.
+2. Add user self-service password change from authenticated profile settings.
+3. Evaluate SQLite migration and rollout strategy for stronger long-term consistency.
 
 ## Success Metrics
 

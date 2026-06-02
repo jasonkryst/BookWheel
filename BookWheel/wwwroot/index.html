@@ -23,12 +23,27 @@
         <button id="authSubmitBtn" type="submit">Log in</button>
         <p id="loginError" class="error"></p>
       </form>
+
+      <form id="resetPasswordForm" class="stack hidden">
+        <label>
+          New password
+          <input id="resetPassword" type="password" maxlength="128" minlength="8" autocomplete="new-password" required />
+        </label>
+        <label>
+          Confirm password
+          <input id="resetPasswordConfirm" type="password" maxlength="128" minlength="8" autocomplete="new-password" required />
+        </label>
+        <button id="resetPasswordSubmitBtn" type="submit">Set password</button>
+        <p id="resetPasswordMessage" class="message"></p>
+        <p id="resetPasswordError" class="error"></p>
+      </form>
     </section>
 
     <section id="appView" class="app hidden">
       <header class="toolbar card">
         <h1>Book Wheel</h1>
         <div class="toolbar-actions">
+          <button id="userManagementBtn" type="button" class="secondary hidden">Manage users</button>
           <button id="importExportBtn" type="button" class="secondary icon-btn" title="Import or export books" aria-label="Import or export books">
             <span class="icon-glyph" aria-hidden="true">⇅</span>
           </button>
@@ -42,11 +57,11 @@
       <section class="card wheel-card top-wheel">
         <h2>Spin wheel</h2>
         <div class="wheel-wrap">
-          <canvas id="wheelCanvas" width="420" height="420"></canvas>
+          <canvas id="wheelCanvas" width="420" height="420" tabindex="0" role="button" aria-label="Book selection wheel. Press Enter or Space to spin."></canvas>
           <div class="pointer"></div>
         </div>
         <button id="spinBtn">Spin</button>
-        <p id="selectedBook" class="message selected-book"></p>
+        <p id="selectedBook" class="message selected-book" aria-live="polite"></p>
       </section>
 
       <section class="grid management-grid">
@@ -63,7 +78,7 @@
             <span id="booksPageInfo" class="message"></span>
             <button id="booksNextPageBtn" type="button" class="secondary">Next</button>
           </div>
-          <p id="bookMessage" class="message"></p>
+          <p id="bookMessage" class="message" aria-live="polite"></p>
         </div>
       </section>
     </section>
@@ -94,6 +109,35 @@
         <button type="button" id="confirmDeleteBtn" class="book-remove-btn">Remove</button>
       </div>
       <p id="deleteError" class="error"></p>
+    </form>
+  </dialog>
+
+  <dialog id="deleteUserDialog" class="modal">
+    <form method="dialog" class="stack">
+      <h2>Remove user account</h2>
+      <p id="deleteUserConfirmMessage" class="message"></p>
+      <p class="message">This action permanently removes the account and all books assigned to this user.</p>
+      <div class="actions modal-actions">
+        <button type="button" id="cancelDeleteUserBtn" class="secondary">Cancel</button>
+        <button type="button" id="confirmDeleteUserBtn" class="book-remove-btn">Remove user</button>
+      </div>
+      <p id="deleteUserError" class="error"></p>
+    </form>
+  </dialog>
+
+  <dialog id="resetLinkDialog" class="modal transfer-modal">
+    <form method="dialog" class="stack">
+      <h2>Password reset link</h2>
+      <p id="resetLinkMessage" class="message"></p>
+      <label>
+        Share this link with the user
+        <input id="resetLinkValue" readonly />
+      </label>
+      <div class="actions modal-actions">
+        <button type="button" id="copyResetLinkBtn">Copy link</button>
+        <button type="button" id="closeResetLinkBtn" class="secondary">Close</button>
+      </div>
+      <p id="resetLinkError" class="error"></p>
     </form>
   </dialog>
 
@@ -130,6 +174,71 @@
       <p id="transferError" class="error"></p>
     </form>
   </dialog>
+
+  <dialog id="userManagementDialog" class="modal transfer-modal user-management-dialog">
+    <div class="stack user-management-shell">
+      <header class="user-management-header">
+        <div class="user-management-title-row">
+          <h2>User management</h2>
+          <span class="user-management-kicker">Admin workspace</span>
+        </div>
+        <p class="message">Create users, assign administrator access, and update account details in one place.</p>
+      </header>
+
+      <div class="user-management-layout">
+        <section class="tab-panel user-create-panel">
+          <div class="section-title-row">
+            <h3>Create user</h3>
+            <span class="section-tag">New account</span>
+          </div>
+          <p class="message">Use a unique username and a password with at least 8 characters.</p>
+          <form id="createUserForm" class="stack">
+            <label>
+              Username
+              <input id="createUserUsername" maxlength="64" placeholder="reader-01" required />
+            </label>
+            <label>
+              Password
+              <input id="createUserPassword" type="password" maxlength="128" minlength="8" placeholder="At least 8 characters" required />
+            </label>
+            <label class="checkbox-row">
+              <input id="createUserIsAdmin" type="checkbox" />
+              Administrator
+            </label>
+            <div class="actions user-create-actions">
+              <button type="submit">Create user</button>
+              <button type="reset" class="secondary">Clear</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="tab-panel user-list-panel">
+          <div class="user-list-header-row">
+            <div class="section-title-row">
+              <h3>Existing users</h3>
+              <span class="section-tag">Directory</span>
+            </div>
+            <span id="userCountBadge" class="count-badge">0 users</span>
+          </div>
+          <p class="message">Administrators can update other user accounts. Your own account is read-only here.</p>
+          <label class="user-search-label">
+            Search users
+            <input id="userSearchInput" maxlength="64" placeholder="Filter by username" />
+          </label>
+          <div id="userList" class="book-list"></div>
+        </section>
+      </div>
+
+      <div class="actions modal-actions">
+        <button type="button" id="closeUserManagementBtn" class="secondary">Close</button>
+      </div>
+
+      <p id="userManagementMessage" class="message"></p>
+      <p id="userManagementError" class="error"></p>
+    </div>
+  </dialog>
+
+  <section id="toastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></section>
 
   <footer class="app-footer">
     <span id="appVersion" class="message">Version: loading...</span>

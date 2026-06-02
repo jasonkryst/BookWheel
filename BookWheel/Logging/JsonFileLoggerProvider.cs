@@ -12,16 +12,18 @@ public sealed class JsonFileLoggerProvider : ILoggerProvider
     };
 
     private readonly string _logDirectory;
+    private readonly JsonFileLoggerOptions _options;
     private readonly ConcurrentDictionary<string, JsonFileLogger> _loggers = new();
 
-    public JsonFileLoggerProvider(string logDirectory)
+    public JsonFileLoggerProvider(string logDirectory, JsonFileLoggerOptions? options = null)
     {
         _logDirectory = logDirectory;
+        _options = options ?? new JsonFileLoggerOptions();
     }
 
     public ILogger CreateLogger(string categoryName)
     {
-        return _loggers.GetOrAdd(categoryName, static (name, state) => new JsonFileLogger(name, state._logDirectory), this);
+        return _loggers.GetOrAdd(categoryName, static (name, state) => new JsonFileLogger(name, state._logDirectory, state._options), this);
     }
 
     public void Dispose()
@@ -33,12 +35,15 @@ public sealed class JsonFileLoggerProvider : ILoggerProvider
     {
         private readonly string _categoryName;
         private readonly string _logDirectory;
+        private readonly JsonFileLoggerOptions _options;
         private readonly SemaphoreSlim _writeGate = new(1, 1);
+        private DateOnly? _lastRetentionSweepDay;
 
-        public JsonFileLogger(string categoryName, string logDirectory)
+        public JsonFileLogger(string categoryName, string logDirectory, JsonFileLoggerOptions options)
         {
             _categoryName = categoryName;
             _logDirectory = logDirectory;
+            _options = options;
         }
 
         public IDisposable BeginScope<TState>(TState state) where TState : notnull
@@ -76,13 +81,60 @@ public sealed class JsonFileLoggerProvider : ILoggerProvider
             try
             {
                 Directory.CreateDirectory(_logDirectory);
-                var logFilePath = Path.Combine(_logDirectory, $"bookwheel-{DateTime.UtcNow:yyyy-MM-dd}.jsonl");
+                SweepRetentionUnsafe(record.TimestampUtc.UtcDateTime);
+                var logFilePath = ResolveActiveLogFilePath(record.TimestampUtc.UtcDateTime);
                 var json = JsonSerializer.Serialize(record, JsonOptions);
                 await File.AppendAllTextAsync(logFilePath, json + Environment.NewLine);
             }
             finally
             {
                 _writeGate.Release();
+            }
+        }
+
+        private string ResolveActiveLogFilePath(DateTime utcNow)
+        {
+            var baseName = $"bookwheel-{utcNow:yyyy-MM-dd}";
+            var index = 0;
+
+            while (true)
+            {
+                var suffix = index == 0 ? string.Empty : $"-{index}";
+                var path = Path.Combine(_logDirectory, $"{baseName}{suffix}.jsonl");
+                if (!File.Exists(path))
+                {
+                    return path;
+                }
+
+                var fileInfo = new FileInfo(path);
+                if (fileInfo.Length < _options.MaxFileSizeBytes)
+                {
+                    return path;
+                }
+
+                index += 1;
+            }
+        }
+
+        private void SweepRetentionUnsafe(DateTime utcNow)
+        {
+            var today = DateOnly.FromDateTime(utcNow);
+            if (_lastRetentionSweepDay == today)
+            {
+                return;
+            }
+
+            _lastRetentionSweepDay = today;
+            var retentionDays = Math.Max(1, _options.RetentionDays);
+            var cutoffUtc = utcNow.Date.AddDays(-retentionDays);
+
+            foreach (var filePath in Directory.GetFiles(_logDirectory, "bookwheel-*.jsonl", SearchOption.TopDirectoryOnly))
+            {
+                var fileInfo = new FileInfo(filePath);
+                if (fileInfo.LastWriteTimeUtc < cutoffUtc)
+                {
+                    fileInfo.Delete();
+                }
             }
         }
 

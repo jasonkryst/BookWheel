@@ -1,58 +1,123 @@
 # Security Audit Report - Book Wheel
 
-Date: 2026-05-30
+Date: 2026-06-01
 Auditor: GitHub Copilot (GPT-5.3-Codex)
-Scope: Application project in BookWheel and solution-level dependency/testing review
+Scope: Application project in BookWheel and solution-level dependency review
 
 ## Executive Summary
 
-Current audit checks passed and previously remediated critical/high findings remain addressed.
+This audit was performed after introducing multi-user authentication, first-user administrator assignment, admin-only user management, and per-user book scoping.
 
-Overall posture: Low to Moderate risk
+Overall posture: Low risk
+
 - Critical findings: 0
 - High findings: 0
-- Medium findings: 2
+- Medium findings: 0
 - Low findings: 1
 
-## Verification Results (2026-05-30)
+Security improvements verified in this revision:
 
-- dotnet list BookWheel/BookWheel.csproj package --vulnerable --include-transitive: no known vulnerable packages
-- dotnet list BookWheel.Tests/BookWheel.Tests.csproj package --vulnerable --include-transitive: no known vulnerable packages
-- dotnet test BookWheel.Tests/BookWheel.Tests.csproj --filter security tests: 3 passed, 0 failed
-- dotnet test BookWheel.slnx: 13 passed, 0 failed
+- First account created during setup is marked as administrator
+- User credential store now supports multiple encrypted account records with user ids and admin flags
+- User-management APIs are restricted to authenticated administrators
+- User deletion is restricted to administrators and blocks deletion of the first account
+- User deletion invalidates active sessions and removes user-scoped books
+- Administrators no longer set user passwords directly; reset links are generated instead
+- Password reset links expire in 24 hours and are one-time use
+- Password reset token records are hashed and encrypted at rest
+- Password hashes remain non-exported in user-management responses
+- Book data is now isolated by user id in `books.json`
+- Existing login-failure and rate-limit security logs still operate after auth changes
+- JSONL logs now include retention and size-based rotation controls
+- Request correlation id propagation (`X-Correlation-ID`) is active for troubleshooting
+- Forwarded headers are configured for reverse-proxy deployments
+- Username-aware lockout/backoff is enforced for repeated failed logins
+- Startup diagnostics validate writable storage paths on boot
+- Structured metrics endpoint is available to administrators (`/api/metrics`)
+- Optional centralized log shipping to HTTP sink is supported by configuration
+
+Dependency scan status:
+
+Verification refreshed on 2026-06-01.
+
+- `dotnet list BookWheel/BookWheel.csproj package --vulnerable --include-transitive`: no known vulnerable packages
+- `dotnet list BookWheel.Tests/BookWheel.Tests.csproj package --vulnerable --include-transitive`: no known vulnerable packages
+
+Security verification status (2026-06-01):
+
+- `dotnet test BookWheel.slnx`: 39 passed, 0 failed
+- `dotnet test BookWheel.Tests/BookWheel.Tests.csproj --filter "Failed_Login_Is_Recorded_As_Structured_Warning_Log|Login_Is_Rate_Limited_After_Repeated_Failed_Attempts|Login_Rate_Limiter_Uses_Forwarded_Client_Ip_When_Present|Non_Admin_User_Cannot_Access_User_Management_Endpoints|Password_Reset_Link_Can_Be_Generated_And_Used_Once|Disabled_User_Cannot_Log_In|Request_Correlation_Header_Is_Propagated"`: 7 passed, 0 failed
+- `dotnet test BookWheel.Tests/BookWheel.Tests.csproj --filter "Startup_Health_And_Version_Endpoints_Return_Success|Writable_App_Data_Paths_Are_Available_During_Runtime|Docker_Artifacts_Define_Persistent_Data_And_Runtime_Probe_Configuration|Login_Theme_And_Book_Workflow_Is_End_To_End_Reachable"`: 4 passed, 0 failed
+
+## Methodology
+
+- Manual review of authentication, session handling, authorization gates, API responses, data persistence, logging, and HTTP pipeline
+- Static checks for transport hardening and validation controls on new request models
+- NuGet vulnerability scan for direct and transitive packages
+- Regression verification with targeted security tests plus full solution test run
 
 ## Findings (Ordered by Severity)
 
-### 1) Medium - Persistent audit logs are plaintext JSONL with no retention policy
+### 1) Low - Data Protection key storage is not explicitly configured in application startup code
+
+Evidence:
+
+- The application uses ASP.NET Core Data Protection for cookie/session protection and credential-file encryption
+- Docker and compose deployment paths persist Data Protection key volume mounts, but startup code does not yet enforce an explicit key repository when running outside containers
 
 Risk:
-- Audit metadata may be exposed if filesystem/backups are compromised.
-- Log growth is unbounded without retention/rotation.
 
-Recommended actions:
-1. Restrict ACLs for BookWheel/App_Data/logs.
-2. Add retention and rotation limits.
-3. Prefer centralized logging in production.
+- Local development is fine, but non-containerized multi-instance deployments can have inconsistent key management
+- Key restore and migration operations may be harder to validate during incident response if external key location is not standardized
 
-### 2) Medium - Login throttling relies on RemoteIpAddress only
+Recommendations:
 
-Risk:
-- Reverse-proxy deployments may collapse users into shared buckets.
-- Effective brute-force protection can degrade without true client IP forwarding.
+1. Configure an explicit key storage location for production startup.
+2. Use a shared key ring or managed key store if running multiple instances.
+3. Document key backup and rotation procedures.
 
-Recommended actions:
-1. Configure forwarded headers for production topology.
-2. Add username-aware throttling or short lockout/backoff.
+## Positive Observations
 
-### 3) Low - Data Protection key storage not explicitly configured for production
+- The credential store remains encrypted at rest and continues using password hashing.
+- New multi-user credential operations do not expose password hashes through user-management APIs.
+- Password reset links are now generated for users and consumed through one-time token completion.
+- First-user-admin bootstrap behavior is deterministic and covered by tests.
+- Non-admin users are denied user-management endpoint access.
+- First-account deletion protections and user-delete cascade behavior are covered by integration tests.
+- Per-user book isolation is covered by integration tests.
+- Corrupt credential/book payloads are quarantined and reported with operator-facing recovery messages.
+- Health checks and startup diagnostics validate writable runtime paths.
+- Request correlation logging and admin metrics improve incident troubleshooting visibility.
+- Optional centralized log shipping is available for production aggregation.
+- Auth cookies remain `HttpOnly` and `SameSite=Strict`.
+- HTTPS redirection and HSTS are enabled outside testing.
+- Dependency scan showed no known vulnerable NuGet packages at audit time.
 
-Risk:
-- Key management may be less predictable for multi-instance/migration scenarios.
+## Prioritized Remediation Plan
 
-Recommended actions:
-1. Configure explicit key storage location.
-2. Use shared key ring/managed key store for multi-instance deployments.
+### Immediate (0-2 days)
+
+1. Lock down file-system ACLs for `App_Data`, including logs and quarantine folders.
+2. Validate centralized log shipping endpoint and alerting in production.
+
+### Short Term (1-2 weeks)
+
+1. Configure explicit Data Protection key storage for non-containerized targets.
+2. Add operational guidance for correlation-id based tracing across upstream components.
+3. Add production runbooks for metrics collection and alert thresholds.
+
+### Mid Term (2-6 weeks)
+
+1. Add CI secret scanning and dependency-audit gating in the pipeline.
+2. Add infrastructure-level synthetic probes for `/health/live` and `/health/ready`.
+3. Evaluate stronger identity lifecycle controls (password reset, account lock/disable).
+
+## Audit Limitations
+
+- No dynamic penetration testing was performed.
+- No infrastructure, reverse proxy, firewall, or environment hardening review was performed.
+- No external SAST/DAST tool results were included beyond NuGet vulnerability scanning and integration tests.
 
 ## Conclusion
 
-No known package vulnerabilities were found, and security regression tests are passing. Remaining risks are operational and should be addressed before broader production exposure.
+The application now includes materially stronger operational security controls, observability diagnostics, and regression coverage. Remaining risk is primarily around explicit production key repository standardization and deployment-level hardening practices. With those closed, the solution is well-positioned for reliable production operation.
