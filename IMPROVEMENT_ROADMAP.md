@@ -38,12 +38,12 @@ This document outlines practical ways to improve Book Wheel across product exper
 
 These items provide the highest operational value and align with the latest security audit.
 
-1. Add log retention and rotation.
-2. Restrict access to `App_Data/logs` and document recommended filesystem permissions.
-3. Configure forwarded headers for reverse-proxy deployments.
-4. Add username-aware throttling or short lockout/backoff for repeated failed logins.
-5. Configure explicit Data Protection key storage for production environments.
-6. Add CI secret scanning to prevent accidental credential or token commits.
+1. [Done] Add log retention and rotation.
+2. [Done] Restrict access to `App_Data/logs` and document recommended filesystem permissions.
+3. [Done] Configure forwarded headers for reverse-proxy deployments.
+4. [Done] Add username-aware throttling or short lockout/backoff for repeated failed logins.
+5. [Done] Configure explicit Data Protection key storage for production environments.
+6. [Done] Add CI secret scanning to prevent accidental credential or token commits.
 
 Expected outcome:
 
@@ -55,11 +55,11 @@ Expected outcome:
 
 The current interface is usable, but still minimal. The next step is making the tool feel faster, clearer, and more polished.
 
-1. Add confirmation and success toasts instead of relying only on inline text messages.
-2. Add empty-state guidance for first-time users with no books added yet.
-3. Improve loading and disabled states during login, save, delete, and spin actions.
-4. Add keyboard accessibility improvements for dialogs, lists, and wheel actions.
-5. Improve mobile layout polish for the wheel and management area.
+1. [Done] Add confirmation and success toasts instead of relying only on inline text messages.
+2. [Done] Add empty-state guidance for first-time users with no books added yet.
+3. [Done] Improve loading and disabled states during login, save, delete, and spin actions.
+4. [Done] Add keyboard accessibility improvements for dialogs, lists, and wheel actions.
+5. [Done] Improve mobile layout polish for the wheel and management area.
 6. Add optional categories, tags, or reading status to books.
 
 Expected outcome:
@@ -90,10 +90,10 @@ Expected outcome:
 The application now supports multiple accounts and admin-managed user creation, so the next phase should focus on stronger account lifecycle controls and enterprise-ready identity options.
 
 1. Add user self-service password change from authenticated profile settings.
-2. Add account disable/lock and forced password reset support.
+2. [Done] Add account disable/lock and forced password reset support.
 3. Consider ASP.NET Core Identity or external OIDC if broader usage is expected.
 4. Expand role separation beyond admin/non-admin if operational roles are needed.
-5. Add account and role audit events (create, update, delete, role changes, lockouts).
+5. [Done] Add account and role audit events (create, update, delete, role changes, lockouts).
 
 Expected outcome:
 
@@ -105,11 +105,11 @@ Expected outcome:
 
 The current file-based approach is simple, but it will eventually become limiting.
 
-1. Add backup and restore guidance for `App_Data`.
-2. Add file corruption handling and recovery messaging.
-3. Add versioned data schema support for future migrations.
+1. [Done] Add backup and restore guidance for `App_Data`.
+2. [Done] Add file corruption handling and recovery messaging.
+3. [Done] Add versioned data schema support for future migrations.
 4. Consider moving from flat files to SQLite for stronger consistency and easier querying.
-5. Add health checks for storage, logging, and app readiness.
+5. [Done] Add health checks for storage, logging, and app readiness.
 
 Expected outcome:
 
@@ -153,39 +153,39 @@ Expected outcome:
 
 ### Phase 1: Hardening
 
-- Log rotation and retention
-- Forwarded headers support
-- Explicit Data Protection key configuration
-- CI secret scanning
-- Docker deployment checklist
+- [Done] Log rotation and retention
+- [Done] Forwarded headers support
+- [Done] Explicit Data Protection key configuration
+- [Done] CI secret scanning
+- [Done] Docker deployment checklist
 
 ### Phase 2: UX and Workflow
 
-- Better feedback states
-- Accessibility improvements
+- [Done] Better feedback states
+- [Done] Accessibility improvements
 - Search, filter, and sorting
 - Spin history
 
 ### Phase 3: Data and Platform
 
-- Import/export
-- Backup and restore guidance
+- [Done] Import/export
+- [Done] Backup and restore guidance
 - SQLite migration evaluation
-- Health checks and operational metrics
+- [Done] Health checks and operational metrics
 
 ### Phase 4: Identity Expansion
 
-- Account management features
+- [Done] Account management features
 - Optional external identity provider
-- Account lifecycle controls (lockout, reset, deactivation)
+- [Done] Account lifecycle controls (lockout, reset, deactivation)
 
 ## Recommended Next Three Changes
 
 If only three improvements are chosen next, these should provide the best immediate value:
 
-1. Add log retention/rotation and log directory hardening.
-2. Add forwarded headers support plus username-aware throttling.
-3. Add search/filter and spin history to improve day-to-day usability.
+1. Add search/filter and spin history to improve day-to-day usability.
+2. Add user self-service password change from authenticated profile settings.
+3. Evaluate SQLite migration and rollout strategy for stronger long-term consistency.
 
 ## Success Metrics
 

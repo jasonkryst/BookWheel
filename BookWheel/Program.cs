@@ -2,6 +2,7 @@ using BookWheel.HealthChecks;
 using BookWheel.Logging;
 using BookWheel.Models;
 using BookWheel.Services;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using System.Text.Json;
 using System.Reflection;
@@ -9,7 +10,18 @@ using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddDataProtection();
+var dataProtectionKeyPath = builder.Configuration["DataProtection:KeyDirectory"];
+if (string.IsNullOrWhiteSpace(dataProtectionKeyPath) && !builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Testing"))
+{
+	dataProtectionKeyPath = Path.Combine(builder.Environment.ContentRootPath, "App_Data", "DataProtection-Keys");
+}
+
+var dataProtectionBuilder = builder.Services.AddDataProtection().SetApplicationName("BookWheel");
+if (!string.IsNullOrWhiteSpace(dataProtectionKeyPath))
+{
+	Directory.CreateDirectory(dataProtectionKeyPath);
+	dataProtectionBuilder.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyPath));
+}
 builder.Services.Configure<SecurityOptions>(builder.Configuration.GetSection(SecurityOptions.SectionName));
 builder.Services.Configure<ObservabilityOptions>(builder.Configuration.GetSection(ObservabilityOptions.SectionName));
 builder.Services.AddSingleton<AuthService>();

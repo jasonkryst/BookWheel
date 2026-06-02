@@ -707,7 +707,13 @@ function drawWheel() {
 function renderActiveBooks() {
   activeBooksEl.innerHTML = '';
   if (!activeBooks.length) {
-    activeBooksEl.innerHTML = '<span class="message">No active books</span>';
+    activeBooksEl.innerHTML = `
+      <div class="books-empty-state" role="status" aria-live="polite">
+        <h3>No books yet</h3>
+        <p class="message">Add your first title above to populate the wheel.</p>
+        <p class="message">Tip: after adding books, press the Spin button or hit Enter on the wheel.</p>
+      </div>`;
+    selectedBookEl.textContent = 'Add your first book to begin spinning.';
     renderBookCount();
     renderPagination();
     return;

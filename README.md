@@ -42,6 +42,7 @@ This solution is split into separate application and test projects:
 - Request correlation header propagation and scoped request lifecycle logging
 - Optional centralized log shipping to an HTTP sink for production operations
 - Startup diagnostics for writable storage and expected runtime directories
+- First-time empty-state guidance when no books are present
 
 ## Solution Structure
 
@@ -258,6 +259,18 @@ Backup and restore guidance:
 - Restore by stopping the app, replacing `App_Data/` with the backup copy, and starting the app again.
 - If corruption quarantine occurs, review `BookWheel/App_Data/corrupt/` and restore known-good files from backup.
 
+Filesystem permission guidance for logs:
+
+- Restrict `BookWheel/App_Data/logs/` so only the application runtime identity and trusted operators can read/write.
+- Linux/macOS runtime hardening applies restrictive `rwxr-x---` permissions to the logs directory at startup when possible.
+- On Windows, apply equivalent ACL restrictions manually (for example, remove broad Users read access and grant only service identity + operators).
+
+Data Protection key storage:
+
+- Production startup now supports explicit key persistence via `DataProtection:KeyDirectory`.
+- If not provided, production defaults to `BookWheel/App_Data/DataProtection-Keys`.
+- In containerized deployments, continue mounting persistent key storage (`/home/app/.aspnet/DataProtection-Keys`) and set `DataProtection:KeyDirectory` accordingly.
+
 ## Legacy Data Migration Utility
 
 Book Wheel now supports an explicit migration utility for converting legacy payloads before normal runtime operations.
@@ -404,6 +417,7 @@ Use the toolbar import/export icon button to open the transfer modal.
 - The test host captures structured logs so security audit events can be asserted in tests.
 - The test host also verifies that log entries are written to persistent JSONL files in the temp `App_Data/logs` folder.
 - CI runs build, full tests, vulnerability scans, security-focused regressions, smoke tests, and Docker startup verification.
+- CI also runs secret scanning via gitleaks to prevent accidental token/credential commits.
 - Frontend behavior is implemented in `BookWheel/wwwroot/js/app.js`.
 - The wheel UI and styles are in `BookWheel/wwwroot/index.html` and `BookWheel/wwwroot/css/site.css`.
 

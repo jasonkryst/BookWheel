@@ -34,6 +34,7 @@ public sealed class StartupDiagnosticsService : IHostedService
         ValidateDirectory(appDataDirectory, "App_Data");
         ValidateDirectory(logsDirectory, "App_Data/logs");
         ValidateDirectory(corruptDirectory, "App_Data/corrupt");
+        RestrictLogDirectoryAccess(logsDirectory);
 
         _logger.LogInformation(
             "Startup diagnostics completed for environment {EnvironmentName}. Content root {ContentRootPath}",
@@ -68,6 +69,44 @@ public sealed class StartupDiagnosticsService : IHostedService
                 "Startup diagnostics failed for {LogicalName} at {Path}. Check volume mounts and filesystem permissions.",
                 logicalName,
                 path);
+        }
+    }
+
+    private void RestrictLogDirectoryAccess(string logsDirectory)
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                _logger.LogInformation(
+                    "Log directory hardening guidance for Windows: restrict {Path} ACL to the application identity and operators only.",
+                    logsDirectory);
+                return;
+            }
+
+            if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())
+            {
+                return;
+            }
+
+            File.SetUnixFileMode(
+                logsDirectory,
+                UnixFileMode.UserRead |
+                UnixFileMode.UserWrite |
+                UnixFileMode.UserExecute |
+                UnixFileMode.GroupRead |
+                UnixFileMode.GroupExecute);
+
+            _logger.LogInformation(
+                "Log directory permissions hardened for {Path} to rwxr-x---.",
+                logsDirectory);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Unable to apply log directory hardening for {Path}. Verify filesystem permissions manually.",
+                logsDirectory);
         }
     }
 }
