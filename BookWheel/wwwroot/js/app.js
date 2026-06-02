@@ -69,7 +69,6 @@ const userManagementDialog = document.getElementById('userManagementDialog');
 const closeUserManagementBtn = document.getElementById('closeUserManagementBtn');
 const createUserForm = document.getElementById('createUserForm');
 const createUserUsername = document.getElementById('createUserUsername');
-const createUserPassword = document.getElementById('createUserPassword');
 const createUserIsAdmin = document.getElementById('createUserIsAdmin');
 const userSearchInput = document.getElementById('userSearchInput');
 const userCountBadge = document.getElementById('userCountBadge');
@@ -1255,31 +1254,33 @@ if (createUserForm) {
     resetUserManagementMessages();
 
     const username = createUserUsername.value.trim();
-    const password = createUserPassword.value;
 
-    if (!username || !password) {
-      userManagementError.textContent = 'Username and password are required.';
+    if (!username) {
+      userManagementError.textContent = 'Username is required.';
       return;
     }
 
     const createUserSubmitButton = createUserForm.querySelector('button[type="submit"]');
     setButtonBusy(createUserSubmitButton, true, 'Creating...', 'Create user');
     createUserUsername.disabled = true;
-    createUserPassword.disabled = true;
     createUserIsAdmin.disabled = true;
 
     try {
-      await requestJson('/api/users', {
+      const result = await requestJson('/api/users', {
         method: 'POST',
         body: JSON.stringify({
           username,
-          password,
           isAdmin: createUserIsAdmin.checked
         })
       });
 
       userManagementMessage.textContent = `Created user ${username}.`;
       showToast(`Created user ${username}.`, 'success');
+      openResetLinkDialog({
+        username: result.username,
+        resetLink: result.setupLink,
+        expiresAtUtc: result.setupLinkExpiresAtUtc
+      });
       createUserForm.reset();
       await loadUsers();
     } catch (error) {
@@ -1288,7 +1289,6 @@ if (createUserForm) {
     } finally {
       setButtonBusy(createUserSubmitButton, false, 'Creating...', 'Create user');
       createUserUsername.disabled = false;
-      createUserPassword.disabled = false;
       createUserIsAdmin.disabled = false;
     }
   });

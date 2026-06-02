@@ -35,7 +35,6 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("id=\"userManagementDialog\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"createUserForm\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"createUserUsername\"", html, StringComparison.Ordinal);
-        Assert.Contains("id=\"createUserPassword\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"createUserIsAdmin\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"userList\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"closeUserManagementBtn\"", html, StringComparison.Ordinal);

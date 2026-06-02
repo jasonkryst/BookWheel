@@ -2,7 +2,7 @@
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
-ARG APP_VERSION=1.0.9-docker
+ARG APP_VERSION=1.0.10-docker
 
 COPY BookWheel.slnx ./
 COPY BookWheel/BookWheel.csproj BookWheel/

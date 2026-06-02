@@ -55,14 +55,28 @@ public sealed class UsersController : ControllerBase
 
         try
         {
-            var user = await _credentialStore.CreateUserAsync(request.Username, request.Password, request.IsAdmin);
+            var user = await _credentialStore.CreateUserAsync(request.Username, request.IsAdmin);
+            var appBaseUrl = $"{Request.Scheme}://{Request.Host}{Request.PathBase}";
+            var setupLink = await _credentialStore.CreatePasswordResetLinkAsync(user.UserId, appBaseUrl);
             _logger.LogInformation(
-                "User account created. Actor {ActorUsername} target {TargetUsername} role {IsAdmin} request {RequestId}",
+                "User account created with setup link. Actor {ActorUsername} target {TargetUsername} role {IsAdmin} request {RequestId}",
                 currentUser.Username,
                 user.Username,
                 user.IsAdmin,
                 HttpContext.TraceIdentifier);
-            return Ok(user);
+            return Ok(new
+            {
+                user.UserId,
+                user.Username,
+                user.IsAdmin,
+                user.IsDisabled,
+                user.ForcePasswordReset,
+                user.IsLocked,
+                user.LockedUntilUtc,
+                user.CreatedAtUtc,
+                setupLink = setupLink.ResetLink,
+                setupLinkExpiresAtUtc = setupLink.ExpiresAtUtc
+            });
         }
         catch (InvalidOperationException ex)
         {

@@ -235,7 +235,7 @@ public sealed class CredentialStore
         }
     }
 
-    public async Task<UserAccountSummary> CreateUserAsync(string username, string password, bool isAdmin)
+    public async Task<UserAccountSummary> CreateUserAsync(string username, bool isAdmin)
     {
         await _gate.WaitAsync();
         try
@@ -246,9 +246,9 @@ public sealed class CredentialStore
                 throw new InvalidOperationException("Create the initial account first.");
             }
 
-            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+            if (string.IsNullOrWhiteSpace(username))
             {
-                throw new InvalidOperationException("Username and password are required.");
+                throw new InvalidOperationException("Username is required.");
             }
 
             var normalizedUsername = username.Trim();
@@ -261,7 +261,7 @@ public sealed class CredentialStore
             {
                 UserId = Guid.NewGuid(),
                 Username = normalizedUsername,
-                PasswordHash = PasswordHasher.HashPassword(normalizedUsername, password),
+                PasswordHash = PasswordHasher.HashPassword(normalizedUsername, GenerateTemporaryPassword()),
                 IsAdmin = isAdmin,
                 CreatedAtUtc = DateTimeOffset.UtcNow
             };
@@ -711,6 +711,11 @@ public sealed class CredentialStore
             .Replace('+', '-')
             .Replace('/', '_')
             .TrimEnd('=');
+    }
+
+    private static string GenerateTemporaryPassword()
+    {
+        return Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
     }
 
     private static string HashToken(string token)

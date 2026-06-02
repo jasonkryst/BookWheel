@@ -13,6 +13,7 @@ This solution is split into separate application and test projects:
 - First-run account creation plus cookie-based login/logout
 - First created account is automatically assigned administrator role
 - Administrator-only user management for creating, updating, and removing other user accounts
+- New-user onboarding uses admin-shared setup links instead of admin-supplied passwords
 - Administrator-generated password reset links (24-hour expiry) instead of direct password setting
 - User management link is visible only to administrators
 - Add, edit, and remove books
@@ -84,15 +85,15 @@ dotnet build BookWheel.slnx
 
 The footer version is sourced from `AssemblyInformationalVersion`.
 
-- Local default: `1.0.9-local` (set in `BookWheel/BookWheel.csproj`)
+- Local default: `1.0.10-local` (set in `BookWheel/BookWheel.csproj`)
 - CI builds: `.github/workflows/dotnet.yml` sets `APP_VERSION` and passes it via `/p:InformationalVersion=...`
 - Docker builds: `Dockerfile` accepts `ARG APP_VERSION` and passes it to `dotnet publish`
 
 Examples:
 
 ```bash
-dotnet build BookWheel.slnx /p:InformationalVersion=1.0.9
-docker build --build-arg APP_VERSION=1.0.9 -t jasonkryst/bookwheel:1.0.9 .
+dotnet build BookWheel.slnx /p:InformationalVersion=1.0.10
+docker build --build-arg APP_VERSION=1.0.10 -t jasonkryst/bookwheel:1.0.10 .
 ```
 
 ## Running the Application
@@ -327,6 +328,12 @@ User-management endpoints (administrator only):
 - `PUT /api/users/{id}`
 - `DELETE /api/users/{id}`
 - `POST /api/users/{id}/password-reset-link`
+
+`POST /api/users` behavior:
+
+- Request body accepts `username` and `isAdmin` only
+- Administrators do not provide a password when creating a user
+- Response includes `setupLink` and `setupLinkExpiresAtUtc` for secure account setup sharing
 
 Password reset endpoint:
 

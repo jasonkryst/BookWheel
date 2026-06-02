@@ -140,14 +140,8 @@ public sealed class BookWheelApiTests
             password = "test-password"
         });
 
-        var createUserResponse = await client.PostAsJsonAsync("/api/users", new
-        {
-            username = "reader-one",
-            password = "reader-pass-1",
-            isAdmin = false
-        });
-
-        Assert.Equal(HttpStatusCode.OK, createUserResponse.StatusCode);
+        var (_, readerSetupLink) = await CreateUserAsync(client, "reader-one");
+        Assert.False(string.IsNullOrWhiteSpace(readerSetupLink));
 
         using var listResponse = await client.GetAsync("/api/users");
         Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
@@ -156,6 +150,7 @@ public sealed class BookWheelApiTests
 
         Assert.Contains(users, user => user.GetProperty("username").GetString() == "test-admin" && user.GetProperty("isAdmin").GetBoolean());
         Assert.Contains(users, user => user.GetProperty("username").GetString() == "reader-one" && !user.GetProperty("isAdmin").GetBoolean());
+        Assert.Contains(users, user => user.GetProperty("username").GetString() == "reader-one" && user.GetProperty("forcePasswordReset").GetBoolean());
         Assert.All(users, user => Assert.False(user.TryGetProperty("passwordHash", out _)));
     }
 
@@ -171,15 +166,8 @@ public sealed class BookWheelApiTests
             password = "test-password"
         });
 
-        var createdUserResponse = await client.PostAsJsonAsync("/api/users", new
-        {
-            username = "reader-one",
-            password = "reader-pass-1",
-            isAdmin = false
-        });
-        Assert.Equal(HttpStatusCode.OK, createdUserResponse.StatusCode);
-        using var createdUserDoc = await ReadJsonAsync(createdUserResponse);
-        var createdUserId = createdUserDoc.RootElement.GetProperty("userId").GetGuid();
+        var (createdUserId, createdUserSetupLink) = await CreateUserAsync(client, "reader-one");
+        await SetPasswordFromSetupLinkAsync(client, createdUserSetupLink, "reader-pass-1");
 
         await client.PostAsync("/api/auth/logout", content: null);
         await LoginAsync(client, "reader-one", "reader-pass-1");
@@ -190,7 +178,6 @@ public sealed class BookWheelApiTests
         var createUserResponse = await client.PostAsJsonAsync("/api/users", new
         {
             username = "reader-two",
-            password = "reader-pass-2",
             isAdmin = false
         });
 
@@ -215,16 +202,7 @@ public sealed class BookWheelApiTests
             password = "test-password"
         });
 
-        var createUserResponse = await client.PostAsJsonAsync("/api/users", new
-        {
-            username = "reader-one",
-            password = "reader-pass-1",
-            isAdmin = false
-        });
-        Assert.Equal(HttpStatusCode.OK, createUserResponse.StatusCode);
-
-        using var createUserDoc = await ReadJsonAsync(createUserResponse);
-        var createdUserId = createUserDoc.RootElement.GetProperty("userId").GetGuid();
+        var (createdUserId, _) = await CreateUserAsync(client, "reader-one");
 
         var updateResponse = await client.PutAsJsonAsync($"/api/users/{createdUserId}", new
         {
@@ -251,15 +229,7 @@ public sealed class BookWheelApiTests
             password = "test-password"
         });
 
-        var createUserResponse = await client.PostAsJsonAsync("/api/users", new
-        {
-            username = "reader-one",
-            password = "reader-pass-1",
-            isAdmin = false
-        });
-        Assert.Equal(HttpStatusCode.OK, createUserResponse.StatusCode);
-        using var createUserDoc = await ReadJsonAsync(createUserResponse);
-        var createdUserId = createUserDoc.RootElement.GetProperty("userId").GetGuid();
+        var (createdUserId, _) = await CreateUserAsync(client, "reader-one");
 
         var resetLinkResponse = await client.PostAsync($"/api/users/{createdUserId}/password-reset-link", content: null);
         Assert.Equal(HttpStatusCode.OK, resetLinkResponse.StatusCode);
@@ -355,15 +325,8 @@ public sealed class BookWheelApiTests
             password = "test-password"
         });
 
-        var createUserResponse = await client.PostAsJsonAsync("/api/users", new
-        {
-            username = "reader-one",
-            password = "reader-pass-1",
-            isAdmin = false
-        });
-        Assert.Equal(HttpStatusCode.OK, createUserResponse.StatusCode);
-        using var createUserDoc = await ReadJsonAsync(createUserResponse);
-        var readerUserId = createUserDoc.RootElement.GetProperty("userId").GetGuid();
+        var (readerUserId, readerSetupLink) = await CreateUserAsync(client, "reader-one");
+        await SetPasswordFromSetupLinkAsync(client, readerSetupLink, "reader-pass-1");
 
         await client.PostAsync("/api/auth/logout", content: null);
         await LoginAsync(client, "reader-one", "reader-pass-1");
@@ -408,12 +371,8 @@ public sealed class BookWheelApiTests
 
         await AddBookAsync(client, "Admin Book");
 
-        await client.PostAsJsonAsync("/api/users", new
-        {
-            username = "reader-one",
-            password = "reader-pass-1",
-            isAdmin = false
-        });
+        var (_, readerSetupLink) = await CreateUserAsync(client, "reader-one");
+        await SetPasswordFromSetupLinkAsync(client, readerSetupLink, "reader-pass-1");
 
         await client.PostAsync("/api/auth/logout", content: null);
         await LoginAsync(client, "reader-one", "reader-pass-1");
@@ -567,13 +526,8 @@ public sealed class BookWheelApiTests
             password = "test-password"
         });
 
-        var createUserResponse = await client.PostAsJsonAsync("/api/users", new
-        {
-            username = "reader-one",
-            password = "reader-pass-1",
-            isAdmin = false
-        });
-        Assert.Equal(HttpStatusCode.OK, createUserResponse.StatusCode);
+        var (_, readerSetupLinkForMetrics) = await CreateUserAsync(client, "reader-one");
+        await SetPasswordFromSetupLinkAsync(client, readerSetupLinkForMetrics, "reader-pass-1");
 
         await client.PostAsync("/api/auth/logout", content: null);
         await LoginAsync(client, "reader-one", "reader-pass-1");
@@ -876,12 +830,8 @@ public sealed class BookWheelApiTests
             password = "test-password"
         });
 
-        await client.PostAsJsonAsync("/api/users", new
-        {
-            username = "reader-one",
-            password = "reader-pass-1",
-            isAdmin = false
-        });
+        var (_, migrationReaderSetupLink) = await CreateUserAsync(client, "reader-one");
+        await SetPasswordFromSetupLinkAsync(client, migrationReaderSetupLink, "reader-pass-1");
 
         await client.PostAsync("/api/auth/logout", content: null);
         await LoginAsync(client, "reader-one", "reader-pass-1");
@@ -918,16 +868,8 @@ public sealed class BookWheelApiTests
             password = "test-password"
         });
 
-        var createdUserResponse = await client.PostAsJsonAsync("/api/users", new
-        {
-            username = "reader-one",
-            password = "reader-pass-1",
-            isAdmin = false
-        });
-
-        Assert.Equal(HttpStatusCode.OK, createdUserResponse.StatusCode);
-        using var createdUserDoc = await ReadJsonAsync(createdUserResponse);
-        var readerUserId = createdUserDoc.RootElement.GetProperty("userId").GetGuid();
+        var (readerUserId, readerSetupLinkForDisable) = await CreateUserAsync(client, "reader-one");
+        await SetPasswordFromSetupLinkAsync(client, readerSetupLinkForDisable, "reader-pass-1");
 
         var disableResponse = await client.PutAsJsonAsync($"/api/users/{readerUserId}", new
         {
@@ -959,6 +901,37 @@ public sealed class BookWheelApiTests
         });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    private static async Task<(Guid UserId, string SetupLink)> CreateUserAsync(HttpClient client, string username, bool isAdmin = false)
+    {
+        var createUserResponse = await client.PostAsJsonAsync("/api/users", new
+        {
+            username,
+            isAdmin
+        });
+
+        Assert.Equal(HttpStatusCode.OK, createUserResponse.StatusCode);
+
+        using var createUserDoc = await ReadJsonAsync(createUserResponse);
+        var userId = createUserDoc.RootElement.GetProperty("userId").GetGuid();
+        var setupLink = createUserDoc.RootElement.GetProperty("setupLink").GetString() ?? string.Empty;
+
+        return (userId, setupLink);
+    }
+
+    private static async Task SetPasswordFromSetupLinkAsync(HttpClient client, string setupLink, string newPassword)
+    {
+        var token = ExtractResetToken(setupLink);
+        Assert.False(string.IsNullOrWhiteSpace(token));
+
+        var completeResponse = await client.PostAsJsonAsync("/api/auth/password-reset/complete", new
+        {
+            token,
+            newPassword
+        });
+
+        Assert.Equal(HttpStatusCode.OK, completeResponse.StatusCode);
     }
 
     private static async Task<Guid> AddBookAsync(HttpClient client, string title)
