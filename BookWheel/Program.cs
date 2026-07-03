@@ -94,6 +94,10 @@ builder.Services.AddRateLimiter(options =>
 });
 
 var app = builder.Build();
+var assembly = Assembly.GetExecutingAssembly();
+var informationalVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+var assemblyVersion = assembly.GetName().Version?.ToString();
+var appVersion = informationalVersion ?? assemblyVersion ?? "unknown";
 
 var migrationService = app.Services.GetRequiredService<DataMigrationService>();
 var migrationLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("DataMigration");
@@ -180,7 +184,11 @@ async Task WriteConfiguredIndexAsync(HttpContext context)
 	var indexPath = Path.Combine(webRootPath, "index.html");
 	var html = await File.ReadAllTextAsync(indexPath);
 	html = html.Replace("__GOOGLE_ANALYTICS_ID__", googleAnalyticsId, StringComparison.Ordinal);
+	html = html.Replace("__ASSET_VERSION__", Uri.EscapeDataString(appVersion), StringComparison.Ordinal);
 
+	context.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
+	context.Response.Headers.Pragma = "no-cache";
+	context.Response.Headers.Expires = "0";
 	context.Response.ContentType = "text/html; charset=utf-8";
 	await context.Response.WriteAsync(html);
 }
@@ -188,15 +196,18 @@ async Task WriteConfiguredIndexAsync(HttpContext context)
 app.MapGet("/", WriteConfiguredIndexAsync);
 app.MapGet("/index.html", WriteConfiguredIndexAsync);
 
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+	OnPrepareResponse = context =>
+	{
+		context.Context.Response.Headers.CacheControl = "no-cache, no-store, must-revalidate";
+		context.Context.Response.Headers.Pragma = "no-cache";
+		context.Context.Response.Headers.Expires = "0";
+	}
+});
 app.MapGet("/api/version", () =>
 {
-	var assembly = Assembly.GetExecutingAssembly();
-	var informationalVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-	var assemblyVersion = assembly.GetName().Version?.ToString();
-	var resolvedVersion = informationalVersion ?? assemblyVersion ?? "unknown";
-
-	return Results.Ok(new { version = resolvedVersion });
+	return Results.Ok(new { version = appVersion });
 });
 app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {
