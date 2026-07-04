@@ -19,4 +19,6 @@ services:
 
 volumes:
   bookwheel_app_data:
+    name: bookwheel_app_data
   bookwheel_dp_keys:
+    name: bookwheel_dp_keys
