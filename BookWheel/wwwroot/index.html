@@ -7,39 +7,40 @@
   <link rel="stylesheet" href="css/site.css?v=__ASSET_VERSION__" />
 </head>
 <body>
-  <main class="shell">
+  <a class="skip-link" href="#appMain">Skip to main content</a>
+  <main id="appMain" class="shell">
     <section id="loginView" class="card">
       <h1 id="authTitle">Book Wheel Login</h1>
-      <p id="authMessage" class="message"></p>
+      <p id="authMessage" class="message" aria-live="polite"></p>
       <form id="loginForm" class="stack">
         <label>
           Username
-          <input id="username" autocomplete="username" required />
+          <input id="username" autocomplete="username" aria-describedby="loginError" required />
         </label>
         <label>
           Password
-          <input id="password" type="password" autocomplete="current-password" required />
+          <input id="password" type="password" autocomplete="current-password" aria-describedby="loginError" required />
         </label>
         <button id="authSubmitBtn" type="submit">Log in</button>
-        <p id="loginError" class="error"></p>
+        <p id="loginError" class="error" role="alert" aria-live="assertive" aria-atomic="true"></p>
       </form>
 
       <form id="resetPasswordForm" class="stack hidden">
         <label>
           New password
-          <input id="resetPassword" type="password" maxlength="128" minlength="8" autocomplete="new-password" required />
+          <input id="resetPassword" type="password" maxlength="128" minlength="8" autocomplete="new-password" aria-describedby="resetPasswordError" required />
         </label>
         <label>
           Confirm password
-          <input id="resetPasswordConfirm" type="password" maxlength="128" minlength="8" autocomplete="new-password" required />
+          <input id="resetPasswordConfirm" type="password" maxlength="128" minlength="8" autocomplete="new-password" aria-describedby="resetPasswordError" required />
         </label>
         <button id="resetPasswordSubmitBtn" type="submit">Set password</button>
-        <p id="resetPasswordMessage" class="message"></p>
-        <p id="resetPasswordError" class="error"></p>
+        <p id="resetPasswordMessage" class="message" aria-live="polite"></p>
+        <p id="resetPasswordError" class="error" role="alert" aria-live="assertive" aria-atomic="true"></p>
       </form>
     </section>
 
-    <section id="appView" class="app hidden">
+    <section id="appView" class="app hidden" aria-label="Book Wheel application">
       <header class="toolbar card">
         <h1>Book Wheel</h1>
         <div class="toolbar-actions">
@@ -60,16 +61,19 @@
           <canvas id="wheelCanvas" width="420" height="420" tabindex="0" role="button" aria-label="Book selection wheel. Press Enter or Space to spin."></canvas>
           <div class="pointer"></div>
         </div>
-        <button id="spinBtn">Spin</button>
+        <button id="spinBtn" aria-controls="selectedBook">Spin</button>
+        <p id="wheelSummary" class="sr-only" aria-live="polite"></p>
+        <ul id="wheelBooksSrList" class="sr-only" aria-label="Books currently on the wheel"></ul>
         <p id="selectedBook" class="message selected-book" aria-live="polite"></p>
       </section>
 
       <section class="grid management-grid">
         <div class="card books-card">
           <h2>Active books</h2>
-          <p id="booksTotalCount" class="message books-total-count"></p>
+          <p id="booksTotalCount" class="message books-total-count" aria-live="polite"></p>
           <form id="bookForm" class="book-add-row">
-            <input id="bookTitle" maxlength="200" placeholder="Book title" required />
+            <label for="bookTitle" class="sr-only">Book title</label>
+            <input id="bookTitle" maxlength="200" placeholder="Book title" aria-describedby="bookMessage" required />
             <button type="submit">Add</button>
           </form>
           <div id="activeBooks" class="book-list"></div>
@@ -78,7 +82,7 @@
             <span id="booksPageInfo" class="message"></span>
             <button id="booksNextPageBtn" type="button" class="secondary">Next</button>
           </div>
-          <p id="bookMessage" class="message" aria-live="polite"></p>
+          <p id="bookMessage" class="message" role="status" aria-live="polite" aria-atomic="true"></p>
         </div>
       </section>
     </section>
@@ -96,7 +100,7 @@
         <button type="button" id="cancelEditBtn" class="secondary">Cancel</button>
         <button type="submit">Save</button>
       </div>
-      <p id="editError" class="error"></p>
+      <p id="editError" class="error" role="alert" aria-live="assertive" aria-atomic="true"></p>
     </form>
   </dialog>
 
@@ -108,7 +112,7 @@
         <button type="button" id="cancelDeleteBtn" class="secondary">Cancel</button>
         <button type="button" id="confirmDeleteBtn" class="book-remove-btn">Remove</button>
       </div>
-      <p id="deleteError" class="error"></p>
+      <p id="deleteError" class="error" role="alert" aria-live="assertive" aria-atomic="true"></p>
     </form>
   </dialog>
 
@@ -121,7 +125,7 @@
         <button type="button" id="cancelDeleteUserBtn" class="secondary">Cancel</button>
         <button type="button" id="confirmDeleteUserBtn" class="book-remove-btn">Remove user</button>
       </div>
-      <p id="deleteUserError" class="error"></p>
+      <p id="deleteUserError" class="error" role="alert" aria-live="assertive" aria-atomic="true"></p>
     </form>
   </dialog>
 
@@ -137,7 +141,7 @@
         <button type="button" id="copyResetLinkBtn">Copy link</button>
         <button type="button" id="closeResetLinkBtn" class="secondary">Close</button>
       </div>
-      <p id="resetLinkError" class="error"></p>
+      <p id="resetLinkError" class="error" role="alert" aria-live="assertive" aria-atomic="true"></p>
     </form>
   </dialog>
 
@@ -145,12 +149,12 @@
     <form method="dialog" class="stack">
       <h2>Import / Export books</h2>
 
-      <div class="tab-row">
-        <button type="button" id="importTabBtn" class="secondary tab-btn active" aria-controls="importPanel" aria-selected="true">Import</button>
-        <button type="button" id="exportTabBtn" class="secondary tab-btn" aria-controls="exportPanel" aria-selected="false">Export</button>
+      <div class="tab-row" role="tablist" aria-label="Import and export options">
+        <button type="button" id="importTabBtn" class="secondary tab-btn active" role="tab" tabindex="0" aria-controls="importPanel" aria-selected="true">Import</button>
+        <button type="button" id="exportTabBtn" class="secondary tab-btn" role="tab" tabindex="-1" aria-controls="exportPanel" aria-selected="false">Export</button>
       </div>
 
-      <section id="importPanel" class="tab-panel">
+      <section id="importPanel" class="tab-panel" role="tabpanel" aria-labelledby="importTabBtn" tabindex="0">
         <p class="message">Import JSON data and merge into your list. Existing title matches are skipped case-insensitively.</p>
         <label>
           Choose JSON file
@@ -162,7 +166,7 @@
         </div>
       </section>
 
-      <section id="exportPanel" class="tab-panel hidden">
+      <section id="exportPanel" class="tab-panel hidden" role="tabpanel" aria-labelledby="exportTabBtn" tabindex="0" aria-hidden="true">
         <p class="message">Download your current books as a JSON file.</p>
         <div class="actions modal-actions">
           <button type="button" id="closeExportBtn" class="secondary">Close</button>
@@ -170,8 +174,8 @@
         </div>
       </section>
 
-      <p id="transferMessage" class="message"></p>
-      <p id="transferError" class="error"></p>
+      <p id="transferMessage" class="message" aria-live="polite"></p>
+      <p id="transferError" class="error" role="alert" aria-live="assertive" aria-atomic="true"></p>
     </form>
   </dialog>
 
@@ -229,8 +233,8 @@
         <button type="button" id="closeUserManagementBtn" class="secondary">Close</button>
       </div>
 
-      <p id="userManagementMessage" class="message"></p>
-      <p id="userManagementError" class="error"></p>
+      <p id="userManagementMessage" class="message" aria-live="polite"></p>
+      <p id="userManagementError" class="error" role="alert" aria-live="assertive" aria-atomic="true"></p>
     </div>
   </dialog>
 

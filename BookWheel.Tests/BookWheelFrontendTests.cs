@@ -22,6 +22,7 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("id=\"resetPasswordSubmitBtn\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"wheelCanvas\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"bookForm\"", html, StringComparison.Ordinal);
+        Assert.Contains("for=\"bookTitle\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"activeBooks\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"booksTotalCount\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"selectedBook\"", html, StringComparison.Ordinal);
@@ -54,6 +55,14 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("id=\"downloadExportBtn\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"appVersion\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"toastRegion\"", html, StringComparison.Ordinal);
+        Assert.Contains("class=\"skip-link\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"wheelSummary\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"wheelBooksSrList\"", html, StringComparison.Ordinal);
+        Assert.Contains("role=\"tablist\"", html, StringComparison.Ordinal);
+        Assert.Contains("role=\"tab\"", html, StringComparison.Ordinal);
+        Assert.Contains("role=\"tabpanel\"", html, StringComparison.Ordinal);
+        Assert.Contains("role=\"alert\"", html, StringComparison.Ordinal);
+        Assert.Contains("aria-live=\"assertive\"", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -99,6 +108,13 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("/api/users", script, StringComparison.Ordinal);
         Assert.Contains("isAdmin", script, StringComparison.Ordinal);
         Assert.Contains("setTransferTab", script, StringComparison.Ordinal);
+        Assert.Contains("handleTransferTabKeydown", script, StringComparison.Ordinal);
+        Assert.Contains("moveTransferTabFocus", script, StringComparison.Ordinal);
+        Assert.Contains("openDialog", script, StringComparison.Ordinal);
+        Assert.Contains("closeDialog", script, StringComparison.Ordinal);
+        Assert.Contains("renderWheelAccessibilitySummary", script, StringComparison.Ordinal);
+        Assert.Contains("prefers-reduced-motion", script, StringComparison.Ordinal);
+        Assert.Contains("shouldHandlePaginationHotkey", script, StringComparison.Ordinal);
         Assert.Contains("importJsonFile", script, StringComparison.Ordinal);
         Assert.Contains("importFileBtn", script, StringComparison.Ordinal);
         Assert.Contains("downloadExportBtn", script, StringComparison.Ordinal);
@@ -168,5 +184,8 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("color-scheme", css, StringComparison.Ordinal);
         Assert.Contains("--bg", css, StringComparison.Ordinal);
         Assert.Contains(".tab-panel.hidden", css, StringComparison.Ordinal);
+        Assert.Contains(".sr-only", css, StringComparison.Ordinal);
+        Assert.Contains(".skip-link", css, StringComparison.Ordinal);
+        Assert.Contains("prefers-reduced-motion", css, StringComparison.Ordinal);
     }
 }
