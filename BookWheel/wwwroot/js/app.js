@@ -23,12 +23,15 @@ const booksNextPageBtn = document.getElementById('booksNextPageBtn');
 const booksPageInfo = document.getElementById('booksPageInfo');
 const booksTotalCountEl = document.getElementById('booksTotalCount');
 const selectedBookEl = document.getElementById('selectedBook');
+const wheelSummaryEl = document.getElementById('wheelSummary');
+const wheelBooksSrListEl = document.getElementById('wheelBooksSrList');
 const spinBtn = document.getElementById('spinBtn');
 const logoutBtn = document.getElementById('logoutBtn');
 const userManagementBtn = document.getElementById('userManagementBtn');
 const importExportBtn = document.getElementById('importExportBtn');
 const themeToggleBtn = document.getElementById('themeToggleBtn');
 const themeToggleIcon = document.getElementById('themeToggleIcon');
+const userGreeting = document.getElementById('userGreeting');
 const canvas = document.getElementById('wheelCanvas');
 const ctx = canvas.getContext('2d');
 const editDialog = document.getElementById('editDialog');
@@ -93,6 +96,8 @@ const BOOKS_PER_PAGE = 10;
 const THEME_STORAGE_KEY = 'bookwheel-theme';
 const DARK_THEME = 'dark';
 const LIGHT_THEME = 'light';
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const dialogFocusReturnMap = new WeakMap();
 
 function showToast(message, type = 'info') {
   if (!toastRegion || !message) {
@@ -135,6 +140,108 @@ function normalizeTitle(title) {
   return title.trim().toLocaleLowerCase();
 }
 
+function isReducedMotionEnabled() {
+  return Boolean(prefersReducedMotion && prefersReducedMotion.matches);
+}
+
+function findFirstFocusable(root) {
+  if (!root) {
+    return null;
+  }
+
+  return root.querySelector('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+}
+
+function openDialog(dialog, preferredFocusElement = null) {
+  if (!dialog) {
+    return;
+  }
+
+  const activeElement = document.activeElement;
+  if (activeElement && typeof activeElement.focus === 'function') {
+    dialogFocusReturnMap.set(dialog, activeElement);
+  }
+
+  dialog.addEventListener('close', () => {
+    const restoreFocusElement = dialogFocusReturnMap.get(dialog);
+    if (restoreFocusElement && typeof restoreFocusElement.focus === 'function') {
+      restoreFocusElement.focus();
+    }
+    dialogFocusReturnMap.delete(dialog);
+  }, { once: true });
+
+  if (typeof dialog.showModal === 'function') {
+    dialog.showModal();
+  } else {
+    dialog.setAttribute('open', 'open');
+  }
+
+  const focusTarget = preferredFocusElement || findFirstFocusable(dialog);
+  if (focusTarget && typeof focusTarget.focus === 'function') {
+    focusTarget.focus();
+  }
+}
+
+function closeDialog(dialog) {
+  if (!dialog) {
+    return;
+  }
+
+  if (typeof dialog.close === 'function') {
+    dialog.close();
+    return;
+  }
+
+  dialog.removeAttribute('open');
+  const restoreFocusElement = dialogFocusReturnMap.get(dialog);
+  if (restoreFocusElement && typeof restoreFocusElement.focus === 'function') {
+    restoreFocusElement.focus();
+  }
+  dialogFocusReturnMap.delete(dialog);
+}
+
+function renderWheelAccessibilitySummary() {
+  if (!wheelSummaryEl || !wheelBooksSrListEl) {
+    return;
+  }
+
+  wheelBooksSrListEl.innerHTML = '';
+
+  if (!wheelBooks.length) {
+    wheelSummaryEl.textContent = 'Wheel is empty. Add books to spin.';
+    return;
+  }
+
+  wheelSummaryEl.textContent = `Wheel has ${wheelBooks.length} books.`;
+  wheelBooks.forEach((book, index) => {
+    const item = document.createElement('li');
+    item.textContent = `${index + 1}. ${book.title}`;
+    wheelBooksSrListEl.appendChild(item);
+  });
+}
+
+function hasOpenDialog() {
+  return Boolean(document.querySelector('dialog[open]'));
+}
+
+function shouldHandlePaginationHotkey(event) {
+  if (event.altKey || event.ctrlKey || event.metaKey || hasOpenDialog()) {
+    return false;
+  }
+
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return true;
+  }
+
+  if (target.isContentEditable) {
+    return false;
+  }
+
+  const interactiveParent = target.closest('input, textarea, button, select, [role="dialog"], [role="tablist"], [role="tab"]');
+  return !interactiveParent;
+}
+
 function setWheelBooksFromActive(shuffleWheel = false) {
   const activeById = new Map(activeBooks.map(book => [book.id, book]));
   const existingIds = new Set();
@@ -155,6 +262,8 @@ function setWheelBooksFromActive(shuffleWheel = false) {
   if (shuffleWheel) {
     shuffleArray(wheelBooks);
   }
+
+  renderWheelAccessibilitySummary();
 }
 
 function getPreferredTheme() {
@@ -221,6 +330,13 @@ function showApp(show) {
 function applyCurrentUser(user) {
   currentUser = user;
   const canManageUsers = Boolean(currentUser && currentUser.isAdmin);
+
+  if (userGreeting) {
+    const hasUser = Boolean(currentUser && currentUser.username);
+    userGreeting.classList.toggle('hidden', !hasUser);
+    userGreeting.textContent = hasUser ? `Hello, ${currentUser.username}` : '';
+  }
+
   if (userManagementBtn) {
     userManagementBtn.classList.toggle('hidden', !canManageUsers);
   }
@@ -229,6 +345,8 @@ function applyCurrentUser(user) {
 function resetAuthForm() {
   usernameInput.value = '';
   passwordInput.value = '';
+  usernameInput.setAttribute('aria-invalid', 'false');
+  passwordInput.setAttribute('aria-invalid', 'false');
   loginError.textContent = '';
 }
 
@@ -268,22 +386,14 @@ function openResetLinkDialog(result) {
   resetLinkMessage.textContent = `Reset link created for ${result.username}. ${expiryText}`;
   resetLinkValue.value = result.resetLink || '';
 
-  if (typeof resetLinkDialog.showModal === 'function') {
-    resetLinkDialog.showModal();
-  } else {
-    resetLinkDialog.setAttribute('open', 'open');
-  }
+  openDialog(resetLinkDialog, resetLinkValue);
 }
 
 function closeResetLinkDialog() {
   resetLinkError.textContent = '';
   resetLinkValue.value = '';
 
-  if (typeof resetLinkDialog.close === 'function') {
-    resetLinkDialog.close();
-  } else {
-    resetLinkDialog.removeAttribute('open');
-  }
+  closeDialog(resetLinkDialog);
 }
 
 async function requestJson(url, options = {}) {
@@ -351,11 +461,7 @@ function closeUserManagementDialog() {
     userSearchInput.value = '';
   }
 
-  if (typeof userManagementDialog.close === 'function') {
-    userManagementDialog.close();
-  } else {
-    userManagementDialog.removeAttribute('open');
-  }
+  closeDialog(userManagementDialog);
 }
 
 function closeDeleteUserDialog() {
@@ -364,11 +470,7 @@ function closeDeleteUserDialog() {
   confirmDeleteUserBtn.disabled = false;
   cancelDeleteUserBtn.disabled = false;
 
-  if (typeof deleteUserDialog.close === 'function') {
-    deleteUserDialog.close();
-  } else {
-    deleteUserDialog.removeAttribute('open');
-  }
+  closeDialog(deleteUserDialog);
 }
 
 function openDeleteUserDialog(user) {
@@ -376,11 +478,7 @@ function openDeleteUserDialog(user) {
   deleteUserError.textContent = '';
   deleteUserConfirmMessage.textContent = `Remove user "${user.username}" and all of their books?`;
 
-  if (typeof deleteUserDialog.showModal === 'function') {
-    deleteUserDialog.showModal();
-  } else {
-    deleteUserDialog.setAttribute('open', 'open');
-  }
+  openDialog(deleteUserDialog, confirmDeleteUserBtn);
 }
 
 async function confirmDeleteUser() {
@@ -486,16 +584,19 @@ function renderUserRows(users) {
     saveButton.type = 'button';
     saveButton.textContent = 'Save';
     saveButton.className = 'secondary';
+    saveButton.setAttribute('aria-label', `Save changes for ${user.username}`);
 
     const deleteButton = document.createElement('button');
     deleteButton.type = 'button';
     deleteButton.textContent = 'Remove';
     deleteButton.className = 'user-delete-btn';
+    deleteButton.setAttribute('aria-label', `Remove user ${user.username}`);
 
     const resetLinkButton = document.createElement('button');
     resetLinkButton.type = 'button';
     resetLinkButton.textContent = 'Generate reset link';
     resetLinkButton.className = 'secondary';
+    resetLinkButton.setAttribute('aria-label', `Generate password reset link for ${user.username}`);
 
     const actions = document.createElement('div');
     actions.className = 'user-row-actions';
@@ -653,11 +754,7 @@ async function openUserManagementDialog() {
   resetUserManagementMessages();
   await loadUsers();
 
-  if (typeof userManagementDialog.showModal === 'function') {
-    userManagementDialog.showModal();
-  } else {
-    userManagementDialog.setAttribute('open', 'open');
-  }
+  openDialog(userManagementDialog, createUserUsername);
 }
 
 function drawWheel() {
@@ -731,6 +828,7 @@ function renderActiveBooks() {
     titleButton.className = 'book-title-btn';
     titleButton.textContent = book.title;
     titleButton.title = 'Edit this title';
+    titleButton.setAttribute('aria-label', `Edit book title: ${book.title}`);
     titleButton.addEventListener('click', () => editBook(book));
 
     const removeButton = document.createElement('button');
@@ -738,6 +836,7 @@ function renderActiveBooks() {
     removeButton.className = 'book-remove-btn';
     removeButton.textContent = 'Remove';
     removeButton.title = 'Remove from active list';
+    removeButton.setAttribute('aria-label', `Remove book: ${book.title}`);
     removeButton.addEventListener('click', () => removeBook(book));
 
     const actions = document.createElement('div');
@@ -770,27 +869,25 @@ async function editBook(book) {
   editError.textContent = '';
   editBookId.value = book.id;
   editBookTitle.value = book.title;
-  if (typeof editDialog.showModal === 'function') {
-    editDialog.showModal();
-  } else {
-    editDialog.setAttribute('open', 'open');
-  }
-  editBookTitle.focus();
+  openDialog(editDialog, editBookTitle);
 }
 
 async function saveEdit() {
   const trimmed = editBookTitle.value.trim();
   if (!trimmed) {
+    editBookTitle.setAttribute('aria-invalid', 'true');
     editError.textContent = 'Title cannot be empty.';
     return;
   }
+
+  editBookTitle.setAttribute('aria-invalid', 'false');
 
   await requestJson(`/api/books/${editBookId.value}`, {
     method: 'PUT',
     body: JSON.stringify({ title: trimmed })
   });
 
-  editDialog.close();
+  closeDialog(editDialog);
   bookMessage.textContent = 'Book updated.';
   showToast('Book title updated.', 'success');
   await refreshBooks();
@@ -800,11 +897,7 @@ async function removeBook(book) {
   pendingDeleteBook = book;
   deleteError.textContent = '';
   deleteConfirmMessage.textContent = `Remove "${book.title}" from the active list?`;
-  if (typeof deleteDialog.showModal === 'function') {
-    deleteDialog.showModal();
-  } else {
-    deleteDialog.setAttribute('open', 'open');
-  }
+  openDialog(deleteDialog, confirmDeleteBtn);
 }
 
 function closeDeleteDialog() {
@@ -813,11 +906,7 @@ function closeDeleteDialog() {
   confirmDeleteBtn.disabled = false;
   cancelDeleteBtn.disabled = false;
 
-  if (typeof deleteDialog.close === 'function') {
-    deleteDialog.close();
-  } else {
-    deleteDialog.removeAttribute('open');
-  }
+  closeDialog(deleteDialog);
 }
 
 async function confirmDelete() {
@@ -842,10 +931,25 @@ function setTransferTab(tabName) {
   const showImport = tabName === 'import';
   importPanel.classList.toggle('hidden', !showImport);
   exportPanel.classList.toggle('hidden', showImport);
+  importPanel.setAttribute('aria-hidden', showImport ? 'false' : 'true');
+  exportPanel.setAttribute('aria-hidden', showImport ? 'true' : 'false');
   importTabBtn.classList.toggle('active', showImport);
   exportTabBtn.classList.toggle('active', !showImport);
   importTabBtn.setAttribute('aria-selected', showImport ? 'true' : 'false');
   exportTabBtn.setAttribute('aria-selected', showImport ? 'false' : 'true');
+  importTabBtn.tabIndex = showImport ? 0 : -1;
+  exportTabBtn.tabIndex = showImport ? -1 : 0;
+}
+
+function moveTransferTabFocus(direction) {
+  const tabs = [importTabBtn, exportTabBtn];
+  const currentIndex = tabs.findIndex(tab => tab === document.activeElement);
+  const nextIndex = currentIndex < 0
+    ? 0
+    : (currentIndex + direction + tabs.length) % tabs.length;
+  const nextTab = tabs[nextIndex];
+  setTransferTab(nextTab === importTabBtn ? 'import' : 'export');
+  nextTab.focus();
 }
 
 function openTransferDialog() {
@@ -856,22 +960,14 @@ function openTransferDialog() {
   }
   setTransferTab('import');
 
-  if (typeof transferDialog.showModal === 'function') {
-    transferDialog.showModal();
-  } else {
-    transferDialog.setAttribute('open', 'open');
-  }
+  openDialog(transferDialog, importTabBtn);
 }
 
 function closeTransferDialog() {
   transferMessage.textContent = '';
   transferError.textContent = '';
 
-  if (typeof transferDialog.close === 'function') {
-    transferDialog.close();
-  } else {
-    transferDialog.removeAttribute('open');
-  }
+  closeDialog(transferDialog);
 }
 
 function parseImportTitles(rawJson) {
@@ -910,9 +1006,12 @@ async function importBooksFromJsonFile() {
 
   const importFile = importJsonFile.files?.[0] || null;
   if (!importFile) {
+    importJsonFile.setAttribute('aria-invalid', 'true');
     transferError.textContent = 'Choose a JSON file to import.';
     return;
   }
+
+  importJsonFile.setAttribute('aria-invalid', 'false');
 
   const rawJson = (await importFile.text()).trim();
   if (!rawJson) {
@@ -990,7 +1089,7 @@ editForm.addEventListener('submit', async event => {
 });
 
 cancelEditBtn.addEventListener('click', () => {
-  editDialog.close();
+  closeDialog(editDialog);
 });
 
 cancelDeleteBtn.addEventListener('click', () => {
@@ -1033,6 +1132,36 @@ exportTabBtn.addEventListener('click', () => {
   setTransferTab('export');
 });
 
+function handleTransferTabKeydown(event) {
+  if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    moveTransferTabFocus(-1);
+    return;
+  }
+
+  if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+    event.preventDefault();
+    moveTransferTabFocus(1);
+    return;
+  }
+
+  if (event.key === 'Home') {
+    event.preventDefault();
+    setTransferTab('import');
+    importTabBtn.focus();
+    return;
+  }
+
+  if (event.key === 'End') {
+    event.preventDefault();
+    setTransferTab('export');
+    exportTabBtn.focus();
+  }
+}
+
+importTabBtn.addEventListener('keydown', handleTransferTabKeydown);
+exportTabBtn.addEventListener('keydown', handleTransferTabKeydown);
+
 importFileBtn.addEventListener('click', async () => {
   importFileBtn.disabled = true;
   try {
@@ -1043,6 +1172,12 @@ importFileBtn.addEventListener('click', async () => {
     importFileBtn.disabled = false;
   }
 });
+
+if (importJsonFile) {
+  importJsonFile.addEventListener('change', () => {
+    importJsonFile.setAttribute('aria-invalid', 'false');
+  });
+}
 
 downloadExportBtn.addEventListener('click', () => {
   transferError.textContent = '';
@@ -1066,9 +1201,14 @@ loginForm.addEventListener('submit', async event => {
   const password = passwordInput.value;
 
   if (!username || !password) {
+    usernameInput.setAttribute('aria-invalid', 'true');
+    passwordInput.setAttribute('aria-invalid', 'true');
     loginError.textContent = 'Username and password are required.';
     return;
   }
+
+  usernameInput.setAttribute('aria-invalid', 'false');
+  passwordInput.setAttribute('aria-invalid', 'false');
 
   authSubmitBtn.disabled = true;
   authSubmitBtn.textContent = authMode === 'setup' ? 'Creating account...' : 'Logging in...';
@@ -1107,9 +1247,12 @@ bookForm.addEventListener('submit', async event => {
   const trimmedTitle = bookTitle.value.trim();
 
   if (!trimmedTitle) {
+    bookTitle.setAttribute('aria-invalid', 'true');
     bookMessage.textContent = 'Book title is required.';
     return;
   }
+
+  bookTitle.setAttribute('aria-invalid', 'false');
 
   try {
     bookTitle.disabled = true;
@@ -1174,7 +1317,9 @@ spinBtn.addEventListener('click', async () => {
     const slice = 360 / wheelBooks.length;
     const targetAngle = 360 - ((selectedIndex * slice) + slice / 2);
     const normalizedRotation = ((currentRotation % 360) + 360) % 360;
-    const rotationDelta = 360 * 5 + targetAngle - normalizedRotation;
+    const fullSpins = isReducedMotionEnabled() ? 1 : 5;
+    const rotationDelta = 360 * fullSpins + targetAngle - normalizedRotation;
+    const spinDelayMs = isReducedMotionEnabled() ? 120 : 4200;
     currentRotation += rotationDelta;
     canvas.style.transform = `rotate(${currentRotation}deg)`;
 
@@ -1188,7 +1333,7 @@ spinBtn.addEventListener('click', async () => {
       spinBtn.disabled = activeBooks.length === 0;
       spinBtn.textContent = 'Spin';
       showToast(`Selected: ${selected.title}`, 'success');
-    }, 4200);
+    }, spinDelayMs);
   } catch (error) {
     spinning = false;
     selectedBookEl.textContent = error.message;
@@ -1208,16 +1353,15 @@ if (canvas) {
 }
 
 document.addEventListener('keydown', event => {
-  const tagName = (event.target && event.target.tagName) ? event.target.tagName.toLowerCase() : '';
-  if (tagName === 'input' || tagName === 'textarea' || tagName === 'button') {
+  if (appView.classList.contains('hidden') || !shouldHandlePaginationHotkey(event)) {
     return;
   }
 
-  if (!appView.classList.contains('hidden') && event.key === 'ArrowLeft' && !booksPrevPageBtn.disabled) {
+  if (event.key === 'ArrowLeft' && !booksPrevPageBtn.disabled) {
     booksPrevPageBtn.click();
   }
 
-  if (!appView.classList.contains('hidden') && event.key === 'ArrowRight' && !booksNextPageBtn.disabled) {
+  if (event.key === 'ArrowRight' && !booksNextPageBtn.disabled) {
     booksNextPageBtn.click();
   }
 });
@@ -1256,9 +1400,12 @@ if (createUserForm) {
     const username = createUserUsername.value.trim();
 
     if (!username) {
+      createUserUsername.setAttribute('aria-invalid', 'true');
       userManagementError.textContent = 'Username is required.';
       return;
     }
+
+    createUserUsername.setAttribute('aria-invalid', 'false');
 
     const createUserSubmitButton = createUserForm.querySelector('button[type="submit"]');
     setButtonBusy(createUserSubmitButton, true, 'Creating...', 'Create user');
@@ -1332,19 +1479,28 @@ if (resetPasswordForm) {
     const confirmPassword = resetPasswordConfirm.value;
 
     if (!newPassword || !confirmPassword) {
+      resetPassword.setAttribute('aria-invalid', 'true');
+      resetPasswordConfirm.setAttribute('aria-invalid', 'true');
       resetPasswordError.textContent = 'Both password fields are required.';
       return;
     }
 
     if (newPassword.length < 8) {
+      resetPassword.setAttribute('aria-invalid', 'true');
+      resetPasswordConfirm.setAttribute('aria-invalid', 'true');
       resetPasswordError.textContent = 'Password must be at least 8 characters.';
       return;
     }
 
     if (newPassword !== confirmPassword) {
+      resetPassword.setAttribute('aria-invalid', 'true');
+      resetPasswordConfirm.setAttribute('aria-invalid', 'true');
       resetPasswordError.textContent = 'Passwords do not match.';
       return;
     }
+
+    resetPassword.setAttribute('aria-invalid', 'false');
+    resetPasswordConfirm.setAttribute('aria-invalid', 'false');
 
     resetPasswordSubmitBtn.disabled = true;
     const originalText = resetPasswordSubmitBtn.textContent;
