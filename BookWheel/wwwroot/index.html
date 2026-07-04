@@ -43,15 +43,18 @@
     <section id="appView" class="app hidden" aria-label="Book Wheel application">
       <header class="toolbar card">
         <h1>Book Wheel</h1>
-        <div class="toolbar-actions">
-          <button id="userManagementBtn" type="button" class="secondary hidden">Manage users</button>
-          <button id="importExportBtn" type="button" class="secondary icon-btn" title="Import or export books" aria-label="Import or export books">
-            <span class="icon-glyph" aria-hidden="true">⇅</span>
-          </button>
-          <button id="themeToggleBtn" type="button" class="secondary icon-btn" title="Switch theme" aria-label="Switch theme">
-            <span id="themeToggleIcon" class="icon-glyph" aria-hidden="true">☾</span>
-          </button>
-          <button id="logoutBtn" class="secondary">Log out</button>
+        <div class="toolbar-meta">
+          <p id="userGreeting" class="message user-greeting hidden" aria-live="polite"></p>
+          <div class="toolbar-actions">
+            <button id="userManagementBtn" type="button" class="secondary hidden">Manage users</button>
+            <button id="importExportBtn" type="button" class="secondary icon-btn" title="Import or export books" aria-label="Import or export books">
+              <span class="icon-glyph" aria-hidden="true">⇅</span>
+            </button>
+            <button id="themeToggleBtn" type="button" class="secondary icon-btn" title="Switch theme" aria-label="Switch theme">
+              <span id="themeToggleIcon" class="icon-glyph" aria-hidden="true">☾</span>
+            </button>
+            <button id="logoutBtn" class="secondary">Log out</button>
+          </div>
         </div>
       </header>
 

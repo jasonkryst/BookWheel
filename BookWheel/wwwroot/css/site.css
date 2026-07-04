@@ -200,6 +200,19 @@ button:disabled {
   justify-content: space-between;
 }
 
+.toolbar-meta {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+
+.user-greeting {
+  min-height: 0;
+  margin: 0;
+  font-weight: 700;
+  color: var(--text);
+}
+
 .toolbar-actions {
   display: flex;
   align-items: center;
@@ -738,10 +751,21 @@ button:disabled {
     gap: 10px;
   }
 
+  .toolbar h1 {
+    width: 100%;
+    text-align: center;
+    margin: 0;
+  }
+
+  .toolbar-meta {
+    width: 100%;
+    justify-items: center;
+  }
+
   .toolbar-actions {
     width: 100%;
     flex-wrap: wrap;
-    justify-content: flex-end;
+    justify-content: center;
   }
 
   .grid { grid-template-columns: 1fr; }

@@ -31,6 +31,7 @@ const userManagementBtn = document.getElementById('userManagementBtn');
 const importExportBtn = document.getElementById('importExportBtn');
 const themeToggleBtn = document.getElementById('themeToggleBtn');
 const themeToggleIcon = document.getElementById('themeToggleIcon');
+const userGreeting = document.getElementById('userGreeting');
 const canvas = document.getElementById('wheelCanvas');
 const ctx = canvas.getContext('2d');
 const editDialog = document.getElementById('editDialog');
@@ -329,6 +330,13 @@ function showApp(show) {
 function applyCurrentUser(user) {
   currentUser = user;
   const canManageUsers = Boolean(currentUser && currentUser.isAdmin);
+
+  if (userGreeting) {
+    const hasUser = Boolean(currentUser && currentUser.username);
+    userGreeting.classList.toggle('hidden', !hasUser);
+    userGreeting.textContent = hasUser ? `Hello, ${currentUser.username}` : '';
+  }
+
   if (userManagementBtn) {
     userManagementBtn.classList.toggle('hidden', !canManageUsers);
   }

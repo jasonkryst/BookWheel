@@ -29,6 +29,7 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("id=\"authTitle\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"authMessage\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"authSubmitBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"userGreeting\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"themeToggleBtn\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"themeToggleIcon\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"importExportBtn\"", html, StringComparison.Ordinal);
