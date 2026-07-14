@@ -85,16 +85,46 @@ dotnet build BookWheel.slnx
 
 The footer version is sourced from `AssemblyInformationalVersion`.
 
-- Local default: `1.2.0-local` (set in `BookWheel/BookWheel.csproj`)
+- Local default: `1.3.0-local` (set in `BookWheel/BookWheel.csproj`)
 - CI builds: `.github/workflows/dotnet.yml` sets `APP_VERSION` and passes it via `/p:InformationalVersion=...`
 - Docker builds: `Dockerfile` accepts `ARG APP_VERSION` and passes it to `dotnet publish`
 
 Examples:
 
 ```bash
-dotnet build BookWheel.slnx /p:InformationalVersion=1.2.0
-docker build --build-arg APP_VERSION=1.2.0 -t jasonkryst/bookwheel:1.2.0 .
+dotnet build BookWheel.slnx /p:InformationalVersion=1.3.0
+docker build --build-arg APP_VERSION=1.3.0 -t jasonkryst/bookwheel:1.3.0 .
 ```
+
+## Automated Docker Publish on Version Release
+
+GitHub Actions now publishes Docker images to Docker Hub and GHCR when a new version is created by either:
+
+- pushing a Git tag (for example `v1.3.0`)
+- publishing a GitHub Release
+
+Workflow file:
+
+- `.github/workflows/docker-release.yml`
+
+Published tags:
+
+- `jasonkryst/bookwheel:<version-without-v>` (for example `1.3.0`)
+- `jasonkryst/bookwheel:<original-tag>` (for example `v1.3.0`)
+- `jasonkryst/bookwheel:latest` (only for non-prerelease versions)
+- `ghcr.io/jasonkryst/bookwheel:<version-without-v>` (for example `1.3.0`)
+- `ghcr.io/jasonkryst/bookwheel:<original-tag>` (for example `v1.3.0`)
+- `ghcr.io/jasonkryst/bookwheel:latest` (only for non-prerelease versions)
+
+Required repository secrets:
+
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN` (Docker Hub access token)
+
+Notes:
+
+- GHCR publish uses the built-in `GITHUB_TOKEN` and does not require extra secrets.
+- The workflow grants `packages: write` permission to allow GHCR pushes.
 
 ## Running the Application
 

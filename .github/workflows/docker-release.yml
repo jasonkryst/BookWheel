@@ -1,0 +1,89 @@
+name: Docker Release
+
+on:
+  push:
+    tags:
+      - "v*"
+      - "V*"
+  release:
+    types:
+      - published
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  docker-release:
+    runs-on: ubuntu-latest
+    env:
+      DOCKERHUB_IMAGE: jasonkryst/bookwheel
+      VERSION_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref_name }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version and tags
+        id: vars
+        shell: bash
+        run: |
+          TAG="${VERSION_TAG}"
+          VERSION="${TAG#v}"
+          VERSION="${VERSION#V}"
+          OWNER_LC="${GITHUB_REPOSITORY_OWNER,,}"
+          GHCR_IMAGE="ghcr.io/${OWNER_LC}/bookwheel"
+
+          if [[ "${VERSION}" == *"-"* ]]; then
+            IS_LATEST="false"
+          else
+            IS_LATEST="true"
+          fi
+
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "is_latest=${IS_LATEST}" >> "$GITHUB_OUTPUT"
+          echo "ghcr_image=${GHCR_IMAGE}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push version tags
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          build-args: |
+            APP_VERSION=${{ steps.vars.outputs.version }}
+          tags: |
+            ${{ env.DOCKERHUB_IMAGE }}:${{ steps.vars.outputs.version }}
+            ${{ env.DOCKERHUB_IMAGE }}:${{ steps.vars.outputs.tag }}
+            ${{ steps.vars.outputs.ghcr_image }}:${{ steps.vars.outputs.version }}
+            ${{ steps.vars.outputs.ghcr_image }}:${{ steps.vars.outputs.tag }}
+
+      - name: Build and push latest tag
+        if: steps.vars.outputs.is_latest == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          build-args: |
+            APP_VERSION=${{ steps.vars.outputs.version }}
+          tags: |
+            ${{ env.DOCKERHUB_IMAGE }}:latest
+            ${{ steps.vars.outputs.ghcr_image }}:latest
