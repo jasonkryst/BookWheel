@@ -1,10 +1,6 @@
 name: Docker Release
 
 on:
-  push:
-    tags:
-      - "v*"
-      - "V*"
   release:
     types:
       - published
@@ -40,7 +36,6 @@ jobs:
             IS_LATEST="true"
           fi
 
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "is_latest=${IS_LATEST}" >> "$GITHUB_OUTPUT"
           echo "ghcr_image=${GHCR_IMAGE}" >> "$GITHUB_OUTPUT"
@@ -71,9 +66,7 @@ jobs:
             APP_VERSION=${{ steps.vars.outputs.version }}
           tags: |
             ${{ env.DOCKERHUB_IMAGE }}:${{ steps.vars.outputs.version }}
-            ${{ env.DOCKERHUB_IMAGE }}:${{ steps.vars.outputs.tag }}
             ${{ steps.vars.outputs.ghcr_image }}:${{ steps.vars.outputs.version }}
-            ${{ steps.vars.outputs.ghcr_image }}:${{ steps.vars.outputs.tag }}
 
       - name: Build and push latest tag
         if: steps.vars.outputs.is_latest == 'true'

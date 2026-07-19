@@ -4,6 +4,6 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>BookWheel</RootNamespace>
-    <InformationalVersion Condition="'$(InformationalVersion)' == ''">1.3.0-local</InformationalVersion>
+    <InformationalVersion Condition="'$(InformationalVersion)' == ''">1.3.1-local</InformationalVersion>
   </PropertyGroup>
 </Project>
