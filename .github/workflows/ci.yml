@@ -163,7 +163,7 @@ jobs:
           format: sarif
           output: trivy-results.sarif
       - name: Upload scan results to the Security tab
-        if: always()
+        if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-results.sarif
