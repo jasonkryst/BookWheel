@@ -124,3 +124,46 @@ jobs:
       - name: Cleanup smoke container
         if: always()
         run: docker rm -f bookwheel-smoke || true
+
+  trivy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Resolve app version
+        run: |
+          BASE_VERSION=$(dotnet msbuild BookWheel/BookWheel.csproj -getProperty:InformationalVersion -nologo | tr -d '\r\n')
+          BASE_VERSION="${BASE_VERSION%%-*}"
+          if ! [[ "$BASE_VERSION" =~ ^[0-9]+(\.[0-9]+){0,3}$ ]]; then
+            echo "Refusing unexpected InformationalVersion format: $BASE_VERSION" >&2
+            exit 1
+          fi
+          echo "APP_VERSION=${BASE_VERSION}-ci.${GITHUB_RUN_NUMBER}+${GITHUB_SHA}" >> "$GITHUB_ENV"
+      - name: Build Docker image
+        run: docker build --build-arg APP_VERSION=${{ env.APP_VERSION }} -t bookwheel:${{ github.sha }} .
+      - name: Vulnerability gate (fixable CRITICAL/HIGH findings)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: bookwheel:${{ github.sha }}
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: 1
+      - name: Full vulnerability report (all severities, including unfixed)
+        if: always()
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: bookwheel:${{ github.sha }}
+          format: sarif
+          output: trivy-results.sarif
+      - name: Upload scan results to the Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-results.sarif
