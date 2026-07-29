@@ -2,7 +2,10 @@
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
-ARG APP_VERSION=1.2.0-docker
+# Left unset by default so an unversioned `docker build` falls through to
+# BookWheel.csproj's own InformationalVersion default instead of a second,
+# hardcoded value that can drift from it.
+ARG APP_VERSION=
 
 COPY BookWheel.slnx ./
 COPY BookWheel/BookWheel.csproj BookWheel/
@@ -10,7 +13,7 @@ COPY BookWheel.Tests/BookWheel.Tests.csproj BookWheel.Tests/
 RUN dotnet restore BookWheel/BookWheel.csproj
 
 COPY . .
-RUN dotnet publish BookWheel/BookWheel.csproj -c Release -o /app/publish /p:UseAppHost=false /p:InformationalVersion=$APP_VERSION
+RUN dotnet publish BookWheel/BookWheel.csproj -c Release -o /app/publish /p:UseAppHost=false ${APP_VERSION:+/p:InformationalVersion=$APP_VERSION}
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app

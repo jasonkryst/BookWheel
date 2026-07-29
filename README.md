@@ -83,11 +83,12 @@ dotnet build BookWheel.slnx
 
 ## Version Stamping (CI/CD and Docker)
 
-The footer version is sourced from `AssemblyInformationalVersion`.
+`BookWheel/BookWheel.csproj`'s `InformationalVersion` is the single source of truth for the app version. The footer and `/api/version` read it from the built assembly's `AssemblyInformationalVersion` attribute at runtime; everything else derives from or is validated against this value:
 
 - Local default: `1.3.1-local` (set in `BookWheel/BookWheel.csproj`)
-- CI builds: `.github/workflows/dotnet.yml` sets `APP_VERSION` and passes it via `/p:InformationalVersion=...`
-- Docker builds: `Dockerfile` accepts `ARG APP_VERSION` and passes it to `dotnet publish`
+- CI builds (`.github/workflows/ci.yml`): read the csproj's `InformationalVersion`, strip any suffix, and append `-ci.<run>+<sha>` via `/p:InformationalVersion=...`
+- Docker builds (`Dockerfile`): accept an optional `ARG APP_VERSION`; when unset, the build falls through to the csproj default rather than a second hardcoded value
+- Release builds (`.github/workflows/docker-release.yml`): derive the version from the GitHub Release tag, but the workflow **fails** if that version doesn't match the csproj's `InformationalVersion`, so a release can't ship without bumping the csproj first
 
 Examples:
 
@@ -485,7 +486,7 @@ Startup diagnostics:
 
 ## Release Checklist
 
-1. Update version stamp and build metadata (`InformationalVersion`/`APP_VERSION`).
+1. Update the version stamp in `BookWheel/BookWheel.csproj` (`InformationalVersion`) — the release workflow fails if the GitHub Release tag doesn't match it.
 2. Run full tests: `dotnet test BookWheel.slnx`.
 3. Run security-focused regression filter from CI workflow.
 4. Run vulnerability scans:

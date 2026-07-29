@@ -20,6 +20,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
       - name: Resolve version and tags
         id: vars
         shell: bash
@@ -29,6 +34,13 @@ jobs:
           VERSION="${VERSION#V}"
           OWNER_LC="${GITHUB_REPOSITORY_OWNER,,}"
           GHCR_IMAGE="ghcr.io/${OWNER_LC}/bookwheel"
+
+          PROJECT_VERSION=$(dotnet msbuild BookWheel/BookWheel.csproj -getProperty:InformationalVersion -nologo | tr -d '\r\n')
+          PROJECT_VERSION="${PROJECT_VERSION%%-*}"
+          if [[ "${VERSION%%-*}" != "${PROJECT_VERSION}" ]]; then
+            echo "Release tag '${TAG}' resolves to version ${VERSION}, but BookWheel.csproj's InformationalVersion is ${PROJECT_VERSION}. Bump the csproj version to match before tagging a release." >&2
+            exit 1
+          fi
 
           if [[ "${VERSION}" == *"-"* ]]; then
             IS_LATEST="false"
