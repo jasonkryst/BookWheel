@@ -29,9 +29,13 @@ jobs:
           dotnet-version: 8.0.x
       - name: Resolve app version
         run: |
-          BASE_VERSION=$(dotnet msbuild BookWheel/BookWheel.csproj -getProperty:InformationalVersion -nologo)
+          BASE_VERSION=$(dotnet msbuild BookWheel/BookWheel.csproj -getProperty:InformationalVersion -nologo | tr -d '\r\n')
           BASE_VERSION="${BASE_VERSION%%-*}"
-          echo "APP_VERSION=${BASE_VERSION}-ci.${{ github.run_number }}+${{ github.sha }}" >> "$GITHUB_ENV"
+          if ! [[ "$BASE_VERSION" =~ ^[0-9]+(\.[0-9]+){0,3}$ ]]; then
+            echo "Refusing unexpected InformationalVersion format: $BASE_VERSION" >&2
+            exit 1
+          fi
+          echo "APP_VERSION=${BASE_VERSION}-ci.${GITHUB_RUN_NUMBER}+${GITHUB_SHA}" >> "$GITHUB_ENV"
       - name: Restore dependencies
         run: dotnet restore
       - name: Build
