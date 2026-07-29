@@ -65,9 +65,15 @@ CI minutes for isolation).
   both. Instead, jobs that need `APP_VERSION` (`build`, `docker-build`, `container-smoke-test`,
   `trivy`) derive the base version dynamically from the csproj:
   `dotnet msbuild BookWheel/BookWheel.csproj -getProperty:InformationalVersion`, strip the
-  trailing `-local` (or any `-suffix`), then append `-ci.${{ github.run_number }}+${{ github.sha
-  }}`. `BookWheel.csproj` becomes the single source of truth for the app's base version; bumping
-  it there is enough, with no CI file edit required.
+  trailing `-local` (or any `-suffix`), then append `-ci.$GITHUB_RUN_NUMBER+$GITHUB_SHA`.
+  `BookWheel.csproj` becomes the single source of truth for the app's base version; bumping
+  it there is enough, with no CI file edit required. Because `BookWheel.csproj` is repository
+  content reachable from a `pull_request` build, the extracted base version is validated against
+  a strict `major.minor[.patch[.build]]` pattern (and the build fails if it doesn't match) before
+  it's written to `$GITHUB_ENV` — an unvalidated value with an embedded newline could otherwise
+  inject extra environment variables into later steps. `$GITHUB_RUN_NUMBER`/`$GITHUB_SHA` (runner-
+  provided env vars) are used instead of `${{ github.run_number }}`/`${{ github.sha }}` template
+  interpolation into the shell script, as defense-in-depth.
 
 ## File changes
 
