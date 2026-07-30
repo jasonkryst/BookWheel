@@ -1,5 +1,9 @@
 # Book Wheel Solution
 
+[![CI](https://github.com/jasonkryst/BookWheel/actions/workflows/ci.yml/badge.svg)](https://github.com/jasonkryst/BookWheel/actions/workflows/ci.yml)
+[![Copilot](https://github.com/jasonkryst/BookWheel/actions/workflows/agents/copilot-pull-request-reviewer/badge.svg)](https://github.com/jasonkryst/BookWheel/actions/workflows/agents/copilot-pull-request-reviewer)
+[![Docker Release](https://github.com/jasonkryst/BookWheel/actions/workflows/docker-release.yml/badge.svg)](https://github.com/jasonkryst/BookWheel/actions/workflows/docker-release.yml)
+
 Book Wheel is a .NET 8 web app for managing a list of books and spinning a wheel to pick a title at random.
 
 This solution is split into separate application and test projects:
