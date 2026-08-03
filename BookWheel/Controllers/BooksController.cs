@@ -1,5 +1,6 @@
 using BookWheel.Models;
 using BookWheel.Services;
+using BookWheel.Storage;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookWheel.Controllers;
@@ -10,9 +11,9 @@ public sealed class BooksController : ControllerBase
 {
     private readonly AuthService _authService;
     private readonly AppMetricsService _metricsService;
-    private readonly BookStore _store;
+    private readonly IBookRepository _store;
 
-    public BooksController(AuthService authService, AppMetricsService metricsService, BookStore store)
+    public BooksController(AuthService authService, AppMetricsService metricsService, IBookRepository store)
     {
         _authService = authService;
         _metricsService = metricsService;

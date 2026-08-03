@@ -1,4 +1,5 @@
 using BookWheel.Services;
+using BookWheel.Storage;
 using BookWheel.Logging;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -47,8 +48,9 @@ public sealed class BookWheelWebAppFactory : WebApplicationFactory<Program>
 
         builder.ConfigureServices(services =>
         {
-            services.RemoveAll<BookStore>();
-            services.AddSingleton<BookStore>(_ =>
+            services.RemoveAll<JsonBookRepository>();
+            services.RemoveAll<IBookRepository>();
+            services.AddSingleton<JsonBookRepository>(_ =>
             {
                 var env = new TestWebHostEnvironment
                 {
@@ -60,8 +62,9 @@ public sealed class BookWheelWebAppFactory : WebApplicationFactory<Program>
                 env.ContentRootFileProvider = new PhysicalFileProvider(env.ContentRootPath);
                 env.WebRootFileProvider = new PhysicalFileProvider(env.WebRootPath);
 
-                return new BookStore(env);
+                return new JsonBookRepository(env);
             });
+            services.AddSingleton<IBookRepository>(sp => sp.GetRequiredService<JsonBookRepository>());
         });
     }
 
