@@ -10,14 +10,14 @@ namespace BookWheel.Controllers;
 public sealed class UsersController : ControllerBase
 {
     private readonly AuthService _authService;
-    private readonly CredentialStore _credentialStore;
+    private readonly ICredentialRepository _credentialRepository;
     private readonly IBookRepository _bookStore;
     private readonly ILogger<UsersController> _logger;
 
-    public UsersController(AuthService authService, CredentialStore credentialStore, IBookRepository bookStore, ILogger<UsersController> logger)
+    public UsersController(AuthService authService, ICredentialRepository credentialRepository, IBookRepository bookStore, ILogger<UsersController> logger)
     {
         _authService = authService;
-        _credentialStore = credentialStore;
+        _credentialRepository = credentialRepository;
         _bookStore = bookStore;
         _logger = logger;
     }
@@ -36,7 +36,7 @@ public sealed class UsersController : ControllerBase
             return StatusCode(StatusCodes.Status403Forbidden);
         }
 
-        var users = await _credentialStore.GetUsersAsync();
+        var users = await _credentialRepository.GetUsersAsync();
         return Ok(new { users });
     }
 
@@ -56,9 +56,9 @@ public sealed class UsersController : ControllerBase
 
         try
         {
-            var user = await _credentialStore.CreateUserAsync(request.Username, request.IsAdmin);
+            var user = await _credentialRepository.CreateUserAsync(request.Username, request.IsAdmin);
             var appBaseUrl = $"{Request.Scheme}://{Request.Host}{Request.PathBase}";
-            var setupLink = await _credentialStore.CreatePasswordResetLinkAsync(user.UserId, appBaseUrl);
+            var setupLink = await _authService.CreatePasswordResetLinkAsync(user.UserId, appBaseUrl);
             _logger.LogInformation(
                 "User account created with setup link. Actor {ActorUsername} target {TargetUsername} role {IsAdmin} request {RequestId}",
                 currentUser.Username,
@@ -106,8 +106,8 @@ public sealed class UsersController : ControllerBase
 
         try
         {
-            var before = (await _credentialStore.GetUsersAsync()).FirstOrDefault(user => user.UserId == id);
-            var user = await _credentialStore.UpdateUserAsync(id, request.Username, request.IsAdmin, request.IsDisabled, request.ForcePasswordReset, request.IsLocked);
+            var before = (await _credentialRepository.GetUsersAsync()).FirstOrDefault(user => user.UserId == id);
+            var user = await _credentialRepository.UpdateUserAsync(id, request.Username, request.IsAdmin, request.IsDisabled, request.ForcePasswordReset, request.IsLocked);
             if (before is not null)
             {
                 if (before.IsAdmin != user.IsAdmin)
@@ -164,7 +164,7 @@ public sealed class UsersController : ControllerBase
         try
         {
             var appBaseUrl = $"{Request.Scheme}://{Request.Host}{Request.PathBase}";
-            var result = await _credentialStore.CreatePasswordResetLinkAsync(id, appBaseUrl);
+            var result = await _authService.CreatePasswordResetLinkAsync(id, appBaseUrl);
             _logger.LogInformation(
                 "Forced password reset link generated. Actor {ActorUsername} target {TargetUsername} request {RequestId}",
                 currentUser.Username,
@@ -204,7 +204,7 @@ public sealed class UsersController : ControllerBase
 
         try
         {
-            var deletedUser = await _credentialStore.DeleteUserAsync(id);
+            var deletedUser = await _credentialRepository.DeleteUserAsync(id);
             var removedBooks = await _bookStore.RemoveUserDataAsync(id);
             _authService.RemoveSessionsForUser(id);
             _logger.LogInformation(

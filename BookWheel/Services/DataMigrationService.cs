@@ -5,12 +5,12 @@ namespace BookWheel.Services;
 
 public sealed class DataMigrationService
 {
-    private readonly CredentialStore _credentialStore;
+    private readonly JsonCredentialRepository _credentialRepository;
     private readonly JsonBookRepository _bookRepository;
 
-    public DataMigrationService(CredentialStore credentialStore, JsonBookRepository bookRepository)
+    public DataMigrationService(JsonCredentialRepository credentialRepository, JsonBookRepository bookRepository)
     {
-        _credentialStore = credentialStore;
+        _credentialRepository = credentialRepository;
         _bookRepository = bookRepository;
     }
 
@@ -18,15 +18,15 @@ public sealed class DataMigrationService
     {
         return new DataMigrationStatus
         {
-            HasLegacyCredentialPayload = await _credentialStore.HasLegacyPayloadAsync(),
+            HasLegacyCredentialPayload = await _credentialRepository.HasLegacyPayloadAsync(),
             HasLegacyBooksPayload = await _bookRepository.HasLegacyPayloadAsync()
         };
     }
 
     public async Task<DataMigrationReport> RunAsync()
     {
-        var credentials = await _credentialStore.MigrateLegacyPayloadAsync();
-        var users = await _credentialStore.GetUsersAsync();
+        var credentials = await _credentialRepository.MigrateLegacyPayloadAsync();
+        var users = await _credentialRepository.GetUsersAsync();
         var booksOwnerId = users.OrderBy(user => user.CreatedAtUtc).Select(user => user.UserId).FirstOrDefault();
         var resolvedOwner = booksOwnerId == Guid.Empty ? (Guid?)null : booksOwnerId;
         var books = await _bookRepository.MigrateLegacyPayloadAsync(resolvedOwner);
