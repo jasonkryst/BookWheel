@@ -4,6 +4,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>BookWheel</RootNamespace>
-    <InformationalVersion Condition="'$(InformationalVersion)' == ''">1.5.0</InformationalVersion>
+    <!-- CI (ci.yml) validates this value against ^[0-9]+(\.[0-9]+){0,3}$ before appending a
+         -ci.<run>+<sha> suffix; a version format change here can silently break 4 of 7 CI jobs. -->
+    <InformationalVersion Condition="'$(InformationalVersion)' == ''">1.6.0</InformationalVersion>
   </PropertyGroup>
 </Project>
