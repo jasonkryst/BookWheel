@@ -421,7 +421,7 @@ Current integration tests cover:
 - Persistent log file creation and structured audit logging checks
 - CI dependency-audit gate (`scripts/check-vulnerable-packages.sh`): passes clean `dotnet list --vulnerable` output through unchanged and exits 0, and exits 1 when the report contains a vulnerable-packages finding
 
-Frontend-focused tests also verify that the HTML, JavaScript, and CSS expose the account setup mode, selected-book UI, pagination summary, delete confirmation flow, logout form reset behavior, icon-based theme toggle behavior, and file-based import/export behavior.
+Frontend-focused tests also verify that the HTML, JavaScript, and CSS expose the account setup mode, selected-book UI, pagination summary, delete confirmation flow, logout form reset behavior, icon-based dark/light/high-contrast theme toggle behavior, and file-based import/export behavior.
 
 The frontend also includes import/export interactions (JSON tabbed modal) and wheel shuffle behavior when books are added.
 
@@ -434,11 +434,12 @@ Additional project documentation is available in:
 
 ## Theme Toggle
 
-The application includes a toolbar toggle for switching between dark and light modes.
+The application includes a toolbar toggle that cycles through dark, light, and high-contrast modes.
 
 - Theme choice is persisted in browser `localStorage` under `bookwheel-theme`.
-- On first load, when no saved preference exists, the UI follows the system color preference (`prefers-color-scheme`).
-- The toggle updates the root `data-theme` attribute so CSS variables can switch the entire palette.
+- On first load, when no saved preference exists, the UI follows the system contrast preference (`prefers-contrast: more`) if set, otherwise the system color preference (`prefers-color-scheme`).
+- The toggle updates the root `data-theme` attribute (`dark`, `light`, or `high-contrast`) so CSS variables can switch the entire palette, including the icon/label shown on the toggle button.
+- The high-contrast theme uses a pure black/white/yellow palette, solid (non-blended) surfaces, thicker borders, and a colorblind-distinguishable wheel-slice palette so every theme meets accessibility contrast expectations.
 
 ## Import and Export (JSON)
 
