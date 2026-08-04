@@ -99,7 +99,7 @@ const LIGHT_THEME = 'light';
 const HIGH_CONTRAST_THEME = 'high-contrast';
 const THEME_CYCLE = [DARK_THEME, LIGHT_THEME, HIGH_CONTRAST_THEME];
 const THEME_ICONS = { [DARK_THEME]: '☾', [LIGHT_THEME]: '☀', [HIGH_CONTRAST_THEME]: '◐' };
-const THEME_LABELS = { [DARK_THEME]: 'Dark mode', [LIGHT_THEME]: 'Light mode', [HIGH_CONTRAST_THEME]: 'High contrast mode' };
+const THEME_LABEL_KEYS = { [DARK_THEME]: 'theme.dark', [LIGHT_THEME]: 'theme.light', [HIGH_CONTRAST_THEME]: 'theme.highContrast' };
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const dialogFocusReturnMap = new WeakMap();
 
@@ -289,10 +289,11 @@ function applyTheme(theme) {
   localStorage.setItem(THEME_STORAGE_KEY, resolvedTheme);
 
   if (themeToggleBtn) {
+    const { t } = window.BookWheelI18n;
     const nextTheme = THEME_CYCLE[(THEME_CYCLE.indexOf(resolvedTheme) + 1) % THEME_CYCLE.length];
-    const nextThemeLabel = THEME_LABELS[nextTheme];
-    themeToggleBtn.setAttribute('aria-label', `Switch to ${nextThemeLabel}`);
-    themeToggleBtn.setAttribute('title', `Switch to ${nextThemeLabel}`);
+    const nextThemeLabel = t(THEME_LABEL_KEYS[nextTheme]);
+    themeToggleBtn.setAttribute('aria-label', t('theme.switchTo', { label: nextThemeLabel }));
+    themeToggleBtn.setAttribute('title', t('theme.switchTo', { label: nextThemeLabel }));
     if (themeToggleIcon) {
       themeToggleIcon.textContent = THEME_ICONS[resolvedTheme];
     }
@@ -1004,7 +1005,7 @@ function parseImportTitles(rawJson) {
       : null;
 
   if (!source) {
-    throw new Error('Invalid JSON format. Use an array or an object with a books array.');
+    throw new Error(window.BookWheelI18n.t('transfer.invalidJsonError'));
   }
 
   const titles = [];
@@ -1028,11 +1029,12 @@ function parseImportTitles(rawJson) {
 async function importBooksFromJsonFile() {
   transferMessage.textContent = '';
   transferError.textContent = '';
+  const { t } = window.BookWheelI18n;
 
   const importFile = importJsonFile.files?.[0] || null;
   if (!importFile) {
     importJsonFile.setAttribute('aria-invalid', 'true');
-    transferError.textContent = 'Choose a JSON file to import.';
+    transferError.textContent = t('transfer.chooseFileError');
     return;
   }
 
@@ -1040,13 +1042,13 @@ async function importBooksFromJsonFile() {
 
   const rawJson = (await importFile.text()).trim();
   if (!rawJson) {
-    transferError.textContent = 'The selected file is empty.';
+    transferError.textContent = t('transfer.emptyFileError');
     return;
   }
 
   const importTitles = parseImportTitles(rawJson);
   if (!importTitles.length) {
-    transferError.textContent = 'No valid titles found in JSON.';
+    transferError.textContent = t('transfer.noTitlesError');
     return;
   }
 
@@ -1079,7 +1081,7 @@ async function importBooksFromJsonFile() {
     await refreshBooks({ goToLastPage: true, shuffleWheel: true });
   }
 
-  transferMessage.textContent = `Import complete. Added ${addedCount}, skipped ${skippedMatches} matches.`;
+  transferMessage.textContent = t('transfer.importCompleteMessage', { added: addedCount, skipped: skippedMatches });
 }
 
 function downloadExportJsonFile() {
@@ -1099,7 +1101,7 @@ function downloadExportJsonFile() {
   anchor.remove();
   URL.revokeObjectURL(downloadUrl);
 
-  transferMessage.textContent = 'Export file download started.';
+  transferMessage.textContent = window.BookWheelI18n.t('transfer.exportStartedMessage');
 }
 
 editForm.addEventListener('submit', async event => {
@@ -1573,6 +1575,43 @@ if (userSearchInput) {
 if (themeToggleBtn) {
   themeToggleBtn.addEventListener('click', toggleTheme);
 }
+
+const langToggleBtn = document.getElementById('langToggleBtn');
+const langToggleLabel = document.getElementById('langToggleLabel');
+
+function applyLanguageToggleLabel() {
+  if (!langToggleBtn || !langToggleLabel) {
+    return;
+  }
+  const { getCurrentLocale, LANGUAGE_NAMES, t } = window.BookWheelI18n;
+  const locale = getCurrentLocale();
+  langToggleLabel.textContent = locale.toUpperCase();
+  langToggleBtn.setAttribute('aria-label', t('lang.switchLanguageAria', { language: LANGUAGE_NAMES[locale] }));
+  langToggleBtn.setAttribute('title', t('lang.switchLanguageAria', { language: LANGUAGE_NAMES[locale] }));
+}
+
+if (langToggleBtn) {
+  langToggleBtn.addEventListener('click', () => {
+    const { SUPPORTED_LOCALES, getCurrentLocale, setLocale } = window.BookWheelI18n;
+    const currentIndex = SUPPORTED_LOCALES.indexOf(getCurrentLocale());
+    const nextLocale = SUPPORTED_LOCALES[(currentIndex + 1) % SUPPORTED_LOCALES.length];
+    setLocale(nextLocale);
+  });
+}
+
+window.addEventListener('bookwheel:locale-changed', () => {
+  applyLanguageToggleLabel();
+  applyTheme(document.documentElement.getAttribute('data-theme') || DARK_THEME);
+  renderWheelAccessibilitySummary();
+  if (!appView.classList.contains('hidden')) {
+    renderActiveBooks();
+  }
+  if (userManagementDialog.hasAttribute('open')) {
+    renderUserRows(allUsers);
+  }
+});
+
+applyLanguageToggleLabel();
 
 if (importExportBtn) {
   importExportBtn.addEventListener('click', openTransferDialog);
