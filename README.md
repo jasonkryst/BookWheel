@@ -91,7 +91,7 @@ dotnet build BookWheel.slnx
 
 `BookWheel/BookWheel.csproj`'s `InformationalVersion` is the single source of truth for the app version. The footer and `/api/version` read it from the built assembly's `AssemblyInformationalVersion` attribute at runtime; everything else derives from or is validated against this value:
 
-- Local default: `1.4.0` (set in `BookWheel/BookWheel.csproj`)
+- Local default: `1.6.0` (set in `BookWheel/BookWheel.csproj`)
 - CI builds (`.github/workflows/ci.yml`): read the csproj's `InformationalVersion`, strip any suffix, and append `-ci.<run>+<sha>` via `/p:InformationalVersion=...`
 - Docker builds (`Dockerfile`): accept an optional `ARG APP_VERSION`; when unset, the build falls through to the csproj default rather than a second hardcoded value
 - Release builds (`.github/workflows/docker-release.yml`): derive the version from the GitHub Release tag, but the workflow **fails** if that version doesn't match the csproj's `InformationalVersion`, so a release can't ship without bumping the csproj first
@@ -99,13 +99,13 @@ dotnet build BookWheel.slnx
 Examples:
 
 ```bash
-dotnet build BookWheel.slnx /p:InformationalVersion=1.4.0
-docker build --build-arg APP_VERSION=1.4.0 -t jasonkryst/bookwheel:1.4.0 .
+dotnet build BookWheel.slnx /p:InformationalVersion=1.6.0
+docker build --build-arg APP_VERSION=1.6.0 -t jasonkryst/bookwheel:1.6.0 .
 ```
 
 ## Automated Docker Publish on Version Release
 
-GitHub Actions publishes Docker images to Docker Hub and GHCR when a GitHub Release is published (for example, tagged `v1.4.0`).
+GitHub Actions publishes Docker images to Docker Hub and GHCR when a GitHub Release is published (for example, tagged `v1.6.0`).
 
 Workflow file:
 
@@ -113,9 +113,9 @@ Workflow file:
 
 Published tags:
 
-- `jasonkryst/bookwheel:<version-without-v>` (for example `1.4.0`)
+- `jasonkryst/bookwheel:<version-without-v>` (for example `1.6.0`)
 - `jasonkryst/bookwheel:latest` (only for non-prerelease versions)
-- `ghcr.io/jasonkryst/bookwheel:<version-without-v>` (for example `1.4.0`)
+- `ghcr.io/jasonkryst/bookwheel:<version-without-v>` (for example `1.6.0`)
 - `ghcr.io/jasonkryst/bookwheel:latest` (only for non-prerelease versions)
 
 Required repository secrets:
@@ -419,6 +419,7 @@ Current integration tests cover:
 - Metrics endpoint behavior and access control
 - Container and startup smoke checks for runtime paths and health probes
 - Persistent log file creation and structured audit logging checks
+- CI dependency-audit gate (`scripts/check-vulnerable-packages.sh`): passes clean `dotnet list --vulnerable` output through unchanged and exits 0, and exits 1 when the report contains a vulnerable-packages finding
 
 Frontend-focused tests also verify that the HTML, JavaScript, and CSS expose the account setup mode, selected-book UI, pagination summary, delete confirmation flow, logout form reset behavior, icon-based theme toggle behavior, and file-based import/export behavior.
 
@@ -456,7 +457,8 @@ Use the toolbar import/export icon button to open the transfer modal.
 - The test host captures structured logs so security audit events can be asserted in tests.
 - The test host also verifies that log entries are written to persistent JSONL files in the temp `App_Data/logs` folder.
 - CI runs build, full tests, vulnerability scans, security-focused regressions, smoke tests, and Docker startup verification.
-- CI also runs secret scanning via gitleaks to prevent accidental token/credential commits.
+- CI also runs secret scanning via gitleaks and workflow linting via actionlint to prevent accidental token/credential commits and malformed workflow changes.
+- CI enforces a per-ref concurrency group (newer pushes cancel in-progress runs for the same branch/PR) and per-job timeouts, and Docker layer builds are cached via GitHub Actions cache (`type=gha`).
 - Frontend behavior is implemented in `BookWheel/wwwroot/js/app.js`.
 - The wheel UI and styles are in `BookWheel/wwwroot/index.html` and `BookWheel/wwwroot/css/site.css`.
 
@@ -495,9 +497,8 @@ Startup diagnostics:
 1. Update the version stamp in `BookWheel/BookWheel.csproj` (`InformationalVersion`) — the release workflow fails if the GitHub Release tag doesn't match it.
 2. Run full tests: `dotnet test BookWheel.slnx`.
 3. Run security-focused regression filter from CI workflow.
-4. Run vulnerability scans:
-   - `dotnet list BookWheel/BookWheel.csproj package --vulnerable --include-transitive`
-   - `dotnet list BookWheel.Tests/BookWheel.Tests.csproj package --vulnerable --include-transitive`
+4. Run vulnerability scans (same gate CI's `dependency-audit` job uses — `dotnet list --vulnerable` alone always exits 0, so the script is what actually fails the build):
+   - `scripts/check-vulnerable-packages.sh BookWheel/BookWheel.csproj BookWheel.Tests/BookWheel.Tests.csproj`
 5. Build container image with explicit tag and version build arg.
 6. Start container and verify readiness endpoint (`/health/ready`) and basic login flow.
 7. Verify persistent volumes for `/app/App_Data` and Data Protection keys.

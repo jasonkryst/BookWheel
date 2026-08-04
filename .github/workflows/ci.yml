@@ -6,23 +6,42 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run actionlint
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color
+
   secret-scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Secret scanning (gitleaks)
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: false
 
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Setup .NET
@@ -41,10 +60,11 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
       - name: Build
-        run: dotnet build --no-restore /p:InformationalVersion="${{ env.APP_VERSION }}"
+        run: dotnet build --no-restore /p:InformationalVersion="$APP_VERSION"
 
   unit-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Setup .NET
@@ -58,6 +78,7 @@ jobs:
 
   dependency-audit:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Setup .NET
@@ -67,12 +88,11 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
       - name: Security vulnerability scan
-        run: |
-          dotnet list BookWheel/BookWheel.csproj package --vulnerable --include-transitive
-          dotnet list BookWheel.Tests/BookWheel.Tests.csproj package --vulnerable --include-transitive
+        run: scripts/check-vulnerable-packages.sh BookWheel/BookWheel.csproj BookWheel.Tests/BookWheel.Tests.csproj
 
   docker-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Setup .NET
@@ -88,11 +108,21 @@ jobs:
             exit 1
           fi
           echo "APP_VERSION=${BASE_VERSION}-ci.${GITHUB_RUN_NUMBER}+${GITHUB_SHA}" >> "$GITHUB_ENV"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
       - name: Build Docker image
-        run: docker build --build-arg APP_VERSION=${{ env.APP_VERSION }} -t bookwheel:${{ github.sha }} .
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          load: true
+          tags: bookwheel:${{ github.sha }}
+          build-args: APP_VERSION=${{ env.APP_VERSION }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   container-smoke-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Setup .NET
@@ -108,8 +138,17 @@ jobs:
             exit 1
           fi
           echo "APP_VERSION=${BASE_VERSION}-ci.${GITHUB_RUN_NUMBER}+${GITHUB_SHA}" >> "$GITHUB_ENV"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
       - name: Build Docker image
-        run: docker build --build-arg APP_VERSION=${{ env.APP_VERSION }} -t bookwheel:${{ github.sha }} .
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          load: true
+          tags: bookwheel:${{ github.sha }}
+          build-args: APP_VERSION=${{ env.APP_VERSION }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
       - name: Container startup smoke verification
         run: |
           docker run -d --name bookwheel-smoke -p 18080:8080 bookwheel:${{ github.sha }}
@@ -129,6 +168,7 @@ jobs:
 
   trivy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
       security-events: write
@@ -147,10 +187,19 @@ jobs:
             exit 1
           fi
           echo "APP_VERSION=${BASE_VERSION}-ci.${GITHUB_RUN_NUMBER}+${GITHUB_SHA}" >> "$GITHUB_ENV"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
       - name: Build Docker image
-        run: docker build --build-arg APP_VERSION=${{ env.APP_VERSION }} -t bookwheel:${{ github.sha }} .
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          load: true
+          tags: bookwheel:${{ github.sha }}
+          build-args: APP_VERSION=${{ env.APP_VERSION }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
       - name: Vulnerability gate (fixable CRITICAL/HIGH findings)
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: bookwheel:${{ github.sha }}
           format: table
@@ -159,13 +208,13 @@ jobs:
           exit-code: 1
       - name: Full vulnerability report (all severities, including unfixed)
         if: always()
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: bookwheel:${{ github.sha }}
           format: sarif
           output: trivy-results.sarif
       - name: Upload scan results to the Security tab
         if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@d1ba80a13dd99fba24a470575428917156a28b43 # v4
         with:
           sarif_file: trivy-results.sarif
