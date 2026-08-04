@@ -321,16 +321,18 @@ function renderPagination() {
   const hasMultiplePages = activeBooks.length > BOOKS_PER_PAGE;
 
   booksPaginationEl.classList.toggle('hidden', !hasMultiplePages);
-  booksPageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+  booksPageInfo.textContent = window.BookWheelI18n.t('books.pageInfo', { current: currentPage, total: totalPages });
   booksPrevPageBtn.disabled = !hasMultiplePages || currentPage <= 1;
   booksNextPageBtn.disabled = !hasMultiplePages || currentPage >= totalPages;
 }
 
 function renderBookCount() {
+  const { t } = window.BookWheelI18n;
   const totalBooks = activeBooks.length;
   const totalPages = getTotalPages();
-  const bookLabel = totalBooks === 1 ? '1 book total' : `${totalBooks} books total`;
-  booksTotalCountEl.textContent = `${bookLabel} • Page ${currentPage} of ${totalPages}`;
+  const bookLabel = totalBooks === 1 ? t('books.countOne') : t('books.countOther', { count: totalBooks });
+  const pageInfo = t('books.pageInfo', { current: currentPage, total: totalPages });
+  booksTotalCountEl.textContent = `${bookLabel} • ${pageInfo}`;
 }
 
 function showApp(show) {
@@ -819,15 +821,16 @@ function drawWheel() {
 }
 
 function renderActiveBooks() {
+  const { t } = window.BookWheelI18n;
   activeBooksEl.innerHTML = '';
   if (!activeBooks.length) {
     activeBooksEl.innerHTML = `
       <div class="books-empty-state" role="status" aria-live="polite">
-        <h3>No books yet</h3>
-        <p class="message">Add your first title above to populate the wheel.</p>
-        <p class="message">Tip: after adding books, press the Spin button or hit Enter on the wheel.</p>
+        <h3>${t('books.emptyHeading')}</h3>
+        <p class="message">${t('books.emptyHint1')}</p>
+        <p class="message">${t('books.emptyHint2')}</p>
       </div>`;
-    selectedBookEl.textContent = window.BookWheelI18n.t('wheel.emptyPrompt');
+    selectedBookEl.textContent = t('wheel.emptyPrompt');
     renderBookCount();
     renderPagination();
     return;
@@ -845,16 +848,16 @@ function renderActiveBooks() {
     titleButton.type = 'button';
     titleButton.className = 'book-title-btn';
     titleButton.textContent = book.title;
-    titleButton.title = 'Edit this title';
-    titleButton.setAttribute('aria-label', `Edit book title: ${book.title}`);
+    titleButton.title = t('books.editTitleHint');
+    titleButton.setAttribute('aria-label', t('books.editAria', { title: book.title }));
     titleButton.addEventListener('click', () => editBook(book));
 
     const removeButton = document.createElement('button');
     removeButton.type = 'button';
     removeButton.className = 'book-remove-btn';
-    removeButton.textContent = 'Remove';
-    removeButton.title = 'Remove from active list';
-    removeButton.setAttribute('aria-label', `Remove book: ${book.title}`);
+    removeButton.textContent = t('common.remove');
+    removeButton.title = t('books.removeHint');
+    removeButton.setAttribute('aria-label', t('books.removeAria', { title: book.title }));
     removeButton.addEventListener('click', () => removeBook(book));
 
     const actions = document.createElement('div');
@@ -891,10 +894,11 @@ async function editBook(book) {
 }
 
 async function saveEdit() {
+  const { t } = window.BookWheelI18n;
   const trimmed = editBookTitle.value.trim();
   if (!trimmed) {
     editBookTitle.setAttribute('aria-invalid', 'true');
-    editError.textContent = 'Title cannot be empty.';
+    editError.textContent = t('books.titleEmptyError');
     return;
   }
 
@@ -906,15 +910,15 @@ async function saveEdit() {
   });
 
   closeDialog(editDialog);
-  bookMessage.textContent = 'Book updated.';
-  showToast('Book title updated.', 'success');
+  bookMessage.textContent = t('books.updatedMessage');
+  showToast(t('books.updatedToast'), 'success');
   await refreshBooks();
 }
 
 async function removeBook(book) {
   pendingDeleteBook = book;
   deleteError.textContent = '';
-  deleteConfirmMessage.textContent = `Remove "${book.title}" from the active list?`;
+  deleteConfirmMessage.textContent = window.BookWheelI18n.t('books.removeConfirmMessage', { title: book.title });
   openDialog(deleteDialog, confirmDeleteBtn);
 }
 
@@ -940,8 +944,8 @@ async function confirmDelete() {
   });
 
   closeDeleteDialog();
-  bookMessage.textContent = 'Book removed from the active list.';
-  showToast('Book removed.', 'success');
+  bookMessage.textContent = window.BookWheelI18n.t('books.removedMessage');
+  showToast(window.BookWheelI18n.t('books.removedToast'), 'success');
   await refreshBooks();
 }
 
@@ -1263,11 +1267,12 @@ loginForm.addEventListener('submit', async event => {
 bookForm.addEventListener('submit', async event => {
   event.preventDefault();
   bookMessage.textContent = '';
+  const { t } = window.BookWheelI18n;
   const trimmedTitle = bookTitle.value.trim();
 
   if (!trimmedTitle) {
     bookTitle.setAttribute('aria-invalid', 'true');
-    bookMessage.textContent = 'Book title is required.';
+    bookMessage.textContent = t('books.titleRequiredError');
     return;
   }
 
@@ -1280,8 +1285,8 @@ bookForm.addEventListener('submit', async event => {
       body: JSON.stringify({ title: trimmedTitle })
     });
     bookTitle.value = '';
-    bookMessage.textContent = 'Book added.';
-    showToast('Book added to active list.', 'success');
+    bookMessage.textContent = t('books.addedMessage');
+    showToast(t('books.addedToast'), 'success');
     await refreshBooks({ goToLastPage: true, shuffleWheel: true });
   } catch (error) {
     bookMessage.textContent = error.message;

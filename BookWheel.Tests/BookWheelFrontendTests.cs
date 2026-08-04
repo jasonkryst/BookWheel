@@ -25,6 +25,7 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("Create your Book Wheel account", script, StringComparison.Ordinal);
         Assert.Contains("Last selected: {title}", script, StringComparison.Ordinal);
         Assert.Contains("Version: {version}", script, StringComparison.Ordinal);
+        Assert.Contains("Page {current} of {total}", script, StringComparison.Ordinal);
 
         // Negative: locale data lives only in this catalog file, not duplicated
         // as a second hardcoded English-only copy anywhere in the same file.
@@ -130,9 +131,7 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("const BOOKS_PER_PAGE = 10", script, StringComparison.Ordinal);
         Assert.Contains("booksPagination", script, StringComparison.Ordinal);
         Assert.Contains("booksTotalCount", script, StringComparison.Ordinal);
-        Assert.Contains("Page ${currentPage} of ${totalPages}", script, StringComparison.Ordinal);
         Assert.Contains("trimmedTitle", script, StringComparison.Ordinal);
-        Assert.Contains("Book title is required.", script, StringComparison.Ordinal);
         Assert.Contains("resetAuthForm", script, StringComparison.Ordinal);
         Assert.Contains("deleteDialog", script, StringComparison.Ordinal);
         Assert.Contains("shuffleArray", script, StringComparison.Ordinal);
