@@ -57,6 +57,45 @@ public sealed class BookWheelFrontendTests
     }
 
     [Fact]
+    public async Task Home_Page_Language_Toggle_Should_Not_Ship_Untranslated_Placeholder_Text()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var html = await response.Content.ReadAsStringAsync();
+
+        var toggleStart = html.IndexOf("id=\"langToggleBtn\"", StringComparison.Ordinal);
+        var toggleSnippet = html.Substring(toggleStart, Math.Min(400, html.Length - toggleStart));
+
+        // Positive: the toggle's static label is a short language code, not a full sentence.
+        Assert.Contains(">EN<", toggleSnippet, StringComparison.Ordinal);
+
+        // Negative: no leftover "TODO"/placeholder marker text made it into the toggle markup.
+        Assert.DoesNotContain("TODO", toggleSnippet, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Frontend_Script_Should_Re_Render_Dynamic_Content_On_Locale_Change()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: dynamic UI re-renders (not just a page reload) when the
+        // language changes, so an in-progress session doesn't show mixed languages.
+        Assert.Contains("bookwheel:locale-changed", script, StringComparison.Ordinal);
+        Assert.Contains("langToggleBtn", script, StringComparison.Ordinal);
+
+        // Negative: the language toggle must not require navigator.language to be
+        // re-read on every click — it should cycle explicitly through SUPPORTED_LOCALES,
+        // so the user's manual choice isn't overridden by browser settings mid-session.
+        Assert.DoesNotContain("langToggleBtn.addEventListener('click', () => setLocale(navigator.language", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Home_Page_Should_Render_Main_UI_Structure()
     {
         using var factory = new BookWheelWebAppFactory();
