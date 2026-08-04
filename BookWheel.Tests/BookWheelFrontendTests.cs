@@ -22,6 +22,7 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("Iniciar sesión", script, StringComparison.Ordinal);
         Assert.Contains("Zaloguj się", script, StringComparison.Ordinal);
         Assert.Contains("Book title is required.", script, StringComparison.Ordinal);
+        Assert.Contains("Create your Book Wheel account", script, StringComparison.Ordinal);
 
         // Negative: locale data lives only in this catalog file, not duplicated
         // as a second hardcoded English-only copy anywhere in the same file.
@@ -178,7 +179,6 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("const selectedIndex = wheelBooks.findIndex", script, StringComparison.Ordinal);
         Assert.Contains("/api/auth/status", script, StringComparison.Ordinal);
         Assert.Contains("/api/auth/setup", script, StringComparison.Ordinal);
-        Assert.Contains("Create your Book Wheel account", script, StringComparison.Ordinal);
     }
 
     [Fact]

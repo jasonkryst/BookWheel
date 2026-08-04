@@ -363,10 +363,11 @@ function resetAuthForm() {
 
 function setAuthMode(mode) {
   authMode = mode;
+  const { t } = window.BookWheelI18n;
 
   if (resetTokenFromUrl) {
-    authTitle.textContent = 'Set your Book Wheel password';
-    authMessage.textContent = 'Use the secure reset link from your administrator.';
+    authTitle.textContent = t('auth.setPasswordTitle');
+    authMessage.textContent = t('auth.setPasswordSubtitle');
     loginForm.classList.add('hidden');
     resetPasswordForm.classList.remove('hidden');
     return;
@@ -376,25 +377,26 @@ function setAuthMode(mode) {
   resetPasswordForm.classList.add('hidden');
 
   if (mode === 'setup') {
-    authTitle.textContent = 'Create your Book Wheel account';
-    authMessage.textContent = 'No account exists yet. Create one to begin.';
-    authSubmitBtn.textContent = 'Create account';
+    authTitle.textContent = t('auth.setupTitle');
+    authMessage.textContent = t('auth.setupSubtitle');
+    authSubmitBtn.textContent = t('auth.setupSubmit');
     return;
   }
 
-  authTitle.textContent = 'Book Wheel Login';
-  authMessage.textContent = 'Log in with your existing account.';
-  authSubmitBtn.textContent = 'Log in';
+  authTitle.textContent = t('auth.loginTitle');
+  authMessage.textContent = t('auth.loginSubtitle');
+  authSubmitBtn.textContent = t('auth.loginSubmit');
 }
 
 function openResetLinkDialog(result) {
   resetLinkError.textContent = '';
+  const { t } = window.BookWheelI18n;
   const expiresAt = result.expiresAtUtc ? new Date(result.expiresAtUtc) : null;
   const expiryText = expiresAt && !Number.isNaN(expiresAt.getTime())
-    ? `Link expires ${expiresAt.toLocaleString()}.`
-    : 'Link expires in 24 hours.';
+    ? t('users.linkExpiresAt', { datetime: expiresAt.toLocaleString() })
+    : t('users.linkExpires24h');
 
-  resetLinkMessage.textContent = `Reset link created for ${result.username}. ${expiryText}`;
+  resetLinkMessage.textContent = t('users.resetLinkCreated', { username: result.username, expiryText });
   resetLinkValue.value = result.resetLink || '';
 
   openDialog(resetLinkDialog, resetLinkValue);
@@ -411,6 +413,7 @@ async function requestJson(url, options = {}) {
   const response = await fetch(url, {
     headers: {
       'Content-Type': 'application/json',
+      'Accept-Language': window.BookWheelI18n.getCurrentLocale(),
       ...(options.headers || {})
     },
     credentials: 'same-origin',
@@ -421,7 +424,7 @@ async function requestJson(url, options = {}) {
   const payload = contentType.includes('application/json') ? await response.json() : null;
 
   if (!response.ok) {
-    throw new Error(payload?.message || 'Request failed.');
+    throw new Error(payload?.message || window.BookWheelI18n.t('common.requestFailed'));
   }
 
   return payload;
@@ -1210,6 +1213,7 @@ closeExportBtn.addEventListener('click', () => {
 loginForm.addEventListener('submit', async event => {
   event.preventDefault();
   loginError.textContent = '';
+  const { t } = window.BookWheelI18n;
   const originalButtonText = authSubmitBtn.textContent;
   const username = usernameInput.value.trim();
   const password = passwordInput.value;
@@ -1217,7 +1221,7 @@ loginForm.addEventListener('submit', async event => {
   if (!username || !password) {
     usernameInput.setAttribute('aria-invalid', 'true');
     passwordInput.setAttribute('aria-invalid', 'true');
-    loginError.textContent = 'Username and password are required.';
+    loginError.textContent = t('auth.credentialsRequiredError');
     return;
   }
 
@@ -1225,7 +1229,7 @@ loginForm.addEventListener('submit', async event => {
   passwordInput.setAttribute('aria-invalid', 'false');
 
   authSubmitBtn.disabled = true;
-  authSubmitBtn.textContent = authMode === 'setup' ? 'Creating account...' : 'Logging in...';
+  authSubmitBtn.textContent = authMode === 'setup' ? t('auth.creatingAccountBusy') : t('auth.loggingInBusy');
   usernameInput.disabled = true;
   passwordInput.disabled = true;
 
@@ -1239,12 +1243,12 @@ loginForm.addEventListener('submit', async event => {
     });
     applyCurrentUser(authResult.user || null);
     showApp(true);
-    showToast(authMode === 'setup' ? 'Account created and signed in.' : 'Signed in successfully.', 'success');
+    showToast(authMode === 'setup' ? t('auth.accountCreatedToast') : t('auth.signedInToast'), 'success');
     await refreshBooks();
     setAuthMode('login');
   } catch (error) {
     loginError.textContent = error.message === 'Failed to fetch'
-      ? 'Cannot connect to the server. Make sure the app is running, then try again.'
+      ? t('common.connectionError')
       : error.message;
     showToast(loginError.textContent, 'error');
   } finally {
@@ -1387,7 +1391,7 @@ logoutBtn.addEventListener('click', async () => {
   resetAuthForm();
   setAuthMode('login');
   showApp(false);
-  showToast('Signed out.', 'info');
+  showToast(window.BookWheelI18n.t('auth.signedOutToast'), 'info');
 });
 
 if (userManagementBtn) {
@@ -1483,9 +1487,10 @@ if (resetPasswordForm) {
     event.preventDefault();
     resetPasswordError.textContent = '';
     resetPasswordMessage.textContent = '';
+    const { t } = window.BookWheelI18n;
 
     if (!resetTokenFromUrl) {
-      resetPasswordError.textContent = 'Reset token is missing.';
+      resetPasswordError.textContent = t('auth.resetTokenMissingError');
       return;
     }
 
@@ -1495,21 +1500,21 @@ if (resetPasswordForm) {
     if (!newPassword || !confirmPassword) {
       resetPassword.setAttribute('aria-invalid', 'true');
       resetPasswordConfirm.setAttribute('aria-invalid', 'true');
-      resetPasswordError.textContent = 'Both password fields are required.';
+      resetPasswordError.textContent = t('auth.bothPasswordsRequiredError');
       return;
     }
 
     if (newPassword.length < 8) {
       resetPassword.setAttribute('aria-invalid', 'true');
       resetPasswordConfirm.setAttribute('aria-invalid', 'true');
-      resetPasswordError.textContent = 'Password must be at least 8 characters.';
+      resetPasswordError.textContent = t('auth.passwordTooShortError');
       return;
     }
 
     if (newPassword !== confirmPassword) {
       resetPassword.setAttribute('aria-invalid', 'true');
       resetPasswordConfirm.setAttribute('aria-invalid', 'true');
-      resetPasswordError.textContent = 'Passwords do not match.';
+      resetPasswordError.textContent = t('auth.passwordsMismatchError');
       return;
     }
 
@@ -1518,7 +1523,7 @@ if (resetPasswordForm) {
 
     resetPasswordSubmitBtn.disabled = true;
     const originalText = resetPasswordSubmitBtn.textContent;
-    resetPasswordSubmitBtn.textContent = 'Saving...';
+    resetPasswordSubmitBtn.textContent = t('common.saving');
 
     try {
       await requestJson('/api/auth/password-reset/complete', {
@@ -1529,8 +1534,8 @@ if (resetPasswordForm) {
         })
       });
 
-      resetPasswordMessage.textContent = 'Password updated. You can now log in with your new password.';
-      showToast('Password updated successfully.', 'success');
+      resetPasswordMessage.textContent = t('auth.passwordUpdatedMessage');
+      showToast(t('auth.passwordUpdatedToast'), 'success');
       resetTokenFromUrl = null;
       resetPasswordForm.reset();
       const url = new URL(window.location.href);
@@ -1566,11 +1571,12 @@ if (importExportBtn) {
   resetTokenFromUrl = query.get('resetToken');
 
   if (resetTokenFromUrl) {
+    const { t } = window.BookWheelI18n;
     showApp(false);
     loginForm.classList.add('hidden');
     resetPasswordForm.classList.remove('hidden');
-    authTitle.textContent = 'Validate password reset link';
-    authMessage.textContent = 'Checking your secure reset link...';
+    authTitle.textContent = t('auth.validatingLinkTitle');
+    authMessage.textContent = t('auth.validatingLinkSubtitle');
 
     try {
       const validation = await requestJson('/api/auth/password-reset/validate', {
@@ -1580,14 +1586,14 @@ if (importExportBtn) {
 
       const expiresAt = validation.expiresAtUtc ? new Date(validation.expiresAtUtc) : null;
       const expiryText = expiresAt && !Number.isNaN(expiresAt.getTime())
-        ? `This link expires at ${expiresAt.toLocaleString()}.`
-        : 'This link expires in 24 hours.';
+        ? t('auth.linkExpiresAt', { datetime: expiresAt.toLocaleString() })
+        : t('auth.linkExpires24h');
 
-      authTitle.textContent = `Set password for ${validation.username || 'your account'}`;
+      authTitle.textContent = t('auth.setPasswordForUser', { username: validation.username || t('auth.defaultAccountName') });
       authMessage.textContent = expiryText;
       resetPasswordMessage.textContent = '';
       resetPasswordError.textContent = '';
-      showToast('Reset link validated.', 'success');
+      showToast(t('auth.linkValidatedToast'), 'success');
       resetPassword.focus();
     } catch (error) {
       resetPasswordForm.classList.add('hidden');
@@ -1596,9 +1602,9 @@ if (importExportBtn) {
       const url = new URL(window.location.href);
       url.searchParams.delete('resetToken');
       window.history.replaceState({}, document.title, url.pathname + url.search);
-      authTitle.textContent = 'Book Wheel Login';
-      authMessage.textContent = 'Log in with your existing account.';
-      loginError.textContent = error.message || 'The password reset link is invalid or has expired.';
+      authTitle.textContent = t('auth.loginTitle');
+      authMessage.textContent = t('auth.loginSubtitle');
+      loginError.textContent = error.message || t('auth.linkInvalidError');
       showToast(loginError.textContent, 'error');
     }
   }
