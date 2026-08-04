@@ -2,6 +2,7 @@ using BookWheel.HealthChecks;
 using BookWheel.Logging;
 using BookWheel.Models;
 using BookWheel.Services;
+using BookWheel.Storage;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using System.Text.Json;
@@ -26,8 +27,16 @@ builder.Services.Configure<SecurityOptions>(builder.Configuration.GetSection(Sec
 builder.Services.Configure<ObservabilityOptions>(builder.Configuration.GetSection(ObservabilityOptions.SectionName));
 builder.Services.AddSingleton<AuthService>();
 builder.Services.AddSingleton<AppMetricsService>();
-builder.Services.AddSingleton<CredentialStore>();
-builder.Services.AddSingleton<BookStore>();
+
+builder.Services.AddSingleton<JsonBookRepository>();
+builder.Services.AddSingleton<IBookRepository>(sp => sp.GetRequiredService<JsonBookRepository>());
+
+builder.Services.AddSingleton<JsonCredentialRepository>();
+builder.Services.AddSingleton<ICredentialRepository>(sp => sp.GetRequiredService<JsonCredentialRepository>());
+
+builder.Services.AddSingleton<JsonPasswordResetTokenRepository>();
+builder.Services.AddSingleton<IPasswordResetTokenRepository>(sp => sp.GetRequiredService<JsonPasswordResetTokenRepository>());
+
 builder.Services.AddSingleton<DataMigrationService>();
 builder.Services.AddControllers();
 builder.Services.AddHttpClient("central-log-shipper");

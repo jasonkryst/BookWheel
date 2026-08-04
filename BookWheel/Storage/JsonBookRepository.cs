@@ -1,10 +1,11 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using BookWheel.Models;
+using BookWheel.Services;
 
-namespace BookWheel.Services;
+namespace BookWheel.Storage;
 
-public sealed class BookStore
+public sealed class JsonBookRepository : IBookRepository
 {
     private const int CurrentBookSchemaVersion = 2;
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -32,7 +33,7 @@ public sealed class BookStore
         public Guid? BooksOwnerUserId { get; set; }
     }
 
-    public BookStore(IWebHostEnvironment environment)
+    public JsonBookRepository(IWebHostEnvironment environment)
     {
         _dataDirectory = Path.Combine(environment.ContentRootPath, "App_Data");
         _corruptDataDirectory = Path.Combine(_dataDirectory, "corrupt");

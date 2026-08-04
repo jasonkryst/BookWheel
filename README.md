@@ -63,11 +63,13 @@ Book Wheel/
     Controllers/
     Models/
     Services/
+    Storage/
     wwwroot/
   BookWheel.Tests/
     BookWheel.Tests.csproj
     BookWheelApiTests.cs
     BookWheelWebAppFactory.cs
+    Storage/
 ```
 
 ## Prerequisites

@@ -18,6 +18,7 @@ This document outlines practical ways to improve Book Wheel across product exper
 - Clean book management flow with add, edit, remove, and spin actions
 - Light/dark theme support with saved browser preference
 - Persistent storage for books, credentials, logs, and Data Protection keys
+- Storage CRUD operations are abstracted behind repository interfaces (JSON-backed today), so a SQL/NoSQL backend can be swapped in later without touching controllers or services
 - Working Docker-based deployment path
 - Security hardening already in place for encrypted credential storage, HTTPS redirection, HSTS, and login rate limiting
 - Forwarded headers are configured for reverse-proxy deployments
@@ -110,6 +111,7 @@ The current file-based approach is simple, but it will eventually become limitin
 3. [Done] Add versioned data schema support for future migrations.
 4. Consider moving from flat files to SQLite for stronger consistency and easier querying.
 5. [Done] Add health checks for storage, logging, and app readiness.
+6. [Done] Abstract storage CRUD operations behind repository interfaces so the JSON-file backend can be swapped for SQL/NoSQL without touching business logic (#14).
 
 Expected outcome:
 

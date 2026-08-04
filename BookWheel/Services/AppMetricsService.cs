@@ -1,4 +1,5 @@
 using BookWheel.Models;
+using BookWheel.Storage;
 
 namespace BookWheel.Services;
 
@@ -29,7 +30,7 @@ public sealed class AppMetricsService
         Interlocked.Increment(ref _spinCount);
     }
 
-    public async Task<MetricsSnapshot> GetSnapshotAsync(BookStore bookStore)
+    public async Task<MetricsSnapshot> GetSnapshotAsync(IBookRepository bookRepository)
     {
         return new MetricsSnapshot
         {
@@ -38,7 +39,7 @@ public sealed class AppMetricsService
             LoginLockoutCount = Interlocked.Read(ref _loginLockoutCount),
             SuccessfulLoginCount = Interlocked.Read(ref _successfulLoginCount),
             SpinCount = Interlocked.Read(ref _spinCount),
-            TotalBookCount = await bookStore.GetTotalBookCountAsync()
+            TotalBookCount = await bookRepository.GetTotalBookCountAsync()
         };
     }
 }

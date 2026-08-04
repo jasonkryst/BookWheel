@@ -1,12 +1,14 @@
 using System.Collections.Concurrent;
 using BookWheel.Models;
+using BookWheel.Storage;
 using Microsoft.Extensions.Options;
 
 namespace BookWheel.Services;
 
 public sealed class AuthService
 {
-    private readonly CredentialStore _credentialStore;
+    private readonly ICredentialRepository _credentialRepository;
+    private readonly IPasswordResetTokenRepository _resetTokenRepository;
     private readonly SecurityOptions _securityOptions;
     private readonly ConcurrentDictionary<string, SessionRecord> _sessions = new();
     private readonly ConcurrentDictionary<string, FailedLoginRecord> _failedLogins = new(StringComparer.OrdinalIgnoreCase);
@@ -24,20 +26,21 @@ public sealed class AuthService
         public DateTimeOffset ExpiresAtUtc { get; set; }
     }
 
-    public AuthService(CredentialStore credentialStore, IOptions<SecurityOptions> securityOptions)
+    public AuthService(ICredentialRepository credentialRepository, IPasswordResetTokenRepository resetTokenRepository, IOptions<SecurityOptions> securityOptions)
     {
-        _credentialStore = credentialStore;
+        _credentialRepository = credentialRepository;
+        _resetTokenRepository = resetTokenRepository;
         _securityOptions = securityOptions.Value;
     }
 
     public Task<bool> HasAccountAsync()
     {
-        return _credentialStore.HasAccountAsync();
+        return _credentialRepository.HasAccountAsync();
     }
 
     public async Task<AuthenticatedUser> CreateAccountAsync(string username, string password)
     {
-        var user = await _credentialStore.CreateInitialAccountAsync(username, password);
+        var user = await _credentialRepository.CreateInitialAccountAsync(username, password);
         return ToAuthenticatedUser(user);
     }
 
@@ -54,7 +57,7 @@ public sealed class AuthService
             };
         }
 
-        var user = await _credentialStore.ValidateCredentialsAsync(username, password);
+        var user = await _credentialRepository.ValidateCredentialsAsync(username, password);
         if (user is null)
         {
             failedRecord.Count += 1;
@@ -101,14 +104,54 @@ public sealed class AuthService
         return new LoginValidationResult { User = ToAuthenticatedUser(user) };
     }
 
-    public Task<string> CompletePasswordResetAsync(string token, string newPassword)
+    public async Task<(string ResetLink, DateTimeOffset ExpiresAtUtc, string Username)> CreatePasswordResetLinkAsync(Guid userId, string appBaseUrl)
     {
-        return _credentialStore.CompletePasswordResetAsync(token, newPassword);
+        var user = await _credentialRepository.MarkForPasswordResetAsync(userId);
+        var (rawToken, expiresAtUtc) = await _resetTokenRepository.CreateAsync(userId);
+
+        var trimmedBaseUrl = appBaseUrl.TrimEnd('/');
+        var resetLink = $"{trimmedBaseUrl}/?resetToken={Uri.EscapeDataString(rawToken)}";
+        return (resetLink, expiresAtUtc, user.Username);
     }
 
-    public Task<PasswordResetTokenValidationResult> ValidatePasswordResetTokenAsync(string token)
+    public async Task<string> CompletePasswordResetAsync(string token, string newPassword)
     {
-        return _credentialStore.ValidatePasswordResetTokenAsync(token);
+        if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(newPassword))
+        {
+            throw new InvalidOperationException("A valid token and password are required.");
+        }
+
+        var lookup = await _resetTokenRepository.ValidateAsync(token);
+        if (!lookup.IsValid)
+        {
+            throw new InvalidOperationException("The password reset link is invalid or has expired.");
+        }
+
+        var username = await _credentialRepository.SetPasswordAsync(lookup.UserId, newPassword);
+        await _resetTokenRepository.CompleteAsync(token);
+        return username;
+    }
+
+    public async Task<PasswordResetTokenValidationResult> ValidatePasswordResetTokenAsync(string token)
+    {
+        var lookup = await _resetTokenRepository.ValidateAsync(token);
+        if (!lookup.IsValid)
+        {
+            return new PasswordResetTokenValidationResult { IsValid = false };
+        }
+
+        var username = await _credentialRepository.GetUsernameAsync(lookup.UserId);
+        if (username is null)
+        {
+            return new PasswordResetTokenValidationResult { IsValid = false };
+        }
+
+        return new PasswordResetTokenValidationResult
+        {
+            IsValid = true,
+            Username = username,
+            ExpiresAtUtc = lookup.ExpiresAtUtc
+        };
     }
 
     public string CreateSession(AuthenticatedUser user)

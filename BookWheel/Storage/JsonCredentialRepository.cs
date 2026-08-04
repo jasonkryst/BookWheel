@@ -1,15 +1,15 @@
 using System.Text.Json;
 using System.Security.Cryptography;
 using BookWheel.Models;
+using BookWheel.Services;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 
-namespace BookWheel.Services;
+namespace BookWheel.Storage;
 
-public sealed class CredentialStore
+public sealed class JsonCredentialRepository : ICredentialRepository
 {
     private const int CurrentCredentialSchemaVersion = 2;
-    private const int CurrentResetTokenSchemaVersion = 1;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true
@@ -20,7 +20,6 @@ public sealed class CredentialStore
     private readonly string _dataDirectory;
     private readonly string _corruptDataDirectory;
     private readonly string _credentialFilePath;
-    private readonly string _passwordResetTokenFilePath;
     private readonly IDataProtector _protector;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
@@ -36,18 +35,11 @@ public sealed class CredentialStore
         public List<CredentialRecord> Users { get; set; } = [];
     }
 
-    private sealed class PasswordResetTokenDocument
-    {
-        public int SchemaVersion { get; set; } = CurrentResetTokenSchemaVersion;
-        public List<PasswordResetTokenRecord> Tokens { get; set; } = [];
-    }
-
-    public CredentialStore(IWebHostEnvironment environment, IDataProtectionProvider dataProtectionProvider)
+    public JsonCredentialRepository(IWebHostEnvironment environment, IDataProtectionProvider dataProtectionProvider)
     {
         _dataDirectory = Path.Combine(environment.ContentRootPath, "App_Data");
         _corruptDataDirectory = Path.Combine(_dataDirectory, "corrupt");
         _credentialFilePath = Path.Combine(_dataDirectory, "user.cred");
-        _passwordResetTokenFilePath = Path.Combine(_dataDirectory, "password-reset-tokens.dat");
         _protector = dataProtectionProvider.CreateProtector("BookWheel.Credentials.v1");
     }
 
@@ -368,133 +360,6 @@ public sealed class CredentialStore
         }
     }
 
-    public async Task<(string ResetLink, DateTimeOffset ExpiresAtUtc, string Username)> CreatePasswordResetLinkAsync(Guid userId, string appBaseUrl)
-    {
-        await _gate.WaitAsync();
-        try
-        {
-            var users = await ReadUsersUnsafeAsync();
-            var user = users.FirstOrDefault(existingUser => existingUser.UserId == userId)
-                ?? throw new InvalidOperationException("User not found.");
-
-            var tokens = await ReadPasswordResetTokensUnsafeAsync();
-            var now = DateTimeOffset.UtcNow;
-            tokens.RemoveAll(token => token.ExpiresAtUtc <= now || token.UserId == userId);
-
-            var rawToken = GenerateResetToken();
-            var expiresAtUtc = now.AddHours(24);
-            tokens.Add(new PasswordResetTokenRecord
-            {
-                UserId = userId,
-                TokenHash = HashToken(rawToken),
-                CreatedAtUtc = now,
-                ExpiresAtUtc = expiresAtUtc
-            });
-
-            user.ForcePasswordReset = true;
-            user.IsLocked = false;
-            user.LockedUntilUtc = null;
-
-            await WriteUsersUnsafeAsync(users);
-            await WritePasswordResetTokensUnsafeAsync(tokens);
-
-            var trimmedBaseUrl = appBaseUrl.TrimEnd('/');
-            var resetLink = $"{trimmedBaseUrl}/?resetToken={Uri.EscapeDataString(rawToken)}";
-            return (resetLink, expiresAtUtc, user.Username);
-        }
-        finally
-        {
-            _gate.Release();
-        }
-    }
-
-    public async Task<string> CompletePasswordResetAsync(string token, string newPassword)
-    {
-        await _gate.WaitAsync();
-        try
-        {
-            if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(newPassword))
-            {
-                throw new InvalidOperationException("A valid token and password are required.");
-            }
-
-            var users = await ReadUsersUnsafeAsync();
-            var tokens = await ReadPasswordResetTokensUnsafeAsync();
-            var now = DateTimeOffset.UtcNow;
-            tokens.RemoveAll(existingToken => existingToken.ExpiresAtUtc <= now);
-
-            var tokenHash = HashToken(token.Trim());
-            var matchingToken = tokens.FirstOrDefault(existingToken => existingToken.TokenHash == tokenHash)
-                ?? throw new InvalidOperationException("The password reset link is invalid or has expired.");
-
-            if (matchingToken.ExpiresAtUtc <= now)
-            {
-                tokens.RemoveAll(existingToken => existingToken.TokenHash == tokenHash);
-                await WritePasswordResetTokensUnsafeAsync(tokens);
-                throw new InvalidOperationException("The password reset link is invalid or has expired.");
-            }
-
-            var user = users.FirstOrDefault(existingUser => existingUser.UserId == matchingToken.UserId)
-                ?? throw new InvalidOperationException("User not found for this reset link.");
-
-            user.PasswordHash = PasswordHasher.HashPassword(user.Username, newPassword);
-            user.ForcePasswordReset = false;
-            user.IsLocked = false;
-            user.LockedUntilUtc = null;
-            tokens.RemoveAll(existingToken => existingToken.TokenHash == tokenHash);
-            await WriteUsersUnsafeAsync(users);
-            await WritePasswordResetTokensUnsafeAsync(tokens);
-            return user.Username;
-        }
-        finally
-        {
-            _gate.Release();
-        }
-    }
-
-    public async Task<PasswordResetTokenValidationResult> ValidatePasswordResetTokenAsync(string token)
-    {
-        await _gate.WaitAsync();
-        try
-        {
-            if (string.IsNullOrWhiteSpace(token))
-            {
-                return new PasswordResetTokenValidationResult { IsValid = false };
-            }
-
-            var users = await ReadUsersUnsafeAsync();
-            var tokens = await ReadPasswordResetTokensUnsafeAsync();
-            var now = DateTimeOffset.UtcNow;
-            tokens.RemoveAll(existingToken => existingToken.ExpiresAtUtc <= now);
-
-            var tokenHash = HashToken(token.Trim());
-            var matchingToken = tokens.FirstOrDefault(existingToken => existingToken.TokenHash == tokenHash);
-            if (matchingToken is null)
-            {
-                await WritePasswordResetTokensUnsafeAsync(tokens);
-                return new PasswordResetTokenValidationResult { IsValid = false };
-            }
-
-            var user = users.FirstOrDefault(existingUser => existingUser.UserId == matchingToken.UserId);
-            if (user is null)
-            {
-                return new PasswordResetTokenValidationResult { IsValid = false };
-            }
-
-            await WritePasswordResetTokensUnsafeAsync(tokens);
-            return new PasswordResetTokenValidationResult
-            {
-                IsValid = true,
-                Username = user.Username,
-                ExpiresAtUtc = matchingToken.ExpiresAtUtc
-            };
-        }
-        finally
-        {
-            _gate.Release();
-        }
-    }
-
     public async Task<UserAccountSummary> DeleteUserAsync(Guid userId)
     {
         await _gate.WaitAsync();
@@ -516,6 +381,65 @@ public sealed class CredentialStore
             users.RemoveAll(user => user.UserId == userId);
             await WriteUsersUnsafeAsync(users);
             return ToSummary(record);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async Task<CredentialRecord> MarkForPasswordResetAsync(Guid userId)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var users = await ReadUsersUnsafeAsync();
+            var user = users.FirstOrDefault(existingUser => existingUser.UserId == userId)
+                ?? throw new InvalidOperationException("User not found.");
+
+            user.ForcePasswordReset = true;
+            user.IsLocked = false;
+            user.LockedUntilUtc = null;
+
+            await WriteUsersUnsafeAsync(users);
+            return user;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async Task<string> SetPasswordAsync(Guid userId, string newPassword)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var users = await ReadUsersUnsafeAsync();
+            var user = users.FirstOrDefault(existingUser => existingUser.UserId == userId)
+                ?? throw new InvalidOperationException("User not found for this reset link.");
+
+            user.PasswordHash = PasswordHasher.HashPassword(user.Username, newPassword);
+            user.ForcePasswordReset = false;
+            user.IsLocked = false;
+            user.LockedUntilUtc = null;
+
+            await WriteUsersUnsafeAsync(users);
+            return user.Username;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async Task<string?> GetUsernameAsync(Guid userId)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var users = await ReadUsersUnsafeAsync();
+            return users.FirstOrDefault(user => user.UserId == userId)?.Username;
         }
         finally
         {
@@ -601,58 +525,10 @@ public sealed class CredentialStore
         {
             return _protector.Unprotect(protectedPayload);
         }
-        catch (System.Security.Cryptography.CryptographicException)
+        catch (CryptographicException)
         {
-            // Key ring no longer contains the key used to encrypt this payload.
-            // The credential data is unrecoverable; treat it as absent so migration
-            // and startup diagnostics skip cleanly rather than crashing.
             return null;
         }
-    }
-
-    private async Task<List<PasswordResetTokenRecord>> ReadPasswordResetTokensUnsafeAsync()
-    {
-        Directory.CreateDirectory(_dataDirectory);
-
-        if (!File.Exists(_passwordResetTokenFilePath))
-        {
-            return [];
-        }
-
-        var protectedPayload = await File.ReadAllTextAsync(_passwordResetTokenFilePath);
-        if (string.IsNullOrWhiteSpace(protectedPayload))
-        {
-            return [];
-        }
-
-        string json;
-        try
-        {
-            json = _protector.Unprotect(protectedPayload);
-        }
-        catch (Exception)
-        {
-            QuarantineCorruptFileUnsafe(_passwordResetTokenFilePath, "password-reset-tokens.dat");
-            throw new CorruptedDataException("Password reset token data is corrupted and has been quarantined. Restore App_Data from backup.");
-        }
-
-        var tokenDocument = TryDeserialize<PasswordResetTokenDocument>(json);
-        if (tokenDocument?.Tokens is { Count: >= 0 })
-        {
-            return tokenDocument.Tokens;
-        }
-
-        var tokens = TryDeserialize<List<PasswordResetTokenRecord>>(json);
-        return tokens ?? [];
-    }
-
-    private async Task WritePasswordResetTokensUnsafeAsync(List<PasswordResetTokenRecord> tokens)
-    {
-        Directory.CreateDirectory(_dataDirectory);
-
-        var json = JsonSerializer.Serialize(new PasswordResetTokenDocument { Tokens = tokens }, JsonOptions);
-        var protectedPayload = _protector.Protect(json);
-        await File.WriteAllTextAsync(_passwordResetTokenFilePath, protectedPayload);
     }
 
     private async Task WriteUsersUnsafeAsync(List<CredentialRecord> users)
@@ -704,24 +580,9 @@ public sealed class CredentialStore
         }
     }
 
-    private static string GenerateResetToken()
-    {
-        var bytes = RandomNumberGenerator.GetBytes(32);
-        return Convert.ToBase64String(bytes)
-            .Replace('+', '-')
-            .Replace('/', '_')
-            .TrimEnd('=');
-    }
-
     private static string GenerateTemporaryPassword()
     {
         return Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
-    }
-
-    private static string HashToken(string token)
-    {
-        var bytes = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(token));
-        return Convert.ToHexString(bytes);
     }
 
     private static bool IsCurrentCredentialDocument(string json)
