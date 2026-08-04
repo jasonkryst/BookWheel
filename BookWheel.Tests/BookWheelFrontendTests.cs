@@ -5,6 +5,30 @@ namespace BookWheel.Tests;
 public sealed class BookWheelFrontendTests
 {
     [Fact]
+    public async Task Frontend_Should_Serve_I18n_Script_With_All_Locale_Catalogs()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/i18n.js");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: the catalog structure, all three locales, and representative
+        // translated strings for each supported language are present.
+        Assert.Contains("SUPPORTED_LOCALES = ['en', 'es', 'pl']", script, StringComparison.Ordinal);
+        Assert.Contains("BookWheelI18n", script, StringComparison.Ordinal);
+        Assert.Contains("Iniciar sesión", script, StringComparison.Ordinal);
+        Assert.Contains("Zaloguj się", script, StringComparison.Ordinal);
+        Assert.Contains("Book title is required.", script, StringComparison.Ordinal);
+
+        // Negative: locale data lives only in this catalog file, not duplicated
+        // as a second hardcoded English-only copy anywhere in the same file.
+        Assert.DoesNotContain("const LEGACY_EN_ONLY_STRINGS", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Home_Page_Should_Render_Main_UI_Structure()
     {
         using var factory = new BookWheelWebAppFactory();
