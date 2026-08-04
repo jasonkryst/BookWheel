@@ -48,9 +48,11 @@ jobs:
             IS_LATEST="true"
           fi
 
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "is_latest=${IS_LATEST}" >> "$GITHUB_OUTPUT"
-          echo "ghcr_image=${GHCR_IMAGE}" >> "$GITHUB_OUTPUT"
+          {
+            echo "version=${VERSION}"
+            echo "is_latest=${IS_LATEST}"
+            echo "ghcr_image=${GHCR_IMAGE}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
