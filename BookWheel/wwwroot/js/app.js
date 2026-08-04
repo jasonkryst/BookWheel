@@ -347,7 +347,7 @@ function applyCurrentUser(user) {
   if (userGreeting) {
     const hasUser = Boolean(currentUser && currentUser.username);
     userGreeting.classList.toggle('hidden', !hasUser);
-    userGreeting.textContent = hasUser ? `Hello, ${currentUser.username}` : '';
+    userGreeting.textContent = hasUser ? window.BookWheelI18n.t('users.greeting', { username: currentUser.username }) : '';
   }
 
   if (userManagementBtn) {
@@ -459,15 +459,16 @@ function renderUserCount(filteredCount, totalCount) {
   if (!userCountBadge) {
     return;
   }
+  const { t } = window.BookWheelI18n;
 
   if (totalCount === 0) {
-    userCountBadge.textContent = '0 users';
+    userCountBadge.textContent = t('users.zeroUsers');
     return;
   }
 
   userCountBadge.textContent = filteredCount === totalCount
-    ? `${totalCount} users`
-    : `${filteredCount} of ${totalCount} users`;
+    ? t('users.totalUsers', { count: totalCount })
+    : t('users.filteredUsers', { filtered: filteredCount, total: totalCount });
 }
 
 function closeUserManagementDialog() {
@@ -493,7 +494,7 @@ function closeDeleteUserDialog() {
 function openDeleteUserDialog(user) {
   pendingDeleteUser = user;
   deleteUserError.textContent = '';
-  deleteUserConfirmMessage.textContent = `Remove user "${user.username}" and all of their books?`;
+  deleteUserConfirmMessage.textContent = window.BookWheelI18n.t('users.deleteConfirmMessage', { username: user.username });
 
   openDialog(deleteUserDialog, confirmDeleteUserBtn);
 }
@@ -511,12 +512,14 @@ async function confirmDeleteUser() {
   });
 
   closeDeleteUserDialog();
-  userManagementMessage.textContent = `Removed user ${result.username}. Deleted ${result.removedBooks} books.`;
-  showToast(`Removed user ${result.username}.`, 'success');
+  const { t } = window.BookWheelI18n;
+  userManagementMessage.textContent = t('users.removedUserMessage', { username: result.username, count: result.removedBooks });
+  showToast(t('users.removedUserToast', { username: result.username }), 'success');
   await loadUsers();
 }
 
 function renderUserRows(users) {
+  const { t } = window.BookWheelI18n;
   userList.innerHTML = '';
 
   const filterTerm = (userSearchInput?.value || '').trim().toLocaleLowerCase();
@@ -527,7 +530,7 @@ function renderUserRows(users) {
   renderUserCount(visibleUsers.length, users.length);
 
   if (!visibleUsers.length) {
-    userList.innerHTML = '<div class="user-list-empty"><span class="message">No users match this filter.</span></div>';
+    userList.innerHTML = `<div class="user-list-empty"><span class="message">${t('users.noMatchFilter')}</span></div>`;
     return;
   }
 
@@ -545,12 +548,12 @@ function renderUserRows(users) {
     metaLine.className = 'user-meta-line';
     const rolePill = document.createElement('span');
     rolePill.className = 'user-role-pill';
-    rolePill.textContent = user.isAdmin ? 'Administrator' : 'Standard user';
+    rolePill.textContent = user.isAdmin ? t('users.roleAdmin') : t('users.roleStandard');
 
     const createdDate = user.createdAtUtc ? new Date(user.createdAtUtc) : null;
     metaLine.textContent = createdDate && !Number.isNaN(createdDate.getTime())
-      ? `Created ${createdDate.toLocaleDateString()}`
-      : 'Created date unavailable';
+      ? t('users.createdOn', { date: createdDate.toLocaleDateString() })
+      : t('users.createdUnavailable');
 
     const username = document.createElement('input');
     username.className = 'user-input';
@@ -558,7 +561,7 @@ function renderUserRows(users) {
     username.maxLength = 64;
 
     const usernameLabel = document.createElement('label');
-    usernameLabel.textContent = 'Username';
+    usernameLabel.textContent = t('auth.usernameLabel');
     usernameLabel.appendChild(username);
 
     const adminLabel = document.createElement('label');
@@ -567,7 +570,7 @@ function renderUserRows(users) {
     adminCheckbox.type = 'checkbox';
     adminCheckbox.checked = Boolean(user.isAdmin);
     const adminText = document.createElement('span');
-    adminText.textContent = 'Admin';
+    adminText.textContent = t('users.adminCheckbox');
     adminLabel.append(adminCheckbox, adminText);
 
     const disabledLabel = document.createElement('label');
@@ -576,7 +579,7 @@ function renderUserRows(users) {
     disabledCheckbox.type = 'checkbox';
     disabledCheckbox.checked = Boolean(user.isDisabled);
     const disabledText = document.createElement('span');
-    disabledText.textContent = 'Disabled';
+    disabledText.textContent = t('users.disabledCheckbox');
     disabledLabel.append(disabledCheckbox, disabledText);
 
     const forceResetLabel = document.createElement('label');
@@ -585,7 +588,7 @@ function renderUserRows(users) {
     forceResetCheckbox.type = 'checkbox';
     forceResetCheckbox.checked = Boolean(user.forcePasswordReset);
     const forceResetText = document.createElement('span');
-    forceResetText.textContent = 'Require reset';
+    forceResetText.textContent = t('users.requireResetCheckbox');
     forceResetLabel.append(forceResetCheckbox, forceResetText);
 
     const lockLabel = document.createElement('label');
@@ -594,26 +597,26 @@ function renderUserRows(users) {
     lockCheckbox.type = 'checkbox';
     lockCheckbox.checked = Boolean(user.isLocked);
     const lockText = document.createElement('span');
-    lockText.textContent = 'Locked';
+    lockText.textContent = t('users.lockedCheckbox');
     lockLabel.append(lockCheckbox, lockText);
 
     const saveButton = document.createElement('button');
     saveButton.type = 'button';
-    saveButton.textContent = 'Save';
+    saveButton.textContent = t('common.save');
     saveButton.className = 'secondary';
-    saveButton.setAttribute('aria-label', `Save changes for ${user.username}`);
+    saveButton.setAttribute('aria-label', t('users.saveChangesAria', { username: user.username }));
 
     const deleteButton = document.createElement('button');
     deleteButton.type = 'button';
-    deleteButton.textContent = 'Remove';
+    deleteButton.textContent = t('common.remove');
     deleteButton.className = 'user-delete-btn';
-    deleteButton.setAttribute('aria-label', `Remove user ${user.username}`);
+    deleteButton.setAttribute('aria-label', t('users.removeUserAria', { username: user.username }));
 
     const resetLinkButton = document.createElement('button');
     resetLinkButton.type = 'button';
-    resetLinkButton.textContent = 'Generate reset link';
+    resetLinkButton.textContent = t('users.generateResetLinkBtn');
     resetLinkButton.className = 'secondary';
-    resetLinkButton.setAttribute('aria-label', `Generate password reset link for ${user.username}`);
+    resetLinkButton.setAttribute('aria-label', t('users.generateResetLinkAria', { username: user.username }));
 
     const actions = document.createElement('div');
     actions.className = 'user-row-actions';
@@ -659,13 +662,13 @@ function renderUserRows(users) {
       deleteButton.disabled = true;
 
       if (isCurrentUser) {
-        saveButton.title = 'Use account settings for your own account updates.';
-        resetLinkButton.title = 'You cannot generate a reset link for the active account.';
-        deleteButton.title = 'You cannot remove the active account.';
+        saveButton.title = t('users.ownAccountHint');
+        resetLinkButton.title = t('users.cannotResetOwnHint');
+        deleteButton.title = t('users.cannotRemoveOwnHint');
       }
 
       if (isFirstUser) {
-        deleteButton.title = 'The first account cannot be removed.';
+        deleteButton.title = t('users.cannotRemoveFirstHint');
       }
     } else {
       saveButton.disabled = true;
@@ -682,7 +685,7 @@ function renderUserRows(users) {
       lockCheckbox.disabled = pending;
       resetLinkButton.disabled = pending;
       deleteButton.disabled = pending;
-      saveButton.textContent = pending ? 'Saving...' : 'Save';
+      saveButton.textContent = pending ? t('common.saving') : t('common.save');
       evaluateDirty();
     };
 
@@ -698,7 +701,7 @@ function renderUserRows(users) {
 
       const trimmedUsername = username.value.trim();
       if (!trimmedUsername) {
-        userManagementError.textContent = 'Username is required.';
+        userManagementError.textContent = t('users.usernameRequiredError');
         return;
       }
 
@@ -714,8 +717,8 @@ function renderUserRows(users) {
             isLocked: lockCheckbox.checked
           })
         });
-        userManagementMessage.textContent = `Updated user ${trimmedUsername}.`;
-        showToast(`Updated user ${trimmedUsername}.`, 'success');
+        userManagementMessage.textContent = t('users.updatedUserMessage', { username: trimmedUsername });
+        showToast(t('users.updatedUserMessage', { username: trimmedUsername }), 'success');
         await loadUsers();
       } catch (error) {
         userManagementError.textContent = error.message;
@@ -731,14 +734,14 @@ function renderUserRows(users) {
 
       resetLinkButton.disabled = true;
       const originalLabel = resetLinkButton.textContent;
-      resetLinkButton.textContent = 'Generating...';
+      resetLinkButton.textContent = t('common.generating');
       try {
         const result = await requestJson(`/api/users/${user.userId}/password-reset-link`, {
           method: 'POST'
         });
         openResetLinkDialog(result);
-        userManagementMessage.textContent = `Generated a secure reset link for ${result.username}.`;
-        showToast(`Reset link generated for ${result.username}.`, 'success');
+        userManagementMessage.textContent = t('users.generatedResetLinkMessage', { username: result.username });
+        showToast(t('users.generatedResetLinkToast', { username: result.username }), 'success');
       } catch (error) {
         userManagementError.textContent = error.message;
         showToast(error.message, 'error');
@@ -752,7 +755,7 @@ function renderUserRows(users) {
       openDeleteUserDialog(user);
     });
 
-    nameText.textContent = isCurrentUser ? `${user.username} (you)` : user.username;
+    nameText.textContent = isCurrentUser ? t('users.currentUserSuffix', { username: user.username }) : user.username;
     nameLine.append(nameText, rolePill);
     header.append(nameLine, metaLine);
 
@@ -1421,19 +1424,20 @@ if (createUserForm) {
   createUserForm.addEventListener('submit', async event => {
     event.preventDefault();
     resetUserManagementMessages();
+    const { t } = window.BookWheelI18n;
 
     const username = createUserUsername.value.trim();
 
     if (!username) {
       createUserUsername.setAttribute('aria-invalid', 'true');
-      userManagementError.textContent = 'Username is required.';
+      userManagementError.textContent = t('users.usernameRequiredError');
       return;
     }
 
     createUserUsername.setAttribute('aria-invalid', 'false');
 
     const createUserSubmitButton = createUserForm.querySelector('button[type="submit"]');
-    setButtonBusy(createUserSubmitButton, true, 'Creating...', 'Create user');
+    setButtonBusy(createUserSubmitButton, true, t('common.creating'), t('users.createUserBtn'));
     createUserUsername.disabled = true;
     createUserIsAdmin.disabled = true;
 
@@ -1446,8 +1450,8 @@ if (createUserForm) {
         })
       });
 
-      userManagementMessage.textContent = `Created user ${username}.`;
-      showToast(`Created user ${username}.`, 'success');
+      userManagementMessage.textContent = t('users.createdUserMessage', { username });
+      showToast(t('users.createdUserToast', { username }), 'success');
       openResetLinkDialog({
         username: result.username,
         resetLink: result.setupLink,
@@ -1459,7 +1463,7 @@ if (createUserForm) {
       userManagementError.textContent = error.message;
       showToast(error.message, 'error');
     } finally {
-      setButtonBusy(createUserSubmitButton, false, 'Creating...', 'Create user');
+      setButtonBusy(createUserSubmitButton, false, t('common.creating'), t('users.createUserBtn'));
       createUserUsername.disabled = false;
       createUserIsAdmin.disabled = false;
     }
@@ -1469,15 +1473,16 @@ if (createUserForm) {
 if (copyResetLinkBtn) {
   copyResetLinkBtn.addEventListener('click', async () => {
     resetLinkError.textContent = '';
+    const { t } = window.BookWheelI18n;
     try {
       if (!resetLinkValue.value) {
-        throw new Error('No reset link is available.');
+        throw new Error(t('users.noResetLinkError'));
       }
 
       await navigator.clipboard.writeText(resetLinkValue.value);
-      resetLinkMessage.textContent = 'Reset link copied to clipboard.';
+      resetLinkMessage.textContent = t('users.linkCopiedMessage');
     } catch {
-      resetLinkError.textContent = 'Copy failed. Select and copy the link manually.';
+      resetLinkError.textContent = t('users.copyFailedMessage');
       resetLinkValue.select();
     }
   });

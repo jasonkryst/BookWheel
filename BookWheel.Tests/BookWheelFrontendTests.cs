@@ -26,6 +26,7 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("Last selected: {title}", script, StringComparison.Ordinal);
         Assert.Contains("Version: {version}", script, StringComparison.Ordinal);
         Assert.Contains("Page {current} of {total}", script, StringComparison.Ordinal);
+        Assert.Contains("Generate reset link", script, StringComparison.Ordinal);
 
         // Negative: locale data lives only in this catalog file, not duplicated
         // as a second hardcoded English-only copy anywhere in the same file.
@@ -143,7 +144,6 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("deleteUserDialog", script, StringComparison.Ordinal);
         Assert.Contains("confirmDeleteUser", script, StringComparison.Ordinal);
         Assert.Contains("/api/users/${pendingDeleteUser.userId}", script, StringComparison.Ordinal);
-        Assert.Contains("Generate reset link", script, StringComparison.Ordinal);
         Assert.Contains("/password-reset-link", script, StringComparison.Ordinal);
         Assert.Contains("resetLinkDialog", script, StringComparison.Ordinal);
         Assert.Contains("copyResetLinkBtn", script, StringComparison.Ordinal);
