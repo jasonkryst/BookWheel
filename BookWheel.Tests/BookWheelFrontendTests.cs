@@ -29,6 +29,29 @@ public sealed class BookWheelFrontendTests
     }
 
     [Fact]
+    public async Task Home_Page_Should_Include_I18n_Attributes_And_Language_Toggle()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var html = await response.Content.ReadAsStringAsync();
+
+        // Positive: language toggle exists and static text is externalized via data-i18n.
+        Assert.Contains("id=\"langToggleBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"langToggleLabel\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-i18n=\"auth.loginSubmit\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-i18n=\"books.heading\"", html, StringComparison.Ordinal);
+        Assert.Contains("src=\"js/i18n.js", html, StringComparison.Ordinal);
+
+        // Negative: the i18n script must load before app.js, since app.js calls
+        // BookWheelI18n at init time.
+        var i18nIndex = html.IndexOf("src=\"js/i18n.js", StringComparison.Ordinal);
+        var appJsIndex = html.IndexOf("src=\"js/app.js", StringComparison.Ordinal);
+        Assert.True(i18nIndex >= 0 && appJsIndex >= 0 && i18nIndex < appJsIndex);
+    }
+
+    [Fact]
     public async Task Home_Page_Should_Render_Main_UI_Structure()
     {
         using var factory = new BookWheelWebAppFactory();
