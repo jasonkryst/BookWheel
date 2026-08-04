@@ -1576,33 +1576,43 @@ if (themeToggleBtn) {
   themeToggleBtn.addEventListener('click', toggleTheme);
 }
 
-const langToggleBtn = document.getElementById('langToggleBtn');
-const langToggleLabel = document.getElementById('langToggleLabel');
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsDialog = document.getElementById('settingsDialog');
+const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+const langSelect = document.getElementById('langSelect');
 
-function applyLanguageToggleLabel() {
-  if (!langToggleBtn || !langToggleLabel) {
+function syncLangSelect() {
+  if (!langSelect) {
     return;
   }
-  const { getCurrentLocale, LANGUAGE_NAMES, t } = window.BookWheelI18n;
-  const locale = getCurrentLocale();
-  langToggleLabel.textContent = locale.toUpperCase();
-  langToggleBtn.setAttribute('aria-label', t('lang.switchLanguageAria', { language: LANGUAGE_NAMES[locale] }));
-  langToggleBtn.setAttribute('title', t('lang.switchLanguageAria', { language: LANGUAGE_NAMES[locale] }));
+  langSelect.value = window.BookWheelI18n.getCurrentLocale();
 }
 
-if (langToggleBtn) {
-  langToggleBtn.addEventListener('click', () => {
-    const { SUPPORTED_LOCALES, getCurrentLocale, setLocale } = window.BookWheelI18n;
-    const currentIndex = SUPPORTED_LOCALES.indexOf(getCurrentLocale());
-    const nextLocale = SUPPORTED_LOCALES[(currentIndex + 1) % SUPPORTED_LOCALES.length];
-    setLocale(nextLocale);
+if (settingsBtn) {
+  settingsBtn.addEventListener('click', () => {
+    openDialog(settingsDialog, themeToggleBtn);
+  });
+}
+
+if (closeSettingsBtn) {
+  closeSettingsBtn.addEventListener('click', () => {
+    closeDialog(settingsDialog);
+  });
+}
+
+if (langSelect) {
+  langSelect.addEventListener('change', () => {
+    window.BookWheelI18n.setLocale(langSelect.value);
   });
 }
 
 window.addEventListener('bookwheel:locale-changed', () => {
-  applyLanguageToggleLabel();
+  syncLangSelect();
   applyTheme(document.documentElement.getAttribute('data-theme') || DARK_THEME);
   renderWheelAccessibilitySummary();
+  if (!loginView.classList.contains('hidden')) {
+    setAuthMode(authMode);
+  }
   if (!appView.classList.contains('hidden')) {
     renderActiveBooks();
   }
@@ -1611,7 +1621,7 @@ window.addEventListener('bookwheel:locale-changed', () => {
   }
 });
 
-applyLanguageToggleLabel();
+syncLangSelect();
 
 if (importExportBtn) {
   importExportBtn.addEventListener('click', openTransferDialog);

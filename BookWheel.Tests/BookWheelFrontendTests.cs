@@ -34,7 +34,7 @@ public sealed class BookWheelFrontendTests
     }
 
     [Fact]
-    public async Task Home_Page_Should_Include_I18n_Attributes_And_Language_Toggle()
+    public async Task Home_Page_Should_Include_I18n_Attributes_And_Settings_Button()
     {
         using var factory = new BookWheelWebAppFactory();
         using var client = factory.CreateClient();
@@ -42,9 +42,10 @@ public sealed class BookWheelFrontendTests
         var response = await client.GetAsync("/");
         var html = await response.Content.ReadAsStringAsync();
 
-        // Positive: language toggle exists and static text is externalized via data-i18n.
-        Assert.Contains("id=\"langToggleBtn\"", html, StringComparison.Ordinal);
-        Assert.Contains("id=\"langToggleLabel\"", html, StringComparison.Ordinal);
+        // Positive: settings entry point exists and static text is externalized via data-i18n.
+        Assert.Contains("id=\"settingsBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"settingsDialog\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"langSelect\"", html, StringComparison.Ordinal);
         Assert.Contains("data-i18n=\"auth.loginSubmit\"", html, StringComparison.Ordinal);
         Assert.Contains("data-i18n=\"books.heading\"", html, StringComparison.Ordinal);
         Assert.Contains("src=\"js/i18n.js", html, StringComparison.Ordinal);
@@ -57,7 +58,7 @@ public sealed class BookWheelFrontendTests
     }
 
     [Fact]
-    public async Task Home_Page_Language_Toggle_Should_Not_Ship_Untranslated_Placeholder_Text()
+    public async Task Home_Page_Language_Select_Should_List_Supported_Locales()
     {
         using var factory = new BookWheelWebAppFactory();
         using var client = factory.CreateClient();
@@ -65,14 +66,16 @@ public sealed class BookWheelFrontendTests
         var response = await client.GetAsync("/");
         var html = await response.Content.ReadAsStringAsync();
 
-        var toggleStart = html.IndexOf("id=\"langToggleBtn\"", StringComparison.Ordinal);
-        var toggleSnippet = html.Substring(toggleStart, Math.Min(400, html.Length - toggleStart));
+        var selectStart = html.IndexOf("id=\"langSelect\"", StringComparison.Ordinal);
+        var selectSnippet = html.Substring(selectStart, Math.Min(400, html.Length - selectStart));
 
-        // Positive: the toggle's static label is a short language code, not a full sentence.
-        Assert.Contains(">EN<", toggleSnippet, StringComparison.Ordinal);
+        // Positive: the dropdown lists exactly the three supported locales.
+        Assert.Contains("<option value=\"en\">English</option>", selectSnippet, StringComparison.Ordinal);
+        Assert.Contains("<option value=\"es\">Español</option>", selectSnippet, StringComparison.Ordinal);
+        Assert.Contains("<option value=\"pl\">Polski</option>", selectSnippet, StringComparison.Ordinal);
 
-        // Negative: no leftover "TODO"/placeholder marker text made it into the toggle markup.
-        Assert.DoesNotContain("TODO", toggleSnippet, StringComparison.OrdinalIgnoreCase);
+        // Negative: no extra placeholder/empty option was left in the dropdown.
+        Assert.DoesNotContain("<option value=\"\">", selectSnippet, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -87,12 +90,21 @@ public sealed class BookWheelFrontendTests
         // Positive: dynamic UI re-renders (not just a page reload) when the
         // language changes, so an in-progress session doesn't show mixed languages.
         Assert.Contains("bookwheel:locale-changed", script, StringComparison.Ordinal);
-        Assert.Contains("langToggleBtn", script, StringComparison.Ordinal);
+        Assert.Contains("syncLangSelect", script, StringComparison.Ordinal);
 
-        // Negative: the language toggle must not require navigator.language to be
-        // re-read on every click — it should cycle explicitly through SUPPORTED_LOCALES,
-        // so the user's manual choice isn't overridden by browser settings mid-session.
-        Assert.DoesNotContain("langToggleBtn.addEventListener('click', () => setLocale(navigator.language", script, StringComparison.Ordinal);
+        // Positive: the login/setup screen's dynamically-set title, subtitle, and
+        // submit-button text (driven by setAuthMode, not a static data-i18n
+        // attribute alone) get refreshed too. Without this, switching languages
+        // while still on the login screen left the title reset to the generic
+        // "login" default via the blanket data-i18n re-apply, while the subtitle
+        // — which has no data-i18n attribute at all — stayed in the old language,
+        // producing a screen with three lines in two different languages.
+        Assert.Contains("setAuthMode(authMode)", script, StringComparison.Ordinal);
+
+        // Negative: the language dropdown must drive locale changes through the
+        // single setLocale() entry point, not by writing localStorage directly —
+        // otherwise static text and the Accept-Language header could fall out of sync.
+        Assert.DoesNotContain("langSelect.addEventListener('change', () => localStorage.setItem", script, StringComparison.Ordinal);
     }
 
     [Fact]

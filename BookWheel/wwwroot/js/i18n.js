@@ -2,7 +2,6 @@
   const SUPPORTED_LOCALES = ['en', 'es', 'pl'];
   const DEFAULT_LOCALE = 'en';
   const LOCALE_STORAGE_KEY = 'bookwheel-locale';
-  const LANGUAGE_NAMES = { en: 'English', es: 'Español', pl: 'Polski' };
 
   const TRANSLATIONS = {
     en: {
@@ -67,9 +66,11 @@
         light: 'Light mode',
         highContrast: 'High contrast mode'
       },
-      lang: {
-        switchLanguageLabel: 'Change language',
-        switchLanguageAria: 'Change language, current: {language}'
+      settings: {
+        title: 'Settings',
+        openLabel: 'Settings',
+        themeLabel: 'Theme',
+        languageLabel: 'Language'
       },
       wheel: {
         heading: 'Spin wheel',
@@ -253,9 +254,11 @@
         light: 'Modo claro',
         highContrast: 'Modo de alto contraste'
       },
-      lang: {
-        switchLanguageLabel: 'Cambiar idioma',
-        switchLanguageAria: 'Cambiar idioma, actual: {language}'
+      settings: {
+        title: 'Configuración',
+        openLabel: 'Configuración',
+        themeLabel: 'Tema',
+        languageLabel: 'Idioma'
       },
       wheel: {
         heading: 'Rueda giratoria',
@@ -439,9 +442,11 @@
         light: 'Tryb jasny',
         highContrast: 'Tryb wysokiego kontrastu'
       },
-      lang: {
-        switchLanguageLabel: 'Zmień język',
-        switchLanguageAria: 'Zmień język, obecny: {language}'
+      settings: {
+        title: 'Ustawienia',
+        openLabel: 'Ustawienia',
+        themeLabel: 'Motyw',
+        languageLabel: 'Język'
       },
       wheel: {
         heading: 'Koło losujące',
@@ -658,7 +663,6 @@
     setLocale,
     getCurrentLocale,
     applyStaticTranslations,
-    SUPPORTED_LOCALES,
-    LANGUAGE_NAMES
+    SUPPORTED_LOCALES
   };
 })();

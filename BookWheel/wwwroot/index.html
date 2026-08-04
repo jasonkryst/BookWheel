@@ -7,9 +7,9 @@
   <link rel="stylesheet" href="css/site.css?v=__ASSET_VERSION__" />
 </head>
 <body>
-  <div class="lang-toggle-wrap">
-    <button id="langToggleBtn" type="button" class="secondary icon-btn" title="Change language" aria-label="Change language, current: English">
-      <span id="langToggleLabel" class="icon-glyph" aria-hidden="true">EN</span>
+  <div class="app-settings-wrap">
+    <button id="settingsBtn" type="button" class="secondary icon-btn" title="Settings" aria-label="Settings" data-i18n-title="settings.openLabel" data-i18n-aria-label="settings.openLabel">
+      <span class="icon-glyph" aria-hidden="true">⚙</span>
     </button>
   </div>
   <a class="skip-link" href="#appMain" data-i18n="common.skipToContent">Skip to main content</a>
@@ -55,9 +55,6 @@
             <button id="importExportBtn" type="button" class="secondary icon-btn" title="Import or export books" aria-label="Import or export books" data-i18n-title="transfer.importExportLabel" data-i18n-aria-label="transfer.importExportLabel">
               <span class="icon-glyph" aria-hidden="true">⇅</span>
             </button>
-            <button id="themeToggleBtn" type="button" class="secondary icon-btn" title="Switch theme" aria-label="Switch theme" data-i18n-title="theme.switchThemeLabel" data-i18n-aria-label="theme.switchThemeLabel">
-              <span id="themeToggleIcon" class="icon-glyph" aria-hidden="true">☾</span>
-            </button>
             <button id="logoutBtn" class="secondary" data-i18n="auth.logoutBtn">Log out</button>
           </div>
         </div>
@@ -95,6 +92,29 @@
       </section>
     </section>
   </main>
+
+  <dialog id="settingsDialog" class="modal">
+    <form method="dialog" class="stack">
+      <h2 data-i18n="settings.title">Settings</h2>
+      <div class="settings-row">
+        <span data-i18n="settings.themeLabel">Theme</span>
+        <button id="themeToggleBtn" type="button" class="secondary icon-btn" title="Switch theme" aria-label="Switch theme" data-i18n-title="theme.switchThemeLabel" data-i18n-aria-label="theme.switchThemeLabel">
+          <span id="themeToggleIcon" class="icon-glyph" aria-hidden="true">☾</span>
+        </button>
+      </div>
+      <label class="settings-row">
+        <span data-i18n="settings.languageLabel">Language</span>
+        <select id="langSelect">
+          <option value="en">English</option>
+          <option value="es">Español</option>
+          <option value="pl">Polski</option>
+        </select>
+      </label>
+      <div class="actions modal-actions">
+        <button type="button" id="closeSettingsBtn" class="secondary" data-i18n="common.close">Close</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="editDialog" class="modal">
     <form id="editForm" method="dialog" class="stack">
