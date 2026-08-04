@@ -23,6 +23,8 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("Zaloguj się", script, StringComparison.Ordinal);
         Assert.Contains("Book title is required.", script, StringComparison.Ordinal);
         Assert.Contains("Create your Book Wheel account", script, StringComparison.Ordinal);
+        Assert.Contains("Last selected: {title}", script, StringComparison.Ordinal);
+        Assert.Contains("Version: {version}", script, StringComparison.Ordinal);
 
         // Negative: locale data lives only in this catalog file, not duplicated
         // as a second hardcoded English-only copy anywhere in the same file.
@@ -170,9 +172,7 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("downloadExportJsonFile", script, StringComparison.Ordinal);
         Assert.Contains("/api/version", script, StringComparison.Ordinal);
         Assert.Contains("loadAppVersion", script, StringComparison.Ordinal);
-        Assert.Contains("Version:", script, StringComparison.Ordinal);
         Assert.Contains("toLocaleLowerCase", script, StringComparison.Ordinal);
-        Assert.Contains("Last selected:", script, StringComparison.Ordinal);
         Assert.Contains("normalizedRotation", script, StringComparison.Ordinal);
         Assert.Contains("rotationDelta", script, StringComparison.Ordinal);
         Assert.DoesNotContain("const wheelBooks = [...activeBooks];", script, StringComparison.Ordinal);

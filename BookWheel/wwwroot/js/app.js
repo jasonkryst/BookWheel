@@ -212,11 +212,11 @@ function renderWheelAccessibilitySummary() {
   wheelBooksSrListEl.innerHTML = '';
 
   if (!wheelBooks.length) {
-    wheelSummaryEl.textContent = 'Wheel is empty. Add books to spin.';
+    wheelSummaryEl.textContent = window.BookWheelI18n.t('wheel.emptyStatus');
     return;
   }
 
-  wheelSummaryEl.textContent = `Wheel has ${wheelBooks.length} books.`;
+  wheelSummaryEl.textContent = window.BookWheelI18n.t('wheel.summaryCount', { count: wheelBooks.length });
   wheelBooks.forEach((book, index) => {
     const item = document.createElement('li');
     item.textContent = `${index + 1}. ${book.title}`;
@@ -434,8 +434,9 @@ function renderAppVersion(version) {
   if (!appVersionEl) {
     return;
   }
+  const { t } = window.BookWheelI18n;
 
-  appVersionEl.textContent = `Version: ${version || 'unknown'}`;
+  appVersionEl.textContent = t('common.versionLabel', { version: version || t('common.unknownVersion') });
 }
 
 async function loadAppVersion() {
@@ -443,7 +444,7 @@ async function loadAppVersion() {
     const versionInfo = await requestJson('/api/version');
     renderAppVersion(versionInfo?.version);
   } catch {
-    renderAppVersion('unknown');
+    renderAppVersion(null);
   }
 }
 
@@ -788,7 +789,7 @@ function drawWheel() {
     ctx.font = '20px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('Add books to spin', radius, radius);
+    ctx.fillText(window.BookWheelI18n.t('wheel.addBooksPrompt'), radius, radius);
     ctx.restore();
     return;
   }
@@ -826,7 +827,7 @@ function renderActiveBooks() {
         <p class="message">Add your first title above to populate the wheel.</p>
         <p class="message">Tip: after adding books, press the Spin button or hit Enter on the wheel.</p>
       </div>`;
-    selectedBookEl.textContent = 'Add your first book to begin spinning.';
+    selectedBookEl.textContent = window.BookWheelI18n.t('wheel.emptyPrompt');
     renderBookCount();
     renderPagination();
     return;
@@ -1312,24 +1313,25 @@ spinBtn.addEventListener('click', async () => {
   if (spinning || !activeBooks.length) {
     return;
   }
+  const { t } = window.BookWheelI18n;
 
   spinning = true;
   spinBtn.disabled = true;
-  spinBtn.textContent = 'Spinning...';
-  selectedBookEl.textContent = 'Spinning...';
+  spinBtn.textContent = t('wheel.spinningBusy');
+  selectedBookEl.textContent = t('wheel.spinningBusy');
 
   try {
     const result = await requestJson('/api/books/spin', { method: 'POST' });
     const selected = result.selected;
 
     if (!wheelBooks.length) {
-      throw new Error('Add books to spin.');
+      throw new Error(t('wheel.addBooksError'));
     }
 
     const selectedIndex = wheelBooks.findIndex(book => book.id === selected.id);
 
     if (selectedIndex < 0) {
-      throw new Error('Selected book was not found on the current wheel.');
+      throw new Error(t('wheel.selectionNotFoundError'));
     }
 
     const slice = 360 / wheelBooks.length;
@@ -1346,16 +1348,16 @@ spinBtn.addEventListener('click', async () => {
       clampCurrentPage();
       drawWheel();
       renderActiveBooks();
-      selectedBookEl.textContent = `Last selected: ${selected.title}`;
+      selectedBookEl.textContent = t('wheel.lastSelected', { title: selected.title });
       spinning = false;
       spinBtn.disabled = activeBooks.length === 0;
-      spinBtn.textContent = 'Spin';
-      showToast(`Selected: ${selected.title}`, 'success');
+      spinBtn.textContent = t('wheel.spinBtn');
+      showToast(t('wheel.selectedToast', { title: selected.title }), 'success');
     }, spinDelayMs);
   } catch (error) {
     spinning = false;
     selectedBookEl.textContent = error.message;
-    spinBtn.textContent = 'Spin';
+    spinBtn.textContent = t('wheel.spinBtn');
     showToast(error.message, 'error');
     await refreshBooks();
   }
