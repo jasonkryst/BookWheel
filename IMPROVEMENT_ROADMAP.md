@@ -16,7 +16,7 @@ This document outlines practical ways to improve Book Wheel across product exper
 - Account disable/lock and forced password reset controls are available to administrators
 - Books are now scoped to individual user accounts
 - Clean book management flow with add, edit, remove, and spin actions
-- Light/dark theme support with saved browser preference
+- Light/dark/high-contrast theme support with saved browser preference and system contrast/color-scheme detection
 - Persistent storage for books, credentials, logs, and Data Protection keys
 - Storage CRUD operations are abstracted behind repository interfaces (JSON-backed today), so a SQL/NoSQL backend can be swapped in later without touching controllers or services
 - Working Docker-based deployment path
@@ -61,7 +61,8 @@ The current interface is usable, but still minimal. The next step is making the 
 3. [Done] Improve loading and disabled states during login, save, delete, and spin actions.
 4. [Done] Add keyboard accessibility improvements for dialogs, lists, and wheel actions.
 5. [Done] Improve mobile layout polish for the wheel and management area.
-6. Add optional categories, tags, or reading status to books.
+6. [Done] Add a high-contrast theme option (dark/light/high-contrast cycle) so every theme meets A11Y contrast expectations.
+7. Add optional categories, tags, or reading status to books.
 
 Expected outcome:
 

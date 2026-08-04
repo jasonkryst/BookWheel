@@ -96,6 +96,10 @@ const BOOKS_PER_PAGE = 10;
 const THEME_STORAGE_KEY = 'bookwheel-theme';
 const DARK_THEME = 'dark';
 const LIGHT_THEME = 'light';
+const HIGH_CONTRAST_THEME = 'high-contrast';
+const THEME_CYCLE = [DARK_THEME, LIGHT_THEME, HIGH_CONTRAST_THEME];
+const THEME_ICONS = { [DARK_THEME]: '☾', [LIGHT_THEME]: '☀', [HIGH_CONTRAST_THEME]: '◐' };
+const THEME_LABELS = { [DARK_THEME]: 'Dark mode', [LIGHT_THEME]: 'Light mode', [HIGH_CONTRAST_THEME]: 'High contrast mode' };
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const dialogFocusReturnMap = new WeakMap();
 
@@ -268,23 +272,29 @@ function setWheelBooksFromActive(shuffleWheel = false) {
 
 function getPreferredTheme() {
   const persisted = localStorage.getItem(THEME_STORAGE_KEY);
-  if (persisted === DARK_THEME || persisted === LIGHT_THEME) {
+  if (THEME_CYCLE.includes(persisted)) {
     return persisted;
+  }
+
+  if (window.matchMedia('(prefers-contrast: more)').matches) {
+    return HIGH_CONTRAST_THEME;
   }
 
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? DARK_THEME : LIGHT_THEME;
 }
 
 function applyTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
-  localStorage.setItem(THEME_STORAGE_KEY, theme);
+  const resolvedTheme = THEME_CYCLE.includes(theme) ? theme : DARK_THEME;
+  document.documentElement.setAttribute('data-theme', resolvedTheme);
+  localStorage.setItem(THEME_STORAGE_KEY, resolvedTheme);
 
   if (themeToggleBtn) {
-    const nextThemeLabel = theme === DARK_THEME ? 'Light mode' : 'Dark mode';
+    const nextTheme = THEME_CYCLE[(THEME_CYCLE.indexOf(resolvedTheme) + 1) % THEME_CYCLE.length];
+    const nextThemeLabel = THEME_LABELS[nextTheme];
     themeToggleBtn.setAttribute('aria-label', `Switch to ${nextThemeLabel}`);
     themeToggleBtn.setAttribute('title', `Switch to ${nextThemeLabel}`);
     if (themeToggleIcon) {
-      themeToggleIcon.textContent = theme === DARK_THEME ? '☾' : '☀';
+      themeToggleIcon.textContent = THEME_ICONS[resolvedTheme];
     }
   }
 
@@ -293,7 +303,8 @@ function applyTheme(theme) {
 
 function toggleTheme() {
   const currentTheme = document.documentElement.getAttribute('data-theme') || DARK_THEME;
-  const nextTheme = currentTheme === DARK_THEME ? LIGHT_THEME : DARK_THEME;
+  const currentIndex = THEME_CYCLE.indexOf(currentTheme);
+  const nextTheme = THEME_CYCLE[(currentIndex + 1) % THEME_CYCLE.length];
   applyTheme(nextTheme);
 }
 
@@ -764,6 +775,9 @@ function drawWheel() {
   const computedStyles = getComputedStyle(document.documentElement);
   const wheelTextColor = computedStyles.getPropertyValue('--input-bg').trim() || '#0b1220';
   const emptyStateColor = computedStyles.getPropertyValue('--muted').trim() || '#94a3b8';
+  const sliceColors = [1, 2, 3, 4, 5, 6].map(
+    (n) => computedStyles.getPropertyValue(`--wheel-slice-${n}`).trim() || '#38bdf8'
+  );
 
   if (!wheelBooks.length) {
     ctx.save();
@@ -785,7 +799,7 @@ function drawWheel() {
     ctx.moveTo(radius, radius);
     ctx.arc(radius, radius, radius - 12, start, end);
     ctx.closePath();
-    ctx.fillStyle = ['#38bdf8', '#60a5fa', '#818cf8', '#f472b6', '#34d399', '#fbbf24'][index % 6];
+    ctx.fillStyle = sliceColors[index % sliceColors.length];
     ctx.fill();
 
     ctx.save();

@@ -189,4 +189,55 @@ public sealed class BookWheelFrontendTests
         Assert.Contains(".skip-link", css, StringComparison.Ordinal);
         Assert.Contains("prefers-reduced-motion", css, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task Frontend_Styles_Should_Include_High_Contrast_Theme_Variables()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/css/site.css");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var css = await response.Content.ReadAsStringAsync();
+
+        // Positive: the high-contrast theme block exists and defines every
+        // color token the dark/light themes define, plus the wheel slice
+        // palette that drawWheel() reads via getComputedStyle.
+        Assert.Contains("[data-theme=\"high-contrast\"]", css, StringComparison.Ordinal);
+        Assert.Contains("--bg: #000000", css, StringComparison.Ordinal);
+        Assert.Contains("--text: #ffffff", css, StringComparison.Ordinal);
+        Assert.Contains("--wheel-slice-1", css, StringComparison.Ordinal);
+        Assert.Contains("--wheel-slice-6", css, StringComparison.Ordinal);
+        Assert.Contains("[data-theme=\"high-contrast\"] button:focus-visible", css, StringComparison.Ordinal);
+
+        // Negative: the shared card/dialog surfaces must not keep relying on
+        // the low-opacity color-mix blends used by dark/light — those wash
+        // out against a pure black background.
+        Assert.DoesNotContain("[data-theme=\"high-contrast\"] .card { background: color-mix", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Script_Should_Contain_High_Contrast_Theme_Cycle()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: theme cycling and system-preference detection include
+        // the new high-contrast state.
+        Assert.Contains("HIGH_CONTRAST_THEME = 'high-contrast'", script, StringComparison.Ordinal);
+        Assert.Contains("THEME_CYCLE = [DARK_THEME, LIGHT_THEME, HIGH_CONTRAST_THEME]", script, StringComparison.Ordinal);
+        Assert.Contains("prefers-contrast: more", script, StringComparison.Ordinal);
+        Assert.Contains("--wheel-slice-", script, StringComparison.Ordinal);
+
+        // Negative: the wheel renderer must no longer hardcode its slice
+        // palette, since a hardcoded array can't be re-themed for
+        // high-contrast mode.
+        Assert.DoesNotContain("['#38bdf8', '#60a5fa', '#818cf8', '#f472b6', '#34d399', '#fbbf24']", script, StringComparison.Ordinal);
+    }
 }
