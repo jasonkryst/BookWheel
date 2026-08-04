@@ -11,12 +11,14 @@ public sealed class AuthController : ControllerBase
     private readonly AuthService _authService;
     private readonly AppMetricsService _metricsService;
     private readonly ILogger<AuthController> _logger;
+    private readonly ApiMessageLocalizer _errors;
 
-    public AuthController(AuthService authService, AppMetricsService metricsService, ILogger<AuthController> logger)
+    public AuthController(AuthService authService, AppMetricsService metricsService, ILogger<AuthController> logger, ApiMessageLocalizer errors)
     {
         _authService = authService;
         _metricsService = metricsService;
         _logger = logger;
+        _errors = errors;
     }
 
     [HttpGet("status")]
@@ -39,7 +41,7 @@ public sealed class AuthController : ControllerBase
                 GetRequestPath(),
                 GetRequestId(),
                 GetUserAgent());
-            return Conflict(new { message = "An account already exists." });
+            return Conflict(new { message = _errors.Localize("An account already exists.") });
         }
 
         var user = await _authService.CreateAccountAsync(request.Username, request.Password);
@@ -137,7 +139,7 @@ public sealed class AuthController : ControllerBase
                     GetRequestPath(),
                     GetRequestId(),
                     GetUserAgent());
-                return Unauthorized(new { message = "Invalid username or password." });
+                return Unauthorized(new { message = _errors.Localize("Invalid username or password.") });
             }
 
             _logger.LogInformation(
@@ -202,7 +204,7 @@ public sealed class AuthController : ControllerBase
                 GetRequestId(),
                 GetUserAgent(),
                 ex.Message);
-            return BadRequest(new { message = ex.Message });
+            return BadRequest(new { message = _errors.Localize(ex.Message) });
         }
     }
 
@@ -212,7 +214,7 @@ public sealed class AuthController : ControllerBase
         var result = await _authService.ValidatePasswordResetTokenAsync(request.Token);
         return result.IsValid
             ? Ok(new { isValid = true, username = result.Username, expiresAtUtc = result.ExpiresAtUtc })
-            : BadRequest(new { message = "The password reset link is invalid or has expired." });
+            : BadRequest(new { message = _errors.Localize("The password reset link is invalid or has expired.") });
     }
 
     [HttpGet("me")]

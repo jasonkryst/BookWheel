@@ -94,6 +94,35 @@ public sealed class BookWheelApiTests
     }
 
     [Fact]
+    public async Task Login_WithBadCredentials_ReturnsSpanishMessage_WhenAcceptLanguageIsSpanish()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/login")
+        {
+            Content = JsonContent.Create(new { username = "test-admin", password = "wrong-password" })
+        };
+        request.Headers.Add("Accept-Language", "es");
+
+        var response = await client.SendAsync(request);
+        using var doc = await ReadJsonAsync(response);
+        var message = doc.RootElement.GetProperty("message").GetString();
+
+        // Positive: the Spanish translation is returned for Accept-Language: es.
+        Assert.Equal("Nombre de usuario o contraseña incorrectos.", message);
+
+        // Negative: the raw English string is not leaking through for a non-English request.
+        Assert.NotEqual("Invalid username or password.", message);
+    }
+
+    [Fact]
     public async Task Setup_Creates_Account_And_Logs_The_User_In()
     {
         using var factory = new BookWheelWebAppFactory();

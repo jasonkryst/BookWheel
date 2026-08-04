@@ -13,13 +13,15 @@ public sealed class UsersController : ControllerBase
     private readonly ICredentialRepository _credentialRepository;
     private readonly IBookRepository _bookStore;
     private readonly ILogger<UsersController> _logger;
+    private readonly ApiMessageLocalizer _errors;
 
-    public UsersController(AuthService authService, ICredentialRepository credentialRepository, IBookRepository bookStore, ILogger<UsersController> logger)
+    public UsersController(AuthService authService, ICredentialRepository credentialRepository, IBookRepository bookStore, ILogger<UsersController> logger, ApiMessageLocalizer errors)
     {
         _authService = authService;
         _credentialRepository = credentialRepository;
         _bookStore = bookStore;
         _logger = logger;
+        _errors = errors;
     }
 
     [HttpGet]
@@ -81,7 +83,7 @@ public sealed class UsersController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return BadRequest(new { message = _errors.Localize(ex.Message) });
         }
     }
 
@@ -101,7 +103,7 @@ public sealed class UsersController : ControllerBase
 
         if (id == currentUser.UserId)
         {
-            return BadRequest(new { message = "Administrators can only update other user accounts." });
+            return BadRequest(new { message = _errors.Localize("Administrators can only update other user accounts.") });
         }
 
         try
@@ -138,7 +140,7 @@ public sealed class UsersController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return BadRequest(new { message = _errors.Localize(ex.Message) });
         }
     }
 
@@ -158,7 +160,7 @@ public sealed class UsersController : ControllerBase
 
         if (id == currentUser.UserId)
         {
-            return BadRequest(new { message = "Administrators can only generate reset links for other user accounts." });
+            return BadRequest(new { message = _errors.Localize("Administrators can only generate reset links for other user accounts.") });
         }
 
         try
@@ -179,7 +181,7 @@ public sealed class UsersController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return BadRequest(new { message = _errors.Localize(ex.Message) });
         }
     }
 
@@ -199,7 +201,7 @@ public sealed class UsersController : ControllerBase
 
         if (id == currentUser.UserId)
         {
-            return BadRequest(new { message = "Administrators can only remove other user accounts." });
+            return BadRequest(new { message = _errors.Localize("Administrators can only remove other user accounts.") });
         }
 
         try
@@ -222,7 +224,7 @@ public sealed class UsersController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return BadRequest(new { message = _errors.Localize(ex.Message) });
         }
     }
 }

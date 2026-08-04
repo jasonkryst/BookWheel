@@ -12,12 +12,14 @@ public sealed class BooksController : ControllerBase
     private readonly AuthService _authService;
     private readonly AppMetricsService _metricsService;
     private readonly IBookRepository _store;
+    private readonly ApiMessageLocalizer _errors;
 
-    public BooksController(AuthService authService, AppMetricsService metricsService, IBookRepository store)
+    public BooksController(AuthService authService, AppMetricsService metricsService, IBookRepository store, ApiMessageLocalizer errors)
     {
         _authService = authService;
         _metricsService = metricsService;
         _store = store;
+        _errors = errors;
     }
 
     [HttpGet]
@@ -40,7 +42,7 @@ public sealed class BooksController : ControllerBase
         }
         catch (CorruptedDataException ex)
         {
-            return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = _errors.Localize(ex.Message) });
         }
     }
 
@@ -55,7 +57,7 @@ public sealed class BooksController : ControllerBase
 
         if (string.IsNullOrWhiteSpace(request.Title))
         {
-            return BadRequest(new { message = "Book title is required." });
+            return BadRequest(new { message = _errors.Localize("Book title is required.") });
         }
 
         try
@@ -65,7 +67,7 @@ public sealed class BooksController : ControllerBase
         }
         catch (CorruptedDataException ex)
         {
-            return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = _errors.Localize(ex.Message) });
         }
     }
 
@@ -80,7 +82,7 @@ public sealed class BooksController : ControllerBase
 
         if (string.IsNullOrWhiteSpace(request.Title))
         {
-            return BadRequest(new { message = "Book title is required." });
+            return BadRequest(new { message = _errors.Localize("Book title is required.") });
         }
 
         try
@@ -90,11 +92,11 @@ public sealed class BooksController : ControllerBase
         }
         catch (CorruptedDataException ex)
         {
-            return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = _errors.Localize(ex.Message) });
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(new { message = ex.Message });
+            return NotFound(new { message = _errors.Localize(ex.Message) });
         }
     }
 
@@ -120,11 +122,11 @@ public sealed class BooksController : ControllerBase
         }
         catch (CorruptedDataException ex)
         {
-            return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = _errors.Localize(ex.Message) });
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return BadRequest(new { message = _errors.Localize(ex.Message) });
         }
     }
 
@@ -144,11 +146,11 @@ public sealed class BooksController : ControllerBase
         }
         catch (CorruptedDataException ex)
         {
-            return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = _errors.Localize(ex.Message) });
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(new { message = ex.Message });
+            return NotFound(new { message = _errors.Localize(ex.Message) });
         }
     }
 }

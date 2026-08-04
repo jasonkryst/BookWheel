@@ -5,6 +5,8 @@ using BookWheel.Services;
 using BookWheel.Storage;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Localization;
+using System.Globalization;
 using System.Text.Json;
 using System.Reflection;
 using System.Threading.RateLimiting;
@@ -27,6 +29,8 @@ builder.Services.Configure<SecurityOptions>(builder.Configuration.GetSection(Sec
 builder.Services.Configure<ObservabilityOptions>(builder.Configuration.GetSection(ObservabilityOptions.SectionName));
 builder.Services.AddSingleton<AuthService>();
 builder.Services.AddSingleton<AppMetricsService>();
+builder.Services.AddLocalization();
+builder.Services.AddSingleton<ApiMessageLocalizer>();
 
 builder.Services.AddSingleton<JsonBookRepository>();
 builder.Services.AddSingleton<IBookRepository>(sp => sp.GetRequiredService<JsonBookRepository>());
@@ -186,6 +190,14 @@ if (observabilityOptions.EnableRequestCorrelationLogging)
 
 app.UseForwardedHeaders();
 app.UseRateLimiter();
+
+var supportedCultures = new[] { "en", "es", "pl" }.Select(c => new CultureInfo(c)).ToList();
+app.UseRequestLocalization(new RequestLocalizationOptions
+{
+	DefaultRequestCulture = new RequestCulture("en"),
+	SupportedCultures = supportedCultures,
+	SupportedUICultures = supportedCultures
+});
 
 async Task WriteConfiguredIndexAsync(HttpContext context)
 {
