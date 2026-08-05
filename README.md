@@ -54,7 +54,7 @@ This solution is split into separate application and test projects:
 
 Book Wheel supports English, Spanish, and Polish.
 
-- A gear-icon Settings button (visible on both the login screen and the main app) opens a dialog with the theme switcher and a language dropdown; the language choice persists in the browser's `localStorage`.
+- A gear-icon Settings button opens a dialog with the theme switcher and a language dropdown; the language choice persists in the browser's `localStorage`. It's positioned inline in the toolbar when logged in, and in the corner of the login/setup card when logged out.
 - On first visit, the language defaults to the browser's language if it's one of the supported three, otherwise English.
 - The frontend sends the selected language as an `Accept-Language` header on every API call, so server-generated error messages (e.g. "Book title is required.") come back already translated.
 - Frontend strings live in `BookWheel/wwwroot/js/i18n.js`; backend error-message translations live in `BookWheel/Resources/SharedErrors*.resx`, looked up through `ApiMessageLocalizer`.
