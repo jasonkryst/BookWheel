@@ -43,7 +43,8 @@ public sealed class BookWheelFrontendTests
         var html = await response.Content.ReadAsStringAsync();
 
         // Positive: settings entry point exists and static text is externalized via data-i18n.
-        Assert.Contains("id=\"settingsBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"settingsBtnLoggedOut\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"settingsBtnLoggedIn\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"settingsDialog\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"langSelect\"", html, StringComparison.Ordinal);
         Assert.Contains("data-i18n=\"auth.loginSubmit\"", html, StringComparison.Ordinal);

@@ -7,14 +7,12 @@
   <link rel="stylesheet" href="css/site.css?v=__ASSET_VERSION__" />
 </head>
 <body>
-  <div class="app-settings-wrap">
-    <button id="settingsBtn" type="button" class="secondary icon-btn" title="Settings" aria-label="Settings" data-i18n-title="settings.openLabel" data-i18n-aria-label="settings.openLabel">
-      <span class="icon-glyph" aria-hidden="true">⚙</span>
-    </button>
-  </div>
   <a class="skip-link" href="#appMain" data-i18n="common.skipToContent">Skip to main content</a>
   <main id="appMain" class="shell">
     <section id="loginView" class="card">
+      <button id="settingsBtnLoggedOut" type="button" class="secondary icon-btn settings-btn-corner" title="Settings" aria-label="Settings" data-i18n-title="settings.openLabel" data-i18n-aria-label="settings.openLabel">
+        <span class="icon-glyph" aria-hidden="true">⚙</span>
+      </button>
       <h1 id="authTitle" data-i18n="auth.loginTitle">Book Wheel Login</h1>
       <p id="authMessage" class="message" aria-live="polite"></p>
       <form id="loginForm" class="stack">
@@ -54,6 +52,9 @@
             <button id="userManagementBtn" type="button" class="secondary hidden" data-i18n="users.manageUsersBtn">Manage users</button>
             <button id="importExportBtn" type="button" class="secondary icon-btn" title="Import or export books" aria-label="Import or export books" data-i18n-title="transfer.importExportLabel" data-i18n-aria-label="transfer.importExportLabel">
               <span class="icon-glyph" aria-hidden="true">⇅</span>
+            </button>
+            <button id="settingsBtnLoggedIn" type="button" class="secondary icon-btn" title="Settings" aria-label="Settings" data-i18n-title="settings.openLabel" data-i18n-aria-label="settings.openLabel">
+              <span class="icon-glyph" aria-hidden="true">⚙</span>
             </button>
             <button id="logoutBtn" class="secondary" data-i18n="auth.logoutBtn">Log out</button>
           </div>

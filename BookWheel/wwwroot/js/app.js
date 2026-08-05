@@ -1576,7 +1576,8 @@ if (themeToggleBtn) {
   themeToggleBtn.addEventListener('click', toggleTheme);
 }
 
-const settingsBtn = document.getElementById('settingsBtn');
+const settingsBtnLoggedOut = document.getElementById('settingsBtnLoggedOut');
+const settingsBtnLoggedIn = document.getElementById('settingsBtnLoggedIn');
 const settingsDialog = document.getElementById('settingsDialog');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
 const langSelect = document.getElementById('langSelect');
@@ -1588,10 +1589,16 @@ function syncLangSelect() {
   langSelect.value = window.BookWheelI18n.getCurrentLocale();
 }
 
-if (settingsBtn) {
-  settingsBtn.addEventListener('click', () => {
-    openDialog(settingsDialog, themeToggleBtn);
-  });
+function openSettingsDialog() {
+  openDialog(settingsDialog, themeToggleBtn);
+}
+
+if (settingsBtnLoggedOut) {
+  settingsBtnLoggedOut.addEventListener('click', openSettingsDialog);
+}
+
+if (settingsBtnLoggedIn) {
+  settingsBtnLoggedIn.addEventListener('click', openSettingsDialog);
 }
 
 if (closeSettingsBtn) {

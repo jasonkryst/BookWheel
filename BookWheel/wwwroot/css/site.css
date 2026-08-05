@@ -322,11 +322,14 @@ button:disabled {
   line-height: 1;
 }
 
-.app-settings-wrap {
-  position: fixed;
-  top: 12px;
-  right: 12px;
-  z-index: 500;
+#loginView {
+  position: relative;
+}
+
+.settings-btn-corner {
+  position: absolute;
+  top: 20px;
+  right: 20px;
 }
 
 .settings-row {
