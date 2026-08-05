@@ -17,6 +17,7 @@ This document outlines practical ways to improve Book Wheel across product exper
 - Books are now scoped to individual user accounts
 - Clean book management flow with add, edit, remove, and spin actions
 - Light/dark/high-contrast theme support with saved browser preference and system contrast/color-scheme detection
+- English/Spanish/Polish language support with a persisted user preference and localized server error messages
 - Persistent storage for books, credentials, logs, and Data Protection keys
 - Storage CRUD operations are abstracted behind repository interfaces (JSON-backed today), so a SQL/NoSQL backend can be swapped in later without touching controllers or services
 - Working Docker-based deployment path

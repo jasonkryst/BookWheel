@@ -7,34 +7,37 @@
   <link rel="stylesheet" href="css/site.css?v=__ASSET_VERSION__" />
 </head>
 <body>
-  <a class="skip-link" href="#appMain">Skip to main content</a>
+  <a class="skip-link" href="#appMain" data-i18n="common.skipToContent">Skip to main content</a>
   <main id="appMain" class="shell">
     <section id="loginView" class="card">
-      <h1 id="authTitle">Book Wheel Login</h1>
+      <button id="settingsBtnLoggedOut" type="button" class="secondary icon-btn settings-btn-corner" title="Settings" aria-label="Settings" data-i18n-title="settings.openLabel" data-i18n-aria-label="settings.openLabel">
+        <span class="icon-glyph" aria-hidden="true">⚙</span>
+      </button>
+      <h1 id="authTitle" data-i18n="auth.loginTitle">Book Wheel Login</h1>
       <p id="authMessage" class="message" aria-live="polite"></p>
       <form id="loginForm" class="stack">
         <label>
-          Username
+          <span data-i18n="auth.usernameLabel">Username</span>
           <input id="username" autocomplete="username" aria-describedby="loginError" required />
         </label>
         <label>
-          Password
+          <span data-i18n="auth.passwordLabel">Password</span>
           <input id="password" type="password" autocomplete="current-password" aria-describedby="loginError" required />
         </label>
-        <button id="authSubmitBtn" type="submit">Log in</button>
+        <button id="authSubmitBtn" type="submit" data-i18n="auth.loginSubmit">Log in</button>
         <p id="loginError" class="error" role="alert" aria-live="assertive" aria-atomic="true"></p>
       </form>
 
       <form id="resetPasswordForm" class="stack hidden">
         <label>
-          New password
+          <span data-i18n="auth.newPasswordLabel">New password</span>
           <input id="resetPassword" type="password" maxlength="128" minlength="8" autocomplete="new-password" aria-describedby="resetPasswordError" required />
         </label>
         <label>
-          Confirm password
+          <span data-i18n="auth.confirmPasswordLabel">Confirm password</span>
           <input id="resetPasswordConfirm" type="password" maxlength="128" minlength="8" autocomplete="new-password" aria-describedby="resetPasswordError" required />
         </label>
-        <button id="resetPasswordSubmitBtn" type="submit">Set password</button>
+        <button id="resetPasswordSubmitBtn" type="submit" data-i18n="auth.setPasswordSubmit">Set password</button>
         <p id="resetPasswordMessage" class="message" aria-live="polite"></p>
         <p id="resetPasswordError" class="error" role="alert" aria-live="assertive" aria-atomic="true"></p>
       </form>
@@ -42,29 +45,29 @@
 
     <section id="appView" class="app hidden" aria-label="Book Wheel application">
       <header class="toolbar card">
-        <h1>Book Wheel</h1>
+        <h1 data-i18n="app.title">Book Wheel</h1>
         <div class="toolbar-meta">
           <p id="userGreeting" class="message user-greeting hidden" aria-live="polite"></p>
           <div class="toolbar-actions">
-            <button id="userManagementBtn" type="button" class="secondary hidden">Manage users</button>
-            <button id="importExportBtn" type="button" class="secondary icon-btn" title="Import or export books" aria-label="Import or export books">
+            <button id="userManagementBtn" type="button" class="secondary hidden" data-i18n="users.manageUsersBtn">Manage users</button>
+            <button id="importExportBtn" type="button" class="secondary icon-btn" title="Import or export books" aria-label="Import or export books" data-i18n-title="transfer.importExportLabel" data-i18n-aria-label="transfer.importExportLabel">
               <span class="icon-glyph" aria-hidden="true">⇅</span>
             </button>
-            <button id="themeToggleBtn" type="button" class="secondary icon-btn" title="Switch theme" aria-label="Switch theme">
-              <span id="themeToggleIcon" class="icon-glyph" aria-hidden="true">☾</span>
+            <button id="settingsBtnLoggedIn" type="button" class="secondary icon-btn" title="Settings" aria-label="Settings" data-i18n-title="settings.openLabel" data-i18n-aria-label="settings.openLabel">
+              <span class="icon-glyph" aria-hidden="true">⚙</span>
             </button>
-            <button id="logoutBtn" class="secondary">Log out</button>
+            <button id="logoutBtn" class="secondary" data-i18n="auth.logoutBtn">Log out</button>
           </div>
         </div>
       </header>
 
       <section class="card wheel-card top-wheel">
-        <h2>Spin wheel</h2>
+        <h2 data-i18n="wheel.heading">Spin wheel</h2>
         <div class="wheel-wrap">
-          <canvas id="wheelCanvas" width="420" height="420" tabindex="0" role="button" aria-label="Book selection wheel. Press Enter or Space to spin."></canvas>
+          <canvas id="wheelCanvas" width="420" height="420" tabindex="0" role="button" aria-label="Book selection wheel. Press Enter or Space to spin." data-i18n-aria-label="wheel.canvasAriaLabel"></canvas>
           <div class="pointer"></div>
         </div>
-        <button id="spinBtn" aria-controls="selectedBook">Spin</button>
+        <button id="spinBtn" aria-controls="selectedBook" data-i18n="wheel.spinBtn">Spin</button>
         <p id="wheelSummary" class="sr-only" aria-live="polite"></p>
         <ul id="wheelBooksSrList" class="sr-only" aria-label="Books currently on the wheel"></ul>
         <p id="selectedBook" class="message selected-book" aria-live="polite"></p>
@@ -72,18 +75,18 @@
 
       <section class="grid management-grid">
         <div class="card books-card">
-          <h2>Active books</h2>
+          <h2 data-i18n="books.heading">Active books</h2>
           <p id="booksTotalCount" class="message books-total-count" aria-live="polite"></p>
           <form id="bookForm" class="book-add-row">
-            <label for="bookTitle" class="sr-only">Book title</label>
-            <input id="bookTitle" maxlength="200" placeholder="Book title" aria-describedby="bookMessage" required />
-            <button type="submit">Add</button>
+            <label for="bookTitle" class="sr-only" data-i18n="books.titleLabel">Book title</label>
+            <input id="bookTitle" maxlength="200" placeholder="Book title" aria-describedby="bookMessage" required data-i18n-placeholder="books.titlePlaceholder" />
+            <button type="submit" data-i18n="books.addBtn">Add</button>
           </form>
           <div id="activeBooks" class="book-list"></div>
           <div id="booksPagination" class="pagination hidden">
-            <button id="booksPrevPageBtn" type="button" class="secondary">Previous</button>
+            <button id="booksPrevPageBtn" type="button" class="secondary" data-i18n="books.prevPage">Previous</button>
             <span id="booksPageInfo" class="message"></span>
-            <button id="booksNextPageBtn" type="button" class="secondary">Next</button>
+            <button id="booksNextPageBtn" type="button" class="secondary" data-i18n="books.nextPage">Next</button>
           </div>
           <p id="bookMessage" class="message" role="status" aria-live="polite" aria-atomic="true"></p>
         </div>
@@ -91,17 +94,40 @@
     </section>
   </main>
 
+  <dialog id="settingsDialog" class="modal">
+    <form method="dialog" class="stack">
+      <h2 data-i18n="settings.title">Settings</h2>
+      <div class="settings-row">
+        <span data-i18n="settings.themeLabel">Theme</span>
+        <button id="themeToggleBtn" type="button" class="secondary icon-btn" title="Switch theme" aria-label="Switch theme" data-i18n-title="theme.switchThemeLabel" data-i18n-aria-label="theme.switchThemeLabel">
+          <span id="themeToggleIcon" class="icon-glyph" aria-hidden="true">☾</span>
+        </button>
+      </div>
+      <label class="settings-row">
+        <span data-i18n="settings.languageLabel">Language</span>
+        <select id="langSelect">
+          <option value="en">English</option>
+          <option value="es">Español</option>
+          <option value="pl">Polski</option>
+        </select>
+      </label>
+      <div class="actions modal-actions">
+        <button type="button" id="closeSettingsBtn" class="secondary" data-i18n="common.close">Close</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="editDialog" class="modal">
     <form id="editForm" method="dialog" class="stack">
-      <h2>Edit book title</h2>
+      <h2 data-i18n="books.editDialogTitle">Edit book title</h2>
       <input id="editBookId" type="hidden" />
       <label>
-        Book title
+        <span data-i18n="books.titleLabel">Book title</span>
         <input id="editBookTitle" maxlength="200" required />
       </label>
       <div class="actions modal-actions">
-        <button type="button" id="cancelEditBtn" class="secondary">Cancel</button>
-        <button type="submit">Save</button>
+        <button type="button" id="cancelEditBtn" class="secondary" data-i18n="common.cancel">Cancel</button>
+        <button type="submit" data-i18n="common.save">Save</button>
       </div>
       <p id="editError" class="error" role="alert" aria-live="assertive" aria-atomic="true"></p>
     </form>
@@ -109,11 +135,11 @@
 
   <dialog id="deleteDialog" class="modal">
     <form method="dialog" class="stack">
-      <h2>Remove book</h2>
+      <h2 data-i18n="books.deleteDialogTitle">Remove book</h2>
       <p id="deleteConfirmMessage" class="message"></p>
       <div class="actions modal-actions">
-        <button type="button" id="cancelDeleteBtn" class="secondary">Cancel</button>
-        <button type="button" id="confirmDeleteBtn" class="book-remove-btn">Remove</button>
+        <button type="button" id="cancelDeleteBtn" class="secondary" data-i18n="common.cancel">Cancel</button>
+        <button type="button" id="confirmDeleteBtn" class="book-remove-btn" data-i18n="common.remove">Remove</button>
       </div>
       <p id="deleteError" class="error" role="alert" aria-live="assertive" aria-atomic="true"></p>
     </form>
@@ -121,12 +147,12 @@
 
   <dialog id="deleteUserDialog" class="modal">
     <form method="dialog" class="stack">
-      <h2>Remove user account</h2>
+      <h2 data-i18n="users.deleteDialogTitle">Remove user account</h2>
       <p id="deleteUserConfirmMessage" class="message"></p>
-      <p class="message">This action permanently removes the account and all books assigned to this user.</p>
+      <p class="message" data-i18n="users.deleteWarning">This action permanently removes the account and all books assigned to this user.</p>
       <div class="actions modal-actions">
-        <button type="button" id="cancelDeleteUserBtn" class="secondary">Cancel</button>
-        <button type="button" id="confirmDeleteUserBtn" class="book-remove-btn">Remove user</button>
+        <button type="button" id="cancelDeleteUserBtn" class="secondary" data-i18n="common.cancel">Cancel</button>
+        <button type="button" id="confirmDeleteUserBtn" class="book-remove-btn" data-i18n="users.removeUserBtn">Remove user</button>
       </div>
       <p id="deleteUserError" class="error" role="alert" aria-live="assertive" aria-atomic="true"></p>
     </form>
@@ -134,15 +160,15 @@
 
   <dialog id="resetLinkDialog" class="modal transfer-modal">
     <form method="dialog" class="stack">
-      <h2>Password reset link</h2>
+      <h2 data-i18n="users.resetLinkDialogTitle">Password reset link</h2>
       <p id="resetLinkMessage" class="message"></p>
       <label>
-        Share this link with the user
+        <span data-i18n="users.resetLinkShareLabel">Share this link with the user</span>
         <input id="resetLinkValue" readonly />
       </label>
       <div class="actions modal-actions">
-        <button type="button" id="copyResetLinkBtn">Copy link</button>
-        <button type="button" id="closeResetLinkBtn" class="secondary">Close</button>
+        <button type="button" id="copyResetLinkBtn" data-i18n="users.copyLinkBtn">Copy link</button>
+        <button type="button" id="closeResetLinkBtn" class="secondary" data-i18n="common.close">Close</button>
       </div>
       <p id="resetLinkError" class="error" role="alert" aria-live="assertive" aria-atomic="true"></p>
     </form>
@@ -150,30 +176,30 @@
 
   <dialog id="transferDialog" class="modal transfer-modal">
     <form method="dialog" class="stack">
-      <h2>Import / Export books</h2>
+      <h2 data-i18n="transfer.dialogTitle">Import / Export books</h2>
 
       <div class="tab-row" role="tablist" aria-label="Import and export options">
-        <button type="button" id="importTabBtn" class="secondary tab-btn active" role="tab" tabindex="0" aria-controls="importPanel" aria-selected="true">Import</button>
-        <button type="button" id="exportTabBtn" class="secondary tab-btn" role="tab" tabindex="-1" aria-controls="exportPanel" aria-selected="false">Export</button>
+        <button type="button" id="importTabBtn" class="secondary tab-btn active" role="tab" tabindex="0" aria-controls="importPanel" aria-selected="true" data-i18n="transfer.importTab">Import</button>
+        <button type="button" id="exportTabBtn" class="secondary tab-btn" role="tab" tabindex="-1" aria-controls="exportPanel" aria-selected="false" data-i18n="transfer.exportTab">Export</button>
       </div>
 
       <section id="importPanel" class="tab-panel" role="tabpanel" aria-labelledby="importTabBtn" tabindex="0">
-        <p class="message">Import JSON data and merge into your list. Existing title matches are skipped case-insensitively.</p>
+        <p class="message" data-i18n="transfer.importDescription">Import JSON data and merge into your list. Existing title matches are skipped case-insensitively.</p>
         <label>
-          Choose JSON file
+          <span data-i18n="transfer.chooseFileLabel">Choose JSON file</span>
           <input id="importJsonFile" type="file" accept="application/json,.json" />
         </label>
         <div class="actions modal-actions">
-          <button type="button" id="cancelTransferBtn" class="secondary">Close</button>
-          <button type="button" id="importFileBtn">Import File</button>
+          <button type="button" id="cancelTransferBtn" class="secondary" data-i18n="common.close">Close</button>
+          <button type="button" id="importFileBtn" data-i18n="transfer.importFileBtn">Import File</button>
         </div>
       </section>
 
       <section id="exportPanel" class="tab-panel hidden" role="tabpanel" aria-labelledby="exportTabBtn" tabindex="0" aria-hidden="true">
-        <p class="message">Download your current books as a JSON file.</p>
+        <p class="message" data-i18n="transfer.exportDescription">Download your current books as a JSON file.</p>
         <div class="actions modal-actions">
-          <button type="button" id="closeExportBtn" class="secondary">Close</button>
-          <button type="button" id="downloadExportBtn" class="secondary">Download JSON</button>
+          <button type="button" id="closeExportBtn" class="secondary" data-i18n="common.close">Close</button>
+          <button type="button" id="downloadExportBtn" class="secondary" data-i18n="transfer.downloadBtn">Download JSON</button>
         </div>
       </section>
 
@@ -186,31 +212,31 @@
     <div class="stack user-management-shell">
       <header class="user-management-header">
         <div class="user-management-title-row">
-          <h2>User management</h2>
-          <span class="user-management-kicker">Admin workspace</span>
+          <h2 data-i18n="users.managementDialogTitle">User management</h2>
+          <span class="user-management-kicker" data-i18n="users.adminWorkspaceKicker">Admin workspace</span>
         </div>
-        <p class="message">Create users, assign administrator access, and update account details in one place.</p>
+        <p class="message" data-i18n="users.managementDescription">Create users, assign administrator access, and update account details in one place.</p>
       </header>
 
       <div class="user-management-layout">
         <section class="tab-panel user-create-panel">
           <div class="section-title-row">
-            <h3>Create user</h3>
-            <span class="section-tag">New account</span>
+            <h3 data-i18n="users.createUserHeading">Create user</h3>
+            <span class="section-tag" data-i18n="users.newAccountTag">New account</span>
           </div>
-          <p class="message">Create the account, then share the generated setup link so the user can set their own password.</p>
+          <p class="message" data-i18n="users.createUserDescription">Create the account, then share the generated setup link so the user can set their own password.</p>
           <form id="createUserForm" class="stack">
             <label>
-              Username
+              <span data-i18n="auth.usernameLabel">Username</span>
               <input id="createUserUsername" maxlength="64" placeholder="reader-01" required />
             </label>
             <label class="checkbox-row">
               <input id="createUserIsAdmin" type="checkbox" />
-              Administrator
+              <span data-i18n="users.administratorLabel">Administrator</span>
             </label>
             <div class="actions user-create-actions">
-              <button type="submit">Create user</button>
-              <button type="reset" class="secondary">Clear</button>
+              <button type="submit" data-i18n="users.createUserBtn">Create user</button>
+              <button type="reset" class="secondary" data-i18n="common.clear">Clear</button>
             </div>
           </form>
         </section>
@@ -218,22 +244,22 @@
         <section class="tab-panel user-list-panel">
           <div class="user-list-header-row">
             <div class="section-title-row">
-              <h3>Existing users</h3>
-              <span class="section-tag">Directory</span>
+              <h3 data-i18n="users.existingUsersHeading">Existing users</h3>
+              <span class="section-tag" data-i18n="users.directoryTag">Directory</span>
             </div>
             <span id="userCountBadge" class="count-badge">0 users</span>
           </div>
-          <p class="message">Administrators can update other user accounts. Your own account is read-only here.</p>
+          <p class="message" data-i18n="users.updateDescription">Administrators can update other user accounts. Your own account is read-only here.</p>
           <label class="user-search-label">
-            Search users
-            <input id="userSearchInput" maxlength="64" placeholder="Filter by username" />
+            <span data-i18n="users.searchLabel">Search users</span>
+            <input id="userSearchInput" maxlength="64" placeholder="Filter by username" data-i18n-placeholder="users.searchPlaceholder" />
           </label>
           <div id="userList" class="book-list"></div>
         </section>
       </div>
 
       <div class="actions modal-actions">
-        <button type="button" id="closeUserManagementBtn" class="secondary">Close</button>
+        <button type="button" id="closeUserManagementBtn" class="secondary" data-i18n="common.close">Close</button>
       </div>
 
       <p id="userManagementMessage" class="message" aria-live="polite"></p>
@@ -247,6 +273,7 @@
     <span id="appVersion" class="message">Version: loading...</span>
   </footer>
 
+  <script src="js/i18n.js?v=__ASSET_VERSION__"></script>
   <script src="js/app.js?v=__ASSET_VERSION__"></script>
 
   <!-- Google tag (gtag.js) -->

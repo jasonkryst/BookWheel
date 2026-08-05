@@ -48,6 +48,24 @@ This solution is split into separate application and test projects:
 - Optional centralized log shipping to an HTTP sink for production operations
 - Startup diagnostics for writable storage and expected runtime directories
 - First-time empty-state guidance when no books are present
+- Settings menu (theme switcher + language selector) with saved browser preference and localized server error messages
+
+## Internationalization
+
+Book Wheel supports English, Spanish, and Polish.
+
+- A gear-icon Settings button (visible on both the login screen and the main app) opens a dialog with the theme switcher and a language dropdown; the language choice persists in the browser's `localStorage`.
+- On first visit, the language defaults to the browser's language if it's one of the supported three, otherwise English.
+- The frontend sends the selected language as an `Accept-Language` header on every API call, so server-generated error messages (e.g. "Book title is required.") come back already translated.
+- Frontend strings live in `BookWheel/wwwroot/js/i18n.js`; backend error-message translations live in `BookWheel/Resources/SharedErrors*.resx`, looked up through `ApiMessageLocalizer`.
+
+### Adding a new language
+
+1. Add the locale code to `SUPPORTED_LOCALES` in `BookWheel/wwwroot/js/i18n.js` and add a full `TRANSLATIONS.<locale>` catalog (copy the `en` object as a starting point — every key must be present or that string falls back to English).
+2. Add a `BookWheel/Resources/SharedErrors.<locale>.resx` file with all of the same resource keys as `SharedErrors.resx`.
+3. Add the locale code to the `supportedCultures` array in `BookWheel/Program.cs`'s `RequestLocalizationOptions` setup.
+
+Spanish and Polish translations were authored by the assistant as a first pass and have not been reviewed by native speakers — treat them as a solid starting point, not final copy.
 
 ## Solution Structure
 
@@ -434,7 +452,7 @@ Additional project documentation is available in:
 
 ## Theme Toggle
 
-The application includes a toolbar toggle that cycles through dark, light, and high-contrast modes.
+The application includes a theme control (inside the Settings dialog, opened via the gear-icon button) that cycles through dark, light, and high-contrast modes.
 
 - Theme choice is persisted in browser `localStorage` under `bookwheel-theme`.
 - On first load, when no saved preference exists, the UI follows the system contrast preference (`prefers-contrast: more`) if set, otherwise the system color preference (`prefers-color-scheme`).

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="InvalidCredentials" xml:space="preserve">
+    <value>Nombre de usuario o contraseña incorrectos.</value>
+  </data>
+  <data name="LinkInvalidOrExpired" xml:space="preserve">
+    <value>El enlace de restablecimiento de contraseña no es válido o ha caducado.</value>
+  </data>
+  <data name="BookTitleRequired" xml:space="preserve">
+    <value>El título del libro es obligatorio.</value>
+  </data>
+  <data name="TokenAndPasswordRequired" xml:space="preserve">
+    <value>Se requieren un token válido y una contraseña.</value>
+  </data>
+  <data name="ResetTokenDataCorrupted" xml:space="preserve">
+    <value>Los datos del token de restablecimiento están dañados y se han puesto en cuarentena. Restaura App_Data desde una copia de seguridad.</value>
+  </data>
+  <data name="AccountAlreadyExists" xml:space="preserve">
+    <value>Ya existe una cuenta.</value>
+  </data>
+  <data name="UsernameAndPasswordRequired" xml:space="preserve">
+    <value>El nombre de usuario y la contraseña son obligatorios.</value>
+  </data>
+  <data name="CreateInitialAccountFirst" xml:space="preserve">
+    <value>Primero crea la cuenta inicial.</value>
+  </data>
+  <data name="UsernameRequired" xml:space="preserve">
+    <value>El nombre de usuario es obligatorio.</value>
+  </data>
+  <data name="UsernameAlreadyExists" xml:space="preserve">
+    <value>El nombre de usuario ya existe.</value>
+  </data>
+  <data name="UserNotFound" xml:space="preserve">
+    <value>Usuario no encontrado.</value>
+  </data>
+  <data name="AtLeastOneAdminRequired" xml:space="preserve">
+    <value>Se requiere al menos una cuenta de administrador.</value>
+  </data>
+  <data name="FirstAccountCannotBeRemoved" xml:space="preserve">
+    <value>La primera cuenta no se puede eliminar.</value>
+  </data>
+  <data name="UserNotFoundForResetLink" xml:space="preserve">
+    <value>No se encontró ningún usuario para este enlace de restablecimiento.</value>
+  </data>
+  <data name="CredentialDataCorrupted" xml:space="preserve">
+    <value>Los datos de credenciales están dañados y se han puesto en cuarentena. Restaura App_Data desde una copia de seguridad.</value>
+  </data>
+  <data name="BookNotFound" xml:space="preserve">
+    <value>Libro no encontrado.</value>
+  </data>
+  <data name="NoBooksAvailable" xml:space="preserve">
+    <value>No hay libros disponibles en la rueda.</value>
+  </data>
+  <data name="BookDataCorrupted" xml:space="preserve">
+    <value>Los datos de los libros están dañados y se han puesto en cuarentena. Restaura App_Data desde una copia de seguridad.</value>
+  </data>
+  <data name="AdminsCanOnlyUpdateOthers" xml:space="preserve">
+    <value>Los administradores solo pueden actualizar otras cuentas de usuario.</value>
+  </data>
+  <data name="AdminsCanOnlyGenerateResetLinksForOthers" xml:space="preserve">
+    <value>Los administradores solo pueden generar enlaces de restablecimiento para otras cuentas de usuario.</value>
+  </data>
+  <data name="AdminsCanOnlyRemoveOthers" xml:space="preserve">
+    <value>Los administradores solo pueden eliminar otras cuentas de usuario.</value>
+  </data>
+</root>

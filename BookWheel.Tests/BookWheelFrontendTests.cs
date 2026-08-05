@@ -5,6 +5,110 @@ namespace BookWheel.Tests;
 public sealed class BookWheelFrontendTests
 {
     [Fact]
+    public async Task Frontend_Should_Serve_I18n_Script_With_All_Locale_Catalogs()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/i18n.js");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: the catalog structure, all three locales, and representative
+        // translated strings for each supported language are present.
+        Assert.Contains("SUPPORTED_LOCALES = ['en', 'es', 'pl']", script, StringComparison.Ordinal);
+        Assert.Contains("BookWheelI18n", script, StringComparison.Ordinal);
+        Assert.Contains("Iniciar sesión", script, StringComparison.Ordinal);
+        Assert.Contains("Zaloguj się", script, StringComparison.Ordinal);
+        Assert.Contains("Book title is required.", script, StringComparison.Ordinal);
+        Assert.Contains("Create your Book Wheel account", script, StringComparison.Ordinal);
+        Assert.Contains("Last selected: {title}", script, StringComparison.Ordinal);
+        Assert.Contains("Version: {version}", script, StringComparison.Ordinal);
+        Assert.Contains("Page {current} of {total}", script, StringComparison.Ordinal);
+        Assert.Contains("Generate reset link", script, StringComparison.Ordinal);
+
+        // Negative: locale data lives only in this catalog file, not duplicated
+        // as a second hardcoded English-only copy anywhere in the same file.
+        Assert.DoesNotContain("const LEGACY_EN_ONLY_STRINGS", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Home_Page_Should_Include_I18n_Attributes_And_Settings_Button()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var html = await response.Content.ReadAsStringAsync();
+
+        // Positive: settings entry point exists and static text is externalized via data-i18n.
+        Assert.Contains("id=\"settingsBtnLoggedOut\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"settingsBtnLoggedIn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"settingsDialog\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"langSelect\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-i18n=\"auth.loginSubmit\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-i18n=\"books.heading\"", html, StringComparison.Ordinal);
+        Assert.Contains("src=\"js/i18n.js", html, StringComparison.Ordinal);
+
+        // Negative: the i18n script must load before app.js, since app.js calls
+        // BookWheelI18n at init time.
+        var i18nIndex = html.IndexOf("src=\"js/i18n.js", StringComparison.Ordinal);
+        var appJsIndex = html.IndexOf("src=\"js/app.js", StringComparison.Ordinal);
+        Assert.True(i18nIndex >= 0 && appJsIndex >= 0 && i18nIndex < appJsIndex);
+    }
+
+    [Fact]
+    public async Task Home_Page_Language_Select_Should_List_Supported_Locales()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var html = await response.Content.ReadAsStringAsync();
+
+        var selectStart = html.IndexOf("id=\"langSelect\"", StringComparison.Ordinal);
+        var selectSnippet = html.Substring(selectStart, Math.Min(400, html.Length - selectStart));
+
+        // Positive: the dropdown lists exactly the three supported locales.
+        Assert.Contains("<option value=\"en\">English</option>", selectSnippet, StringComparison.Ordinal);
+        Assert.Contains("<option value=\"es\">Español</option>", selectSnippet, StringComparison.Ordinal);
+        Assert.Contains("<option value=\"pl\">Polski</option>", selectSnippet, StringComparison.Ordinal);
+
+        // Negative: no extra placeholder/empty option was left in the dropdown.
+        Assert.DoesNotContain("<option value=\"\">", selectSnippet, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Script_Should_Re_Render_Dynamic_Content_On_Locale_Change()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: dynamic UI re-renders (not just a page reload) when the
+        // language changes, so an in-progress session doesn't show mixed languages.
+        Assert.Contains("bookwheel:locale-changed", script, StringComparison.Ordinal);
+        Assert.Contains("syncLangSelect", script, StringComparison.Ordinal);
+
+        // Positive: the login/setup screen's dynamically-set title, subtitle, and
+        // submit-button text (driven by setAuthMode, not a static data-i18n
+        // attribute alone) get refreshed too. Without this, switching languages
+        // while still on the login screen left the title reset to the generic
+        // "login" default via the blanket data-i18n re-apply, while the subtitle
+        // — which has no data-i18n attribute at all — stayed in the old language,
+        // producing a screen with three lines in two different languages.
+        Assert.Contains("setAuthMode(authMode)", script, StringComparison.Ordinal);
+
+        // Negative: the language dropdown must drive locale changes through the
+        // single setLocale() entry point, not by writing localStorage directly —
+        // otherwise static text and the Accept-Language header could fall out of sync.
+        Assert.DoesNotContain("langSelect.addEventListener('change', () => localStorage.setItem", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Home_Page_Should_Render_Main_UI_Structure()
     {
         using var factory = new BookWheelWebAppFactory();
@@ -80,9 +184,7 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("const BOOKS_PER_PAGE = 10", script, StringComparison.Ordinal);
         Assert.Contains("booksPagination", script, StringComparison.Ordinal);
         Assert.Contains("booksTotalCount", script, StringComparison.Ordinal);
-        Assert.Contains("Page ${currentPage} of ${totalPages}", script, StringComparison.Ordinal);
         Assert.Contains("trimmedTitle", script, StringComparison.Ordinal);
-        Assert.Contains("Book title is required.", script, StringComparison.Ordinal);
         Assert.Contains("resetAuthForm", script, StringComparison.Ordinal);
         Assert.Contains("deleteDialog", script, StringComparison.Ordinal);
         Assert.Contains("shuffleArray", script, StringComparison.Ordinal);
@@ -94,7 +196,6 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("deleteUserDialog", script, StringComparison.Ordinal);
         Assert.Contains("confirmDeleteUser", script, StringComparison.Ordinal);
         Assert.Contains("/api/users/${pendingDeleteUser.userId}", script, StringComparison.Ordinal);
-        Assert.Contains("Generate reset link", script, StringComparison.Ordinal);
         Assert.Contains("/password-reset-link", script, StringComparison.Ordinal);
         Assert.Contains("resetLinkDialog", script, StringComparison.Ordinal);
         Assert.Contains("copyResetLinkBtn", script, StringComparison.Ordinal);
@@ -122,16 +223,13 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("downloadExportJsonFile", script, StringComparison.Ordinal);
         Assert.Contains("/api/version", script, StringComparison.Ordinal);
         Assert.Contains("loadAppVersion", script, StringComparison.Ordinal);
-        Assert.Contains("Version:", script, StringComparison.Ordinal);
         Assert.Contains("toLocaleLowerCase", script, StringComparison.Ordinal);
-        Assert.Contains("Last selected:", script, StringComparison.Ordinal);
         Assert.Contains("normalizedRotation", script, StringComparison.Ordinal);
         Assert.Contains("rotationDelta", script, StringComparison.Ordinal);
         Assert.DoesNotContain("const wheelBooks = [...activeBooks];", script, StringComparison.Ordinal);
         Assert.Contains("const selectedIndex = wheelBooks.findIndex", script, StringComparison.Ordinal);
         Assert.Contains("/api/auth/status", script, StringComparison.Ordinal);
         Assert.Contains("/api/auth/setup", script, StringComparison.Ordinal);
-        Assert.Contains("Create your Book Wheel account", script, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="InvalidCredentials" xml:space="preserve">
+    <value>Invalid username or password.</value>
+  </data>
+  <data name="LinkInvalidOrExpired" xml:space="preserve">
+    <value>The password reset link is invalid or has expired.</value>
+  </data>
+  <data name="BookTitleRequired" xml:space="preserve">
+    <value>Book title is required.</value>
+  </data>
+  <data name="TokenAndPasswordRequired" xml:space="preserve">
+    <value>A valid token and password are required.</value>
+  </data>
+  <data name="ResetTokenDataCorrupted" xml:space="preserve">
+    <value>Password reset token data is corrupted and has been quarantined. Restore App_Data from backup.</value>
+  </data>
+  <data name="AccountAlreadyExists" xml:space="preserve">
+    <value>An account already exists.</value>
+  </data>
+  <data name="UsernameAndPasswordRequired" xml:space="preserve">
+    <value>Username and password are required.</value>
+  </data>
+  <data name="CreateInitialAccountFirst" xml:space="preserve">
+    <value>Create the initial account first.</value>
+  </data>
+  <data name="UsernameRequired" xml:space="preserve">
+    <value>Username is required.</value>
+  </data>
+  <data name="UsernameAlreadyExists" xml:space="preserve">
+    <value>Username already exists.</value>
+  </data>
+  <data name="UserNotFound" xml:space="preserve">
+    <value>User not found.</value>
+  </data>
+  <data name="AtLeastOneAdminRequired" xml:space="preserve">
+    <value>At least one administrator account is required.</value>
+  </data>
+  <data name="FirstAccountCannotBeRemoved" xml:space="preserve">
+    <value>The first account cannot be removed.</value>
+  </data>
+  <data name="UserNotFoundForResetLink" xml:space="preserve">
+    <value>User not found for this reset link.</value>
+  </data>
+  <data name="CredentialDataCorrupted" xml:space="preserve">
+    <value>Credential data is corrupted and has been quarantined. Restore App_Data from backup.</value>
+  </data>
+  <data name="BookNotFound" xml:space="preserve">
+    <value>Book not found.</value>
+  </data>
+  <data name="NoBooksAvailable" xml:space="preserve">
+    <value>No books are available in the wheel.</value>
+  </data>
+  <data name="BookDataCorrupted" xml:space="preserve">
+    <value>Book data is corrupted and has been quarantined. Restore App_Data from backup.</value>
+  </data>
+  <data name="AdminsCanOnlyUpdateOthers" xml:space="preserve">
+    <value>Administrators can only update other user accounts.</value>
+  </data>
+  <data name="AdminsCanOnlyGenerateResetLinksForOthers" xml:space="preserve">
+    <value>Administrators can only generate reset links for other user accounts.</value>
+  </data>
+  <data name="AdminsCanOnlyRemoveOthers" xml:space="preserve">
+    <value>Administrators can only remove other user accounts.</value>
+  </data>
+</root>

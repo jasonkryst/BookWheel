@@ -99,7 +99,7 @@ const LIGHT_THEME = 'light';
 const HIGH_CONTRAST_THEME = 'high-contrast';
 const THEME_CYCLE = [DARK_THEME, LIGHT_THEME, HIGH_CONTRAST_THEME];
 const THEME_ICONS = { [DARK_THEME]: '☾', [LIGHT_THEME]: '☀', [HIGH_CONTRAST_THEME]: '◐' };
-const THEME_LABELS = { [DARK_THEME]: 'Dark mode', [LIGHT_THEME]: 'Light mode', [HIGH_CONTRAST_THEME]: 'High contrast mode' };
+const THEME_LABEL_KEYS = { [DARK_THEME]: 'theme.dark', [LIGHT_THEME]: 'theme.light', [HIGH_CONTRAST_THEME]: 'theme.highContrast' };
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const dialogFocusReturnMap = new WeakMap();
 
@@ -212,11 +212,11 @@ function renderWheelAccessibilitySummary() {
   wheelBooksSrListEl.innerHTML = '';
 
   if (!wheelBooks.length) {
-    wheelSummaryEl.textContent = 'Wheel is empty. Add books to spin.';
+    wheelSummaryEl.textContent = window.BookWheelI18n.t('wheel.emptyStatus');
     return;
   }
 
-  wheelSummaryEl.textContent = `Wheel has ${wheelBooks.length} books.`;
+  wheelSummaryEl.textContent = window.BookWheelI18n.t('wheel.summaryCount', { count: wheelBooks.length });
   wheelBooks.forEach((book, index) => {
     const item = document.createElement('li');
     item.textContent = `${index + 1}. ${book.title}`;
@@ -289,10 +289,11 @@ function applyTheme(theme) {
   localStorage.setItem(THEME_STORAGE_KEY, resolvedTheme);
 
   if (themeToggleBtn) {
+    const { t } = window.BookWheelI18n;
     const nextTheme = THEME_CYCLE[(THEME_CYCLE.indexOf(resolvedTheme) + 1) % THEME_CYCLE.length];
-    const nextThemeLabel = THEME_LABELS[nextTheme];
-    themeToggleBtn.setAttribute('aria-label', `Switch to ${nextThemeLabel}`);
-    themeToggleBtn.setAttribute('title', `Switch to ${nextThemeLabel}`);
+    const nextThemeLabel = t(THEME_LABEL_KEYS[nextTheme]);
+    themeToggleBtn.setAttribute('aria-label', t('theme.switchTo', { label: nextThemeLabel }));
+    themeToggleBtn.setAttribute('title', t('theme.switchTo', { label: nextThemeLabel }));
     if (themeToggleIcon) {
       themeToggleIcon.textContent = THEME_ICONS[resolvedTheme];
     }
@@ -321,16 +322,18 @@ function renderPagination() {
   const hasMultiplePages = activeBooks.length > BOOKS_PER_PAGE;
 
   booksPaginationEl.classList.toggle('hidden', !hasMultiplePages);
-  booksPageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+  booksPageInfo.textContent = window.BookWheelI18n.t('books.pageInfo', { current: currentPage, total: totalPages });
   booksPrevPageBtn.disabled = !hasMultiplePages || currentPage <= 1;
   booksNextPageBtn.disabled = !hasMultiplePages || currentPage >= totalPages;
 }
 
 function renderBookCount() {
+  const { t } = window.BookWheelI18n;
   const totalBooks = activeBooks.length;
   const totalPages = getTotalPages();
-  const bookLabel = totalBooks === 1 ? '1 book total' : `${totalBooks} books total`;
-  booksTotalCountEl.textContent = `${bookLabel} • Page ${currentPage} of ${totalPages}`;
+  const bookLabel = totalBooks === 1 ? t('books.countOne') : t('books.countOther', { count: totalBooks });
+  const pageInfo = t('books.pageInfo', { current: currentPage, total: totalPages });
+  booksTotalCountEl.textContent = `${bookLabel} • ${pageInfo}`;
 }
 
 function showApp(show) {
@@ -345,7 +348,7 @@ function applyCurrentUser(user) {
   if (userGreeting) {
     const hasUser = Boolean(currentUser && currentUser.username);
     userGreeting.classList.toggle('hidden', !hasUser);
-    userGreeting.textContent = hasUser ? `Hello, ${currentUser.username}` : '';
+    userGreeting.textContent = hasUser ? window.BookWheelI18n.t('users.greeting', { username: currentUser.username }) : '';
   }
 
   if (userManagementBtn) {
@@ -363,10 +366,11 @@ function resetAuthForm() {
 
 function setAuthMode(mode) {
   authMode = mode;
+  const { t } = window.BookWheelI18n;
 
   if (resetTokenFromUrl) {
-    authTitle.textContent = 'Set your Book Wheel password';
-    authMessage.textContent = 'Use the secure reset link from your administrator.';
+    authTitle.textContent = t('auth.setPasswordTitle');
+    authMessage.textContent = t('auth.setPasswordSubtitle');
     loginForm.classList.add('hidden');
     resetPasswordForm.classList.remove('hidden');
     return;
@@ -376,25 +380,26 @@ function setAuthMode(mode) {
   resetPasswordForm.classList.add('hidden');
 
   if (mode === 'setup') {
-    authTitle.textContent = 'Create your Book Wheel account';
-    authMessage.textContent = 'No account exists yet. Create one to begin.';
-    authSubmitBtn.textContent = 'Create account';
+    authTitle.textContent = t('auth.setupTitle');
+    authMessage.textContent = t('auth.setupSubtitle');
+    authSubmitBtn.textContent = t('auth.setupSubmit');
     return;
   }
 
-  authTitle.textContent = 'Book Wheel Login';
-  authMessage.textContent = 'Log in with your existing account.';
-  authSubmitBtn.textContent = 'Log in';
+  authTitle.textContent = t('auth.loginTitle');
+  authMessage.textContent = t('auth.loginSubtitle');
+  authSubmitBtn.textContent = t('auth.loginSubmit');
 }
 
 function openResetLinkDialog(result) {
   resetLinkError.textContent = '';
+  const { t } = window.BookWheelI18n;
   const expiresAt = result.expiresAtUtc ? new Date(result.expiresAtUtc) : null;
   const expiryText = expiresAt && !Number.isNaN(expiresAt.getTime())
-    ? `Link expires ${expiresAt.toLocaleString()}.`
-    : 'Link expires in 24 hours.';
+    ? t('users.linkExpiresAt', { datetime: expiresAt.toLocaleString() })
+    : t('users.linkExpires24h');
 
-  resetLinkMessage.textContent = `Reset link created for ${result.username}. ${expiryText}`;
+  resetLinkMessage.textContent = t('users.resetLinkCreated', { username: result.username, expiryText });
   resetLinkValue.value = result.resetLink || '';
 
   openDialog(resetLinkDialog, resetLinkValue);
@@ -411,6 +416,7 @@ async function requestJson(url, options = {}) {
   const response = await fetch(url, {
     headers: {
       'Content-Type': 'application/json',
+      'Accept-Language': window.BookWheelI18n.getCurrentLocale(),
       ...(options.headers || {})
     },
     credentials: 'same-origin',
@@ -421,7 +427,7 @@ async function requestJson(url, options = {}) {
   const payload = contentType.includes('application/json') ? await response.json() : null;
 
   if (!response.ok) {
-    throw new Error(payload?.message || 'Request failed.');
+    throw new Error(payload?.message || window.BookWheelI18n.t('common.requestFailed'));
   }
 
   return payload;
@@ -431,8 +437,9 @@ function renderAppVersion(version) {
   if (!appVersionEl) {
     return;
   }
+  const { t } = window.BookWheelI18n;
 
-  appVersionEl.textContent = `Version: ${version || 'unknown'}`;
+  appVersionEl.textContent = t('common.versionLabel', { version: version || t('common.unknownVersion') });
 }
 
 async function loadAppVersion() {
@@ -440,7 +447,7 @@ async function loadAppVersion() {
     const versionInfo = await requestJson('/api/version');
     renderAppVersion(versionInfo?.version);
   } catch {
-    renderAppVersion('unknown');
+    renderAppVersion(null);
   }
 }
 
@@ -453,15 +460,16 @@ function renderUserCount(filteredCount, totalCount) {
   if (!userCountBadge) {
     return;
   }
+  const { t } = window.BookWheelI18n;
 
   if (totalCount === 0) {
-    userCountBadge.textContent = '0 users';
+    userCountBadge.textContent = t('users.zeroUsers');
     return;
   }
 
   userCountBadge.textContent = filteredCount === totalCount
-    ? `${totalCount} users`
-    : `${filteredCount} of ${totalCount} users`;
+    ? t('users.totalUsers', { count: totalCount })
+    : t('users.filteredUsers', { filtered: filteredCount, total: totalCount });
 }
 
 function closeUserManagementDialog() {
@@ -487,7 +495,7 @@ function closeDeleteUserDialog() {
 function openDeleteUserDialog(user) {
   pendingDeleteUser = user;
   deleteUserError.textContent = '';
-  deleteUserConfirmMessage.textContent = `Remove user "${user.username}" and all of their books?`;
+  deleteUserConfirmMessage.textContent = window.BookWheelI18n.t('users.deleteConfirmMessage', { username: user.username });
 
   openDialog(deleteUserDialog, confirmDeleteUserBtn);
 }
@@ -505,12 +513,14 @@ async function confirmDeleteUser() {
   });
 
   closeDeleteUserDialog();
-  userManagementMessage.textContent = `Removed user ${result.username}. Deleted ${result.removedBooks} books.`;
-  showToast(`Removed user ${result.username}.`, 'success');
+  const { t } = window.BookWheelI18n;
+  userManagementMessage.textContent = t('users.removedUserMessage', { username: result.username, count: result.removedBooks });
+  showToast(t('users.removedUserToast', { username: result.username }), 'success');
   await loadUsers();
 }
 
 function renderUserRows(users) {
+  const { t } = window.BookWheelI18n;
   userList.innerHTML = '';
 
   const filterTerm = (userSearchInput?.value || '').trim().toLocaleLowerCase();
@@ -521,7 +531,7 @@ function renderUserRows(users) {
   renderUserCount(visibleUsers.length, users.length);
 
   if (!visibleUsers.length) {
-    userList.innerHTML = '<div class="user-list-empty"><span class="message">No users match this filter.</span></div>';
+    userList.innerHTML = `<div class="user-list-empty"><span class="message">${t('users.noMatchFilter')}</span></div>`;
     return;
   }
 
@@ -539,12 +549,12 @@ function renderUserRows(users) {
     metaLine.className = 'user-meta-line';
     const rolePill = document.createElement('span');
     rolePill.className = 'user-role-pill';
-    rolePill.textContent = user.isAdmin ? 'Administrator' : 'Standard user';
+    rolePill.textContent = user.isAdmin ? t('users.roleAdmin') : t('users.roleStandard');
 
     const createdDate = user.createdAtUtc ? new Date(user.createdAtUtc) : null;
     metaLine.textContent = createdDate && !Number.isNaN(createdDate.getTime())
-      ? `Created ${createdDate.toLocaleDateString()}`
-      : 'Created date unavailable';
+      ? t('users.createdOn', { date: createdDate.toLocaleDateString() })
+      : t('users.createdUnavailable');
 
     const username = document.createElement('input');
     username.className = 'user-input';
@@ -552,7 +562,7 @@ function renderUserRows(users) {
     username.maxLength = 64;
 
     const usernameLabel = document.createElement('label');
-    usernameLabel.textContent = 'Username';
+    usernameLabel.textContent = t('auth.usernameLabel');
     usernameLabel.appendChild(username);
 
     const adminLabel = document.createElement('label');
@@ -561,7 +571,7 @@ function renderUserRows(users) {
     adminCheckbox.type = 'checkbox';
     adminCheckbox.checked = Boolean(user.isAdmin);
     const adminText = document.createElement('span');
-    adminText.textContent = 'Admin';
+    adminText.textContent = t('users.adminCheckbox');
     adminLabel.append(adminCheckbox, adminText);
 
     const disabledLabel = document.createElement('label');
@@ -570,7 +580,7 @@ function renderUserRows(users) {
     disabledCheckbox.type = 'checkbox';
     disabledCheckbox.checked = Boolean(user.isDisabled);
     const disabledText = document.createElement('span');
-    disabledText.textContent = 'Disabled';
+    disabledText.textContent = t('users.disabledCheckbox');
     disabledLabel.append(disabledCheckbox, disabledText);
 
     const forceResetLabel = document.createElement('label');
@@ -579,7 +589,7 @@ function renderUserRows(users) {
     forceResetCheckbox.type = 'checkbox';
     forceResetCheckbox.checked = Boolean(user.forcePasswordReset);
     const forceResetText = document.createElement('span');
-    forceResetText.textContent = 'Require reset';
+    forceResetText.textContent = t('users.requireResetCheckbox');
     forceResetLabel.append(forceResetCheckbox, forceResetText);
 
     const lockLabel = document.createElement('label');
@@ -588,26 +598,26 @@ function renderUserRows(users) {
     lockCheckbox.type = 'checkbox';
     lockCheckbox.checked = Boolean(user.isLocked);
     const lockText = document.createElement('span');
-    lockText.textContent = 'Locked';
+    lockText.textContent = t('users.lockedCheckbox');
     lockLabel.append(lockCheckbox, lockText);
 
     const saveButton = document.createElement('button');
     saveButton.type = 'button';
-    saveButton.textContent = 'Save';
+    saveButton.textContent = t('common.save');
     saveButton.className = 'secondary';
-    saveButton.setAttribute('aria-label', `Save changes for ${user.username}`);
+    saveButton.setAttribute('aria-label', t('users.saveChangesAria', { username: user.username }));
 
     const deleteButton = document.createElement('button');
     deleteButton.type = 'button';
-    deleteButton.textContent = 'Remove';
+    deleteButton.textContent = t('common.remove');
     deleteButton.className = 'user-delete-btn';
-    deleteButton.setAttribute('aria-label', `Remove user ${user.username}`);
+    deleteButton.setAttribute('aria-label', t('users.removeUserAria', { username: user.username }));
 
     const resetLinkButton = document.createElement('button');
     resetLinkButton.type = 'button';
-    resetLinkButton.textContent = 'Generate reset link';
+    resetLinkButton.textContent = t('users.generateResetLinkBtn');
     resetLinkButton.className = 'secondary';
-    resetLinkButton.setAttribute('aria-label', `Generate password reset link for ${user.username}`);
+    resetLinkButton.setAttribute('aria-label', t('users.generateResetLinkAria', { username: user.username }));
 
     const actions = document.createElement('div');
     actions.className = 'user-row-actions';
@@ -653,13 +663,13 @@ function renderUserRows(users) {
       deleteButton.disabled = true;
 
       if (isCurrentUser) {
-        saveButton.title = 'Use account settings for your own account updates.';
-        resetLinkButton.title = 'You cannot generate a reset link for the active account.';
-        deleteButton.title = 'You cannot remove the active account.';
+        saveButton.title = t('users.ownAccountHint');
+        resetLinkButton.title = t('users.cannotResetOwnHint');
+        deleteButton.title = t('users.cannotRemoveOwnHint');
       }
 
       if (isFirstUser) {
-        deleteButton.title = 'The first account cannot be removed.';
+        deleteButton.title = t('users.cannotRemoveFirstHint');
       }
     } else {
       saveButton.disabled = true;
@@ -676,7 +686,7 @@ function renderUserRows(users) {
       lockCheckbox.disabled = pending;
       resetLinkButton.disabled = pending;
       deleteButton.disabled = pending;
-      saveButton.textContent = pending ? 'Saving...' : 'Save';
+      saveButton.textContent = pending ? t('common.saving') : t('common.save');
       evaluateDirty();
     };
 
@@ -692,7 +702,7 @@ function renderUserRows(users) {
 
       const trimmedUsername = username.value.trim();
       if (!trimmedUsername) {
-        userManagementError.textContent = 'Username is required.';
+        userManagementError.textContent = t('users.usernameRequiredError');
         return;
       }
 
@@ -708,8 +718,8 @@ function renderUserRows(users) {
             isLocked: lockCheckbox.checked
           })
         });
-        userManagementMessage.textContent = `Updated user ${trimmedUsername}.`;
-        showToast(`Updated user ${trimmedUsername}.`, 'success');
+        userManagementMessage.textContent = t('users.updatedUserMessage', { username: trimmedUsername });
+        showToast(t('users.updatedUserMessage', { username: trimmedUsername }), 'success');
         await loadUsers();
       } catch (error) {
         userManagementError.textContent = error.message;
@@ -725,14 +735,14 @@ function renderUserRows(users) {
 
       resetLinkButton.disabled = true;
       const originalLabel = resetLinkButton.textContent;
-      resetLinkButton.textContent = 'Generating...';
+      resetLinkButton.textContent = t('common.generating');
       try {
         const result = await requestJson(`/api/users/${user.userId}/password-reset-link`, {
           method: 'POST'
         });
         openResetLinkDialog(result);
-        userManagementMessage.textContent = `Generated a secure reset link for ${result.username}.`;
-        showToast(`Reset link generated for ${result.username}.`, 'success');
+        userManagementMessage.textContent = t('users.generatedResetLinkMessage', { username: result.username });
+        showToast(t('users.generatedResetLinkToast', { username: result.username }), 'success');
       } catch (error) {
         userManagementError.textContent = error.message;
         showToast(error.message, 'error');
@@ -746,7 +756,7 @@ function renderUserRows(users) {
       openDeleteUserDialog(user);
     });
 
-    nameText.textContent = isCurrentUser ? `${user.username} (you)` : user.username;
+    nameText.textContent = isCurrentUser ? t('users.currentUserSuffix', { username: user.username }) : user.username;
     nameLine.append(nameText, rolePill);
     header.append(nameLine, metaLine);
 
@@ -785,7 +795,7 @@ function drawWheel() {
     ctx.font = '20px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('Add books to spin', radius, radius);
+    ctx.fillText(window.BookWheelI18n.t('wheel.addBooksPrompt'), radius, radius);
     ctx.restore();
     return;
   }
@@ -815,15 +825,16 @@ function drawWheel() {
 }
 
 function renderActiveBooks() {
+  const { t } = window.BookWheelI18n;
   activeBooksEl.innerHTML = '';
   if (!activeBooks.length) {
     activeBooksEl.innerHTML = `
       <div class="books-empty-state" role="status" aria-live="polite">
-        <h3>No books yet</h3>
-        <p class="message">Add your first title above to populate the wheel.</p>
-        <p class="message">Tip: after adding books, press the Spin button or hit Enter on the wheel.</p>
+        <h3>${t('books.emptyHeading')}</h3>
+        <p class="message">${t('books.emptyHint1')}</p>
+        <p class="message">${t('books.emptyHint2')}</p>
       </div>`;
-    selectedBookEl.textContent = 'Add your first book to begin spinning.';
+    selectedBookEl.textContent = t('wheel.emptyPrompt');
     renderBookCount();
     renderPagination();
     return;
@@ -841,16 +852,16 @@ function renderActiveBooks() {
     titleButton.type = 'button';
     titleButton.className = 'book-title-btn';
     titleButton.textContent = book.title;
-    titleButton.title = 'Edit this title';
-    titleButton.setAttribute('aria-label', `Edit book title: ${book.title}`);
+    titleButton.title = t('books.editTitleHint');
+    titleButton.setAttribute('aria-label', t('books.editAria', { title: book.title }));
     titleButton.addEventListener('click', () => editBook(book));
 
     const removeButton = document.createElement('button');
     removeButton.type = 'button';
     removeButton.className = 'book-remove-btn';
-    removeButton.textContent = 'Remove';
-    removeButton.title = 'Remove from active list';
-    removeButton.setAttribute('aria-label', `Remove book: ${book.title}`);
+    removeButton.textContent = t('common.remove');
+    removeButton.title = t('books.removeHint');
+    removeButton.setAttribute('aria-label', t('books.removeAria', { title: book.title }));
     removeButton.addEventListener('click', () => removeBook(book));
 
     const actions = document.createElement('div');
@@ -887,10 +898,11 @@ async function editBook(book) {
 }
 
 async function saveEdit() {
+  const { t } = window.BookWheelI18n;
   const trimmed = editBookTitle.value.trim();
   if (!trimmed) {
     editBookTitle.setAttribute('aria-invalid', 'true');
-    editError.textContent = 'Title cannot be empty.';
+    editError.textContent = t('books.titleEmptyError');
     return;
   }
 
@@ -902,15 +914,15 @@ async function saveEdit() {
   });
 
   closeDialog(editDialog);
-  bookMessage.textContent = 'Book updated.';
-  showToast('Book title updated.', 'success');
+  bookMessage.textContent = t('books.updatedMessage');
+  showToast(t('books.updatedToast'), 'success');
   await refreshBooks();
 }
 
 async function removeBook(book) {
   pendingDeleteBook = book;
   deleteError.textContent = '';
-  deleteConfirmMessage.textContent = `Remove "${book.title}" from the active list?`;
+  deleteConfirmMessage.textContent = window.BookWheelI18n.t('books.removeConfirmMessage', { title: book.title });
   openDialog(deleteDialog, confirmDeleteBtn);
 }
 
@@ -936,8 +948,8 @@ async function confirmDelete() {
   });
 
   closeDeleteDialog();
-  bookMessage.textContent = 'Book removed from the active list.';
-  showToast('Book removed.', 'success');
+  bookMessage.textContent = window.BookWheelI18n.t('books.removedMessage');
+  showToast(window.BookWheelI18n.t('books.removedToast'), 'success');
   await refreshBooks();
 }
 
@@ -993,7 +1005,7 @@ function parseImportTitles(rawJson) {
       : null;
 
   if (!source) {
-    throw new Error('Invalid JSON format. Use an array or an object with a books array.');
+    throw new Error(window.BookWheelI18n.t('transfer.invalidJsonError'));
   }
 
   const titles = [];
@@ -1017,11 +1029,12 @@ function parseImportTitles(rawJson) {
 async function importBooksFromJsonFile() {
   transferMessage.textContent = '';
   transferError.textContent = '';
+  const { t } = window.BookWheelI18n;
 
   const importFile = importJsonFile.files?.[0] || null;
   if (!importFile) {
     importJsonFile.setAttribute('aria-invalid', 'true');
-    transferError.textContent = 'Choose a JSON file to import.';
+    transferError.textContent = t('transfer.chooseFileError');
     return;
   }
 
@@ -1029,13 +1042,13 @@ async function importBooksFromJsonFile() {
 
   const rawJson = (await importFile.text()).trim();
   if (!rawJson) {
-    transferError.textContent = 'The selected file is empty.';
+    transferError.textContent = t('transfer.emptyFileError');
     return;
   }
 
   const importTitles = parseImportTitles(rawJson);
   if (!importTitles.length) {
-    transferError.textContent = 'No valid titles found in JSON.';
+    transferError.textContent = t('transfer.noTitlesError');
     return;
   }
 
@@ -1068,7 +1081,7 @@ async function importBooksFromJsonFile() {
     await refreshBooks({ goToLastPage: true, shuffleWheel: true });
   }
 
-  transferMessage.textContent = `Import complete. Added ${addedCount}, skipped ${skippedMatches} matches.`;
+  transferMessage.textContent = t('transfer.importCompleteMessage', { added: addedCount, skipped: skippedMatches });
 }
 
 function downloadExportJsonFile() {
@@ -1088,7 +1101,7 @@ function downloadExportJsonFile() {
   anchor.remove();
   URL.revokeObjectURL(downloadUrl);
 
-  transferMessage.textContent = 'Export file download started.';
+  transferMessage.textContent = window.BookWheelI18n.t('transfer.exportStartedMessage');
 }
 
 editForm.addEventListener('submit', async event => {
@@ -1210,6 +1223,7 @@ closeExportBtn.addEventListener('click', () => {
 loginForm.addEventListener('submit', async event => {
   event.preventDefault();
   loginError.textContent = '';
+  const { t } = window.BookWheelI18n;
   const originalButtonText = authSubmitBtn.textContent;
   const username = usernameInput.value.trim();
   const password = passwordInput.value;
@@ -1217,7 +1231,7 @@ loginForm.addEventListener('submit', async event => {
   if (!username || !password) {
     usernameInput.setAttribute('aria-invalid', 'true');
     passwordInput.setAttribute('aria-invalid', 'true');
-    loginError.textContent = 'Username and password are required.';
+    loginError.textContent = t('auth.credentialsRequiredError');
     return;
   }
 
@@ -1225,7 +1239,7 @@ loginForm.addEventListener('submit', async event => {
   passwordInput.setAttribute('aria-invalid', 'false');
 
   authSubmitBtn.disabled = true;
-  authSubmitBtn.textContent = authMode === 'setup' ? 'Creating account...' : 'Logging in...';
+  authSubmitBtn.textContent = authMode === 'setup' ? t('auth.creatingAccountBusy') : t('auth.loggingInBusy');
   usernameInput.disabled = true;
   passwordInput.disabled = true;
 
@@ -1239,12 +1253,12 @@ loginForm.addEventListener('submit', async event => {
     });
     applyCurrentUser(authResult.user || null);
     showApp(true);
-    showToast(authMode === 'setup' ? 'Account created and signed in.' : 'Signed in successfully.', 'success');
+    showToast(authMode === 'setup' ? t('auth.accountCreatedToast') : t('auth.signedInToast'), 'success');
     await refreshBooks();
     setAuthMode('login');
   } catch (error) {
     loginError.textContent = error.message === 'Failed to fetch'
-      ? 'Cannot connect to the server. Make sure the app is running, then try again.'
+      ? t('common.connectionError')
       : error.message;
     showToast(loginError.textContent, 'error');
   } finally {
@@ -1258,11 +1272,12 @@ loginForm.addEventListener('submit', async event => {
 bookForm.addEventListener('submit', async event => {
   event.preventDefault();
   bookMessage.textContent = '';
+  const { t } = window.BookWheelI18n;
   const trimmedTitle = bookTitle.value.trim();
 
   if (!trimmedTitle) {
     bookTitle.setAttribute('aria-invalid', 'true');
-    bookMessage.textContent = 'Book title is required.';
+    bookMessage.textContent = t('books.titleRequiredError');
     return;
   }
 
@@ -1275,8 +1290,8 @@ bookForm.addEventListener('submit', async event => {
       body: JSON.stringify({ title: trimmedTitle })
     });
     bookTitle.value = '';
-    bookMessage.textContent = 'Book added.';
-    showToast('Book added to active list.', 'success');
+    bookMessage.textContent = t('books.addedMessage');
+    showToast(t('books.addedToast'), 'success');
     await refreshBooks({ goToLastPage: true, shuffleWheel: true });
   } catch (error) {
     bookMessage.textContent = error.message;
@@ -1308,24 +1323,25 @@ spinBtn.addEventListener('click', async () => {
   if (spinning || !activeBooks.length) {
     return;
   }
+  const { t } = window.BookWheelI18n;
 
   spinning = true;
   spinBtn.disabled = true;
-  spinBtn.textContent = 'Spinning...';
-  selectedBookEl.textContent = 'Spinning...';
+  spinBtn.textContent = t('wheel.spinningBusy');
+  selectedBookEl.textContent = t('wheel.spinningBusy');
 
   try {
     const result = await requestJson('/api/books/spin', { method: 'POST' });
     const selected = result.selected;
 
     if (!wheelBooks.length) {
-      throw new Error('Add books to spin.');
+      throw new Error(t('wheel.addBooksError'));
     }
 
     const selectedIndex = wheelBooks.findIndex(book => book.id === selected.id);
 
     if (selectedIndex < 0) {
-      throw new Error('Selected book was not found on the current wheel.');
+      throw new Error(t('wheel.selectionNotFoundError'));
     }
 
     const slice = 360 / wheelBooks.length;
@@ -1342,16 +1358,16 @@ spinBtn.addEventListener('click', async () => {
       clampCurrentPage();
       drawWheel();
       renderActiveBooks();
-      selectedBookEl.textContent = `Last selected: ${selected.title}`;
+      selectedBookEl.textContent = t('wheel.lastSelected', { title: selected.title });
       spinning = false;
       spinBtn.disabled = activeBooks.length === 0;
-      spinBtn.textContent = 'Spin';
-      showToast(`Selected: ${selected.title}`, 'success');
+      spinBtn.textContent = t('wheel.spinBtn');
+      showToast(t('wheel.selectedToast', { title: selected.title }), 'success');
     }, spinDelayMs);
   } catch (error) {
     spinning = false;
     selectedBookEl.textContent = error.message;
-    spinBtn.textContent = 'Spin';
+    spinBtn.textContent = t('wheel.spinBtn');
     showToast(error.message, 'error');
     await refreshBooks();
   }
@@ -1387,7 +1403,7 @@ logoutBtn.addEventListener('click', async () => {
   resetAuthForm();
   setAuthMode('login');
   showApp(false);
-  showToast('Signed out.', 'info');
+  showToast(window.BookWheelI18n.t('auth.signedOutToast'), 'info');
 });
 
 if (userManagementBtn) {
@@ -1410,19 +1426,20 @@ if (createUserForm) {
   createUserForm.addEventListener('submit', async event => {
     event.preventDefault();
     resetUserManagementMessages();
+    const { t } = window.BookWheelI18n;
 
     const username = createUserUsername.value.trim();
 
     if (!username) {
       createUserUsername.setAttribute('aria-invalid', 'true');
-      userManagementError.textContent = 'Username is required.';
+      userManagementError.textContent = t('users.usernameRequiredError');
       return;
     }
 
     createUserUsername.setAttribute('aria-invalid', 'false');
 
     const createUserSubmitButton = createUserForm.querySelector('button[type="submit"]');
-    setButtonBusy(createUserSubmitButton, true, 'Creating...', 'Create user');
+    setButtonBusy(createUserSubmitButton, true, t('common.creating'), t('users.createUserBtn'));
     createUserUsername.disabled = true;
     createUserIsAdmin.disabled = true;
 
@@ -1435,8 +1452,8 @@ if (createUserForm) {
         })
       });
 
-      userManagementMessage.textContent = `Created user ${username}.`;
-      showToast(`Created user ${username}.`, 'success');
+      userManagementMessage.textContent = t('users.createdUserMessage', { username });
+      showToast(t('users.createdUserToast', { username }), 'success');
       openResetLinkDialog({
         username: result.username,
         resetLink: result.setupLink,
@@ -1448,7 +1465,7 @@ if (createUserForm) {
       userManagementError.textContent = error.message;
       showToast(error.message, 'error');
     } finally {
-      setButtonBusy(createUserSubmitButton, false, 'Creating...', 'Create user');
+      setButtonBusy(createUserSubmitButton, false, t('common.creating'), t('users.createUserBtn'));
       createUserUsername.disabled = false;
       createUserIsAdmin.disabled = false;
     }
@@ -1458,15 +1475,16 @@ if (createUserForm) {
 if (copyResetLinkBtn) {
   copyResetLinkBtn.addEventListener('click', async () => {
     resetLinkError.textContent = '';
+    const { t } = window.BookWheelI18n;
     try {
       if (!resetLinkValue.value) {
-        throw new Error('No reset link is available.');
+        throw new Error(t('users.noResetLinkError'));
       }
 
       await navigator.clipboard.writeText(resetLinkValue.value);
-      resetLinkMessage.textContent = 'Reset link copied to clipboard.';
+      resetLinkMessage.textContent = t('users.linkCopiedMessage');
     } catch {
-      resetLinkError.textContent = 'Copy failed. Select and copy the link manually.';
+      resetLinkError.textContent = t('users.copyFailedMessage');
       resetLinkValue.select();
     }
   });
@@ -1483,9 +1501,10 @@ if (resetPasswordForm) {
     event.preventDefault();
     resetPasswordError.textContent = '';
     resetPasswordMessage.textContent = '';
+    const { t } = window.BookWheelI18n;
 
     if (!resetTokenFromUrl) {
-      resetPasswordError.textContent = 'Reset token is missing.';
+      resetPasswordError.textContent = t('auth.resetTokenMissingError');
       return;
     }
 
@@ -1495,21 +1514,21 @@ if (resetPasswordForm) {
     if (!newPassword || !confirmPassword) {
       resetPassword.setAttribute('aria-invalid', 'true');
       resetPasswordConfirm.setAttribute('aria-invalid', 'true');
-      resetPasswordError.textContent = 'Both password fields are required.';
+      resetPasswordError.textContent = t('auth.bothPasswordsRequiredError');
       return;
     }
 
     if (newPassword.length < 8) {
       resetPassword.setAttribute('aria-invalid', 'true');
       resetPasswordConfirm.setAttribute('aria-invalid', 'true');
-      resetPasswordError.textContent = 'Password must be at least 8 characters.';
+      resetPasswordError.textContent = t('auth.passwordTooShortError');
       return;
     }
 
     if (newPassword !== confirmPassword) {
       resetPassword.setAttribute('aria-invalid', 'true');
       resetPasswordConfirm.setAttribute('aria-invalid', 'true');
-      resetPasswordError.textContent = 'Passwords do not match.';
+      resetPasswordError.textContent = t('auth.passwordsMismatchError');
       return;
     }
 
@@ -1518,7 +1537,7 @@ if (resetPasswordForm) {
 
     resetPasswordSubmitBtn.disabled = true;
     const originalText = resetPasswordSubmitBtn.textContent;
-    resetPasswordSubmitBtn.textContent = 'Saving...';
+    resetPasswordSubmitBtn.textContent = t('common.saving');
 
     try {
       await requestJson('/api/auth/password-reset/complete', {
@@ -1529,8 +1548,8 @@ if (resetPasswordForm) {
         })
       });
 
-      resetPasswordMessage.textContent = 'Password updated. You can now log in with your new password.';
-      showToast('Password updated successfully.', 'success');
+      resetPasswordMessage.textContent = t('auth.passwordUpdatedMessage');
+      showToast(t('auth.passwordUpdatedToast'), 'success');
       resetTokenFromUrl = null;
       resetPasswordForm.reset();
       const url = new URL(window.location.href);
@@ -1557,6 +1576,60 @@ if (themeToggleBtn) {
   themeToggleBtn.addEventListener('click', toggleTheme);
 }
 
+const settingsBtnLoggedOut = document.getElementById('settingsBtnLoggedOut');
+const settingsBtnLoggedIn = document.getElementById('settingsBtnLoggedIn');
+const settingsDialog = document.getElementById('settingsDialog');
+const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+const langSelect = document.getElementById('langSelect');
+
+function syncLangSelect() {
+  if (!langSelect) {
+    return;
+  }
+  langSelect.value = window.BookWheelI18n.getCurrentLocale();
+}
+
+function openSettingsDialog() {
+  openDialog(settingsDialog, themeToggleBtn);
+}
+
+if (settingsBtnLoggedOut) {
+  settingsBtnLoggedOut.addEventListener('click', openSettingsDialog);
+}
+
+if (settingsBtnLoggedIn) {
+  settingsBtnLoggedIn.addEventListener('click', openSettingsDialog);
+}
+
+if (closeSettingsBtn) {
+  closeSettingsBtn.addEventListener('click', () => {
+    closeDialog(settingsDialog);
+  });
+}
+
+if (langSelect) {
+  langSelect.addEventListener('change', () => {
+    window.BookWheelI18n.setLocale(langSelect.value);
+  });
+}
+
+window.addEventListener('bookwheel:locale-changed', () => {
+  syncLangSelect();
+  applyTheme(document.documentElement.getAttribute('data-theme') || DARK_THEME);
+  renderWheelAccessibilitySummary();
+  if (!loginView.classList.contains('hidden')) {
+    setAuthMode(authMode);
+  }
+  if (!appView.classList.contains('hidden')) {
+    renderActiveBooks();
+  }
+  if (userManagementDialog.hasAttribute('open')) {
+    renderUserRows(allUsers);
+  }
+});
+
+syncLangSelect();
+
 if (importExportBtn) {
   importExportBtn.addEventListener('click', openTransferDialog);
 }
@@ -1566,11 +1639,12 @@ if (importExportBtn) {
   resetTokenFromUrl = query.get('resetToken');
 
   if (resetTokenFromUrl) {
+    const { t } = window.BookWheelI18n;
     showApp(false);
     loginForm.classList.add('hidden');
     resetPasswordForm.classList.remove('hidden');
-    authTitle.textContent = 'Validate password reset link';
-    authMessage.textContent = 'Checking your secure reset link...';
+    authTitle.textContent = t('auth.validatingLinkTitle');
+    authMessage.textContent = t('auth.validatingLinkSubtitle');
 
     try {
       const validation = await requestJson('/api/auth/password-reset/validate', {
@@ -1580,14 +1654,14 @@ if (importExportBtn) {
 
       const expiresAt = validation.expiresAtUtc ? new Date(validation.expiresAtUtc) : null;
       const expiryText = expiresAt && !Number.isNaN(expiresAt.getTime())
-        ? `This link expires at ${expiresAt.toLocaleString()}.`
-        : 'This link expires in 24 hours.';
+        ? t('auth.linkExpiresAt', { datetime: expiresAt.toLocaleString() })
+        : t('auth.linkExpires24h');
 
-      authTitle.textContent = `Set password for ${validation.username || 'your account'}`;
+      authTitle.textContent = t('auth.setPasswordForUser', { username: validation.username || t('auth.defaultAccountName') });
       authMessage.textContent = expiryText;
       resetPasswordMessage.textContent = '';
       resetPasswordError.textContent = '';
-      showToast('Reset link validated.', 'success');
+      showToast(t('auth.linkValidatedToast'), 'success');
       resetPassword.focus();
     } catch (error) {
       resetPasswordForm.classList.add('hidden');
@@ -1596,9 +1670,9 @@ if (importExportBtn) {
       const url = new URL(window.location.href);
       url.searchParams.delete('resetToken');
       window.history.replaceState({}, document.title, url.pathname + url.search);
-      authTitle.textContent = 'Book Wheel Login';
-      authMessage.textContent = 'Log in with your existing account.';
-      loginError.textContent = error.message || 'The password reset link is invalid or has expired.';
+      authTitle.textContent = t('auth.loginTitle');
+      authMessage.textContent = t('auth.loginSubtitle');
+      loginError.textContent = error.message || t('auth.linkInvalidError');
       showToast(loginError.textContent, 'error');
     }
   }

@@ -230,10 +230,17 @@ input:focus-visible,
   outline-offset: 2px;
 }
 
-input {
+input,
+select {
   background: var(--input-bg);
   color: var(--text);
   border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+select {
+  border-radius: 12px;
+  padding: 12px 14px;
+  font: inherit;
 }
 
 button {
@@ -313,6 +320,23 @@ button:disabled {
 .icon-glyph {
   font-size: 1.2rem;
   line-height: 1;
+}
+
+#loginView {
+  position: relative;
+}
+
+.settings-btn-corner {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .wheel-card { display: grid; justify-items: center; gap: 14px; }
