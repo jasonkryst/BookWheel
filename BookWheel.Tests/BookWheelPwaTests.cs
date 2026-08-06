@@ -123,4 +123,56 @@ public sealed class BookWheelPwaTests
         var firstCacheOpInFetchHandler = script.IndexOf("caches.match", fetchHandlerIndex, StringComparison.Ordinal);
         Assert.True(apiGuardIndex >= 0 && firstCacheOpInFetchHandler >= 0 && apiGuardIndex < firstCacheOpInFetchHandler);
     }
+
+    [Fact]
+    public async Task Frontend_Script_Should_Register_Service_Worker_With_Feature_Detection()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: registration happens, guarded by a feature check.
+        Assert.Contains("'serviceWorker' in navigator", script, StringComparison.Ordinal);
+        Assert.Contains("navigator.serviceWorker.register('/sw.js')", script, StringComparison.Ordinal);
+
+        // Negative: the feature check must come before the registration call,
+        // not after — otherwise it would throw in browsers without SW support.
+        var guardIndex = script.IndexOf("'serviceWorker' in navigator", StringComparison.Ordinal);
+        var registerIndex = script.IndexOf("navigator.serviceWorker.register('/sw.js')", StringComparison.Ordinal);
+        Assert.True(guardIndex >= 0 && registerIndex >= 0 && guardIndex < registerIndex);
+    }
+
+    [Fact]
+    public async Task Frontend_Script_Should_Notify_User_On_Connectivity_Changes()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("addEventListener('offline'", script, StringComparison.Ordinal);
+        Assert.Contains("addEventListener('online'", script, StringComparison.Ordinal);
+        Assert.Contains("common.offlineToast", script, StringComparison.Ordinal);
+        Assert.Contains("common.onlineToast", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task I18n_Catalog_Should_Include_Connectivity_Toast_Strings_For_All_Locales()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/i18n.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("You are offline. Some features will not work until you reconnect.", script, StringComparison.Ordinal);
+        Assert.Contains("Back online.", script, StringComparison.Ordinal);
+        Assert.Contains("Estás sin conexión. Algunas funciones no estarán disponibles hasta que te reconectes.", script, StringComparison.Ordinal);
+        Assert.Contains("De nuevo en línea.", script, StringComparison.Ordinal);
+        Assert.Contains("Jesteś offline. Niektóre funkcje będą niedostępne, dopóki nie połączysz się ponownie.", script, StringComparison.Ordinal);
+        Assert.Contains("Znowu online.", script, StringComparison.Ordinal);
+    }
 }

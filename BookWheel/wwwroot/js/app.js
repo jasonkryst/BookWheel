@@ -1700,3 +1700,19 @@ if (importExportBtn) {
     drawWheel();
   }
 })();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // Installability/offline caching is a progressive enhancement; ignore registration failures.
+    });
+  });
+}
+
+window.addEventListener('offline', () => {
+  showToast(window.BookWheelI18n.t('common.offlineToast'), 'error');
+});
+
+window.addEventListener('online', () => {
+  showToast(window.BookWheelI18n.t('common.onlineToast'), 'success');
+});
