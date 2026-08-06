@@ -63,7 +63,9 @@ The current interface is usable, but still minimal. The next step is making the 
 4. [Done] Add keyboard accessibility improvements for dialogs, lists, and wheel actions.
 5. [Done] Improve mobile layout polish for the wheel and management area.
 6. [Done] Add a high-contrast theme option (dark/light/high-contrast cycle) so every theme meets A11Y contrast expectations.
-7. Add optional categories, tags, or reading status to books.
+7. [Done] Add PWA support: installable manifest, app-shell service worker caching, and an offline fallback page (#33).
+8. Add optional categories, tags, or reading status to books.
+9. Full offline data support (queuing book add/edit/delete/spin actions made while offline and syncing on reconnect) was evaluated for #33 and deferred. It needs a durable client-side write queue, conflict resolution for concurrent edits across devices, and offline-aware handling of the cookie-based auth session (which has no refresh/silent-reauth path today). Revisit as its own project rather than an extension of the PWA caching work.
 
 Expected outcome:
 
