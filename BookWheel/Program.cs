@@ -217,8 +217,12 @@ async Task WriteConfiguredIndexAsync(HttpContext context)
 app.MapGet("/", WriteConfiguredIndexAsync);
 app.MapGet("/index.html", WriteConfiguredIndexAsync);
 
+var staticFileContentTypeProvider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+staticFileContentTypeProvider.Mappings[".webmanifest"] = "application/manifest+json";
+
 app.UseStaticFiles(new StaticFileOptions
 {
+	ContentTypeProvider = staticFileContentTypeProvider,
 	OnPrepareResponse = context =>
 	{
 		context.Context.Response.Headers.CacheControl = "no-cache, no-store, must-revalidate";
