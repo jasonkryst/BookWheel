@@ -64,4 +64,63 @@ public sealed class BookWheelPwaTests
         Assert.Contains("name=\"theme-color\"", html, StringComparison.Ordinal);
         Assert.Contains("rel=\"apple-touch-icon\"", html, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task Offline_Fallback_Page_Should_Be_Served()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/offline.html");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("Book Wheel is offline", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Service_Worker_Should_Be_Served_With_Current_Version_And_Lifecycle_Handlers()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var versionResponse = await client.GetAsync("/api/version");
+        using var versionDocument = JsonDocument.Parse(await versionResponse.Content.ReadAsStringAsync());
+        var version = versionDocument.RootElement.GetProperty("version").GetString();
+        Assert.NotNull(version);
+
+        var swResponse = await client.GetAsync("/sw.js");
+        Assert.Equal(HttpStatusCode.OK, swResponse.StatusCode);
+        Assert.Contains("javascript", swResponse.Content.Headers.ContentType?.MediaType, StringComparison.OrdinalIgnoreCase);
+
+        var script = await swResponse.Content.ReadAsStringAsync();
+        Assert.Contains("CACHE_NAME", script, StringComparison.Ordinal);
+        Assert.Contains(version!, script, StringComparison.Ordinal);
+        Assert.Contains("addEventListener('install'", script, StringComparison.Ordinal);
+        Assert.Contains("addEventListener('activate'", script, StringComparison.Ordinal);
+        Assert.Contains("addEventListener('fetch'", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Service_Worker_Should_Never_Intercept_Api_Requests()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/sw.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: an explicit bypass guard for /api/ exists in the fetch handler.
+        Assert.Contains("pathname.startsWith('/api/')", script, StringComparison.Ordinal);
+
+        // Negative: within the fetch handler, the bypass must come before any cache
+        // read/write for the request, otherwise API responses could still be served
+        // from or written to the cache.
+        var fetchHandlerIndex = script.IndexOf("addEventListener('fetch'", StringComparison.Ordinal);
+        Assert.True(fetchHandlerIndex >= 0);
+
+        var apiGuardIndex = script.IndexOf("pathname.startsWith('/api/')", fetchHandlerIndex, StringComparison.Ordinal);
+        var firstCacheOpInFetchHandler = script.IndexOf("caches.match", fetchHandlerIndex, StringComparison.Ordinal);
+        Assert.True(apiGuardIndex >= 0 && firstCacheOpInFetchHandler >= 0 && apiGuardIndex < firstCacheOpInFetchHandler);
+    }
 }
