@@ -214,11 +214,30 @@ async Task WriteConfiguredIndexAsync(HttpContext context)
 	await context.Response.WriteAsync(html);
 }
 
+async Task WriteConfiguredServiceWorkerAsync(HttpContext context)
+{
+	var webRootPath = app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+	var swPath = Path.Combine(webRootPath, "sw.js");
+	var script = await File.ReadAllTextAsync(swPath);
+	script = script.Replace("__ASSET_VERSION__", appVersion, StringComparison.Ordinal);
+
+	context.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
+	context.Response.Headers.Pragma = "no-cache";
+	context.Response.Headers.Expires = "0";
+	context.Response.ContentType = "application/javascript; charset=utf-8";
+	await context.Response.WriteAsync(script);
+}
+
 app.MapGet("/", WriteConfiguredIndexAsync);
 app.MapGet("/index.html", WriteConfiguredIndexAsync);
+app.MapGet("/sw.js", WriteConfiguredServiceWorkerAsync);
+
+var staticFileContentTypeProvider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+staticFileContentTypeProvider.Mappings[".webmanifest"] = "application/manifest+json";
 
 app.UseStaticFiles(new StaticFileOptions
 {
+	ContentTypeProvider = staticFileContentTypeProvider,
 	OnPrepareResponse = context =>
 	{
 		context.Context.Response.Headers.CacheControl = "no-cache, no-store, must-revalidate";
