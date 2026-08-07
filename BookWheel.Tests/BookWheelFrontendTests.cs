@@ -291,6 +291,29 @@ public sealed class BookWheelFrontendTests
     }
 
     [Fact]
+    public async Task Frontend_Styles_Should_Keep_Import_Export_Modal_Responsive()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/css/site.css");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var css = (await response.Content.ReadAsStringAsync()).ReplaceLineEndings("\n");
+
+        // Positive: the dialog stays in the visible viewport and its form
+        // scrolls independently when import content is taller than the screen.
+        Assert.Contains(".transfer-modal {\n  width: min(900px, calc(100% - 24px));\n  max-height: calc(100vh - 24px);", css, StringComparison.Ordinal);
+        Assert.Contains(".transfer-modal form {\n  max-height: calc(100vh - 24px);", css, StringComparison.Ordinal);
+        Assert.Contains("overflow-y: auto;", css, StringComparison.Ordinal);
+        Assert.Contains("width: calc(100% - 20px);", css, StringComparison.Ordinal);
+        Assert.Contains("flex: 1 1 160px;", css, StringComparison.Ordinal);
+
+        // Negative: fixed-width dialogs overflow narrow mobile and tablet viewports.
+        Assert.DoesNotContain(".transfer-modal {\n  width: 900px;", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Frontend_Styles_Should_Include_Light_And_Dark_Theme_Variables()
     {
         using var factory = new BookWheelWebAppFactory();
