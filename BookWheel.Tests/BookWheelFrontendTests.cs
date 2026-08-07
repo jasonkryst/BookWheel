@@ -268,6 +268,29 @@ public sealed class BookWheelFrontendTests
     }
 
     [Fact]
+    public async Task Frontend_Styles_Should_Keep_Mobile_Wheel_Inside_Its_Card()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/css/site.css");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var css = await response.Content.ReadAsStringAsync();
+
+        // Positive: the wheel uses the padded card's available width rather
+        // than the viewport width, so it remains within the mobile layout.
+        Assert.Contains("@media (max-width: 900px)", css, StringComparison.Ordinal);
+        Assert.Contains("width: min(100%, 380px);", css, StringComparison.Ordinal);
+        Assert.Contains("aspect-ratio: 1;", css, StringComparison.Ordinal);
+        Assert.Contains("padding: 16px;", css, StringComparison.Ordinal);
+
+        // Negative: viewport-relative sizing ignored the card padding and
+        // caused horizontal scrolling on narrow displays.
+        Assert.DoesNotContain("width: min(92vw, 380px);", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Frontend_Styles_Should_Include_Light_And_Dark_Theme_Variables()
     {
         using var factory = new BookWheelWebAppFactory();
