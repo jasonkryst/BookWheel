@@ -145,6 +145,8 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("id=\"userList\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"userStatusFilter\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"clearUserFiltersBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"manageUsersTabBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"createUserTabBtn\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"closeUserManagementBtn\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"deleteUserDialog\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"deleteUserConfirmMessage\"", html, StringComparison.Ordinal);
@@ -227,6 +229,8 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("user-row-controls", script, StringComparison.Ordinal);
         Assert.Contains("userStatusFilter", script, StringComparison.Ordinal);
         Assert.Contains("user-status-pills", script, StringComparison.Ordinal);
+        Assert.Contains("setUserManagementTab", script, StringComparison.Ordinal);
+        Assert.Contains("handleUserManagementTabKeydown", script, StringComparison.Ordinal);
         Assert.Contains("/api/version", script, StringComparison.Ordinal);
         Assert.Contains("loadAppVersion", script, StringComparison.Ordinal);
         Assert.Contains("toLocaleLowerCase", script, StringComparison.Ordinal);

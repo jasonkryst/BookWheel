@@ -224,30 +224,12 @@
         <p class="message" data-i18n="users.managementDescription">Create users, assign administrator access, and update account details in one place.</p>
       </header>
 
-      <div class="user-management-layout">
-        <section class="tab-panel user-create-panel">
-          <div class="section-title-row">
-            <h3 data-i18n="users.createUserHeading">Create user</h3>
-            <span class="section-tag" data-i18n="users.newAccountTag">New account</span>
-          </div>
-          <p class="message" data-i18n="users.createUserDescription">Create the account, then share the generated setup link so the user can set their own password.</p>
-          <form id="createUserForm" class="stack">
-            <label>
-              <span data-i18n="auth.usernameLabel">Username</span>
-              <input id="createUserUsername" maxlength="64" placeholder="reader-01" required />
-            </label>
-            <label class="checkbox-row">
-              <input id="createUserIsAdmin" type="checkbox" />
-              <span data-i18n="users.administratorLabel">Administrator</span>
-            </label>
-            <div class="actions user-create-actions">
-              <button type="submit" data-i18n="users.createUserBtn">Create user</button>
-              <button type="reset" class="secondary" data-i18n="common.clear">Clear</button>
-            </div>
-          </form>
-        </section>
+      <div class="tab-row user-management-tab-row" role="tablist" aria-label="User management options" data-i18n-aria-label="users.managementTabsLabel">
+        <button type="button" id="manageUsersTabBtn" class="secondary tab-btn active" role="tab" tabindex="0" aria-controls="userDirectoryPanel" aria-selected="true" data-i18n="users.existingUsersHeading">Existing users</button>
+        <button type="button" id="createUserTabBtn" class="secondary tab-btn" role="tab" tabindex="-1" aria-controls="userCreatePanel" aria-selected="false" data-i18n="users.createUserHeading">Create user</button>
+      </div>
 
-        <section class="tab-panel user-list-panel">
+      <section id="userDirectoryPanel" class="tab-panel user-list-panel" role="tabpanel" aria-labelledby="manageUsersTabBtn" tabindex="0">
           <div class="user-list-header-row">
             <div class="section-title-row">
               <h3 data-i18n="users.existingUsersHeading">Existing users</h3>
@@ -275,8 +257,29 @@
             <button type="button" id="clearUserFiltersBtn" class="secondary user-filter-clear" data-i18n="common.clear">Clear</button>
           </div>
           <div id="userList" class="book-list"></div>
-        </section>
-      </div>
+      </section>
+
+      <section id="userCreatePanel" class="tab-panel user-create-panel hidden" role="tabpanel" aria-labelledby="createUserTabBtn" tabindex="0" aria-hidden="true">
+        <div class="section-title-row">
+          <h3 data-i18n="users.createUserHeading">Create user</h3>
+          <span class="section-tag" data-i18n="users.newAccountTag">New account</span>
+        </div>
+        <p class="message" data-i18n="users.createUserDescription">Create the account, then share the generated setup link so the user can set their own password.</p>
+        <form id="createUserForm" class="stack">
+          <label>
+            <span data-i18n="auth.usernameLabel">Username</span>
+            <input id="createUserUsername" maxlength="64" placeholder="reader-01" required />
+          </label>
+          <label class="checkbox-row">
+            <input id="createUserIsAdmin" type="checkbox" />
+            <span data-i18n="users.administratorLabel">Administrator</span>
+          </label>
+          <div class="actions user-create-actions">
+            <button type="submit" data-i18n="users.createUserBtn">Create user</button>
+            <button type="reset" class="secondary" data-i18n="common.clear">Clear</button>
+          </div>
+        </form>
+      </section>
 
       <div class="actions modal-actions">
         <button type="button" id="closeUserManagementBtn" class="secondary" data-i18n="common.close">Close</button>

@@ -70,6 +70,10 @@ const transferMessage = document.getElementById('transferMessage');
 const transferError = document.getElementById('transferError');
 const userManagementDialog = document.getElementById('userManagementDialog');
 const closeUserManagementBtn = document.getElementById('closeUserManagementBtn');
+const manageUsersTabBtn = document.getElementById('manageUsersTabBtn');
+const createUserTabBtn = document.getElementById('createUserTabBtn');
+const userDirectoryPanel = document.getElementById('userDirectoryPanel');
+const userCreatePanel = document.getElementById('userCreatePanel');
 const createUserForm = document.getElementById('createUserForm');
 const createUserUsername = document.getElementById('createUserUsername');
 const createUserIsAdmin = document.getElementById('createUserIsAdmin');
@@ -488,6 +492,58 @@ function closeUserManagementDialog() {
   closeDialog(userManagementDialog);
 }
 
+function setUserManagementTab(tabName) {
+  const showDirectory = tabName === 'directory';
+  userDirectoryPanel.classList.toggle('hidden', !showDirectory);
+  userCreatePanel.classList.toggle('hidden', showDirectory);
+  userDirectoryPanel.setAttribute('aria-hidden', showDirectory ? 'false' : 'true');
+  userCreatePanel.setAttribute('aria-hidden', showDirectory ? 'true' : 'false');
+  manageUsersTabBtn.classList.toggle('active', showDirectory);
+  createUserTabBtn.classList.toggle('active', !showDirectory);
+  manageUsersTabBtn.setAttribute('aria-selected', showDirectory ? 'true' : 'false');
+  createUserTabBtn.setAttribute('aria-selected', showDirectory ? 'false' : 'true');
+  manageUsersTabBtn.tabIndex = showDirectory ? 0 : -1;
+  createUserTabBtn.tabIndex = showDirectory ? -1 : 0;
+}
+
+function moveUserManagementTabFocus(direction) {
+  const tabs = [manageUsersTabBtn, createUserTabBtn];
+  const currentIndex = tabs.findIndex(tab => tab === document.activeElement);
+  const nextIndex = currentIndex < 0
+    ? 0
+    : (currentIndex + direction + tabs.length) % tabs.length;
+  const nextTab = tabs[nextIndex];
+  setUserManagementTab(nextTab === manageUsersTabBtn ? 'directory' : 'create');
+  nextTab.focus();
+}
+
+function handleUserManagementTabKeydown(event) {
+  if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    moveUserManagementTabFocus(-1);
+    return;
+  }
+
+  if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+    event.preventDefault();
+    moveUserManagementTabFocus(1);
+    return;
+  }
+
+  if (event.key === 'Home') {
+    event.preventDefault();
+    setUserManagementTab('directory');
+    manageUsersTabBtn.focus();
+    return;
+  }
+
+  if (event.key === 'End') {
+    event.preventDefault();
+    setUserManagementTab('create');
+    createUserTabBtn.focus();
+  }
+}
+
 function closeDeleteUserDialog() {
   pendingDeleteUser = null;
   deleteUserError.textContent = '';
@@ -815,8 +871,9 @@ async function loadUsers() {
 async function openUserManagementDialog() {
   resetUserManagementMessages();
   await loadUsers();
+  setUserManagementTab('directory');
 
-  openDialog(userManagementDialog, createUserUsername);
+  openDialog(userManagementDialog, manageUsersTabBtn);
 }
 
 function drawWheel() {
@@ -1456,6 +1513,17 @@ if (userManagementBtn) {
     }
   });
 }
+
+manageUsersTabBtn.addEventListener('click', () => {
+  setUserManagementTab('directory');
+});
+
+createUserTabBtn.addEventListener('click', () => {
+  setUserManagementTab('create');
+});
+
+manageUsersTabBtn.addEventListener('keydown', handleUserManagementTabKeydown);
+createUserTabBtn.addEventListener('keydown', handleUserManagementTabKeydown);
 
 if (closeUserManagementBtn) {
   closeUserManagementBtn.addEventListener('click', () => {
