@@ -301,18 +301,21 @@ public sealed class BookWheelFrontendTests
 
         var css = (await response.Content.ReadAsStringAsync()).ReplaceLineEndings("\n");
 
-        // Positive: compact padding and container-bounded controls let the
-        // import content fit without widening the dialog or requiring a scroll bar.
-        Assert.Contains(".transfer-modal {\n  width: min(900px, calc(100% - 24px));\n}", css, StringComparison.Ordinal);
+        // Positive: compact spacing, hidden empty status rows, and
+        // container-bounded controls keep the import content in the modal.
+        Assert.Contains(".transfer-modal {\n  width: min(900px, calc(100% - 24px));\n  overflow: hidden;", css, StringComparison.Ordinal);
+        Assert.Contains(".transfer-modal .message:empty,\n.transfer-modal .error:empty {\n  display: none;", css, StringComparison.Ordinal);
         Assert.Contains("width: calc(100% - 20px);", css, StringComparison.Ordinal);
-        Assert.Contains(".transfer-modal input[type=\"file\"] {\n  max-width: 100%;", css, StringComparison.Ordinal);
-        Assert.Contains("flex: 1 1 160px;", css, StringComparison.Ordinal);
+        Assert.Contains(".transfer-modal input[type=\"file\"] {\n  width: 100%;", css, StringComparison.Ordinal);
+        Assert.Contains(".transfer-modal label,\n.transfer-modal .modal-actions {\n  min-width: 0;\n  width: 100%;", css, StringComparison.Ordinal);
+        Assert.Contains("flex: 1 1 100%;", css, StringComparison.Ordinal);
 
-        // Negative: fixed-width or internally scrollable dialogs force users
-        // to pan the import content on narrow mobile and tablet viewports.
+        // Negative: fixed-width or scrollable dialogs force users to pan the
+        // import content on narrow mobile and tablet viewports.
         Assert.DoesNotContain(".transfer-modal {\n  width: 900px;", css, StringComparison.Ordinal);
         Assert.DoesNotContain(".transfer-modal form {\n  overflow-y:", css, StringComparison.Ordinal);
         Assert.DoesNotContain(".transfer-modal form {\n  max-height:", css, StringComparison.Ordinal);
+        Assert.DoesNotContain(".transfer-modal {\n  overflow: auto;", css, StringComparison.Ordinal);
     }
 
     [Fact]
