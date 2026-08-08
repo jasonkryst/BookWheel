@@ -301,16 +301,18 @@ public sealed class BookWheelFrontendTests
 
         var css = (await response.Content.ReadAsStringAsync()).ReplaceLineEndings("\n");
 
-        // Positive: the dialog stays in the visible viewport and its form
-        // scrolls independently when import content is taller than the screen.
-        Assert.Contains(".transfer-modal {\n  width: min(900px, calc(100% - 24px));\n  max-height: calc(100vh - 24px);", css, StringComparison.Ordinal);
-        Assert.Contains(".transfer-modal form {\n  max-height: calc(100vh - 24px);", css, StringComparison.Ordinal);
-        Assert.Contains("overflow-y: auto;", css, StringComparison.Ordinal);
+        // Positive: compact padding and container-bounded controls let the
+        // import content fit without widening the dialog or requiring a scroll bar.
+        Assert.Contains(".transfer-modal {\n  width: min(900px, calc(100% - 24px));\n}", css, StringComparison.Ordinal);
         Assert.Contains("width: calc(100% - 20px);", css, StringComparison.Ordinal);
+        Assert.Contains(".transfer-modal input[type=\"file\"] {\n  max-width: 100%;", css, StringComparison.Ordinal);
         Assert.Contains("flex: 1 1 160px;", css, StringComparison.Ordinal);
 
-        // Negative: fixed-width dialogs overflow narrow mobile and tablet viewports.
+        // Negative: fixed-width or internally scrollable dialogs force users
+        // to pan the import content on narrow mobile and tablet viewports.
         Assert.DoesNotContain(".transfer-modal {\n  width: 900px;", css, StringComparison.Ordinal);
+        Assert.DoesNotContain(".transfer-modal form {\n  overflow-y:", css, StringComparison.Ordinal);
+        Assert.DoesNotContain(".transfer-modal form {\n  max-height:", css, StringComparison.Ordinal);
     }
 
     [Fact]
