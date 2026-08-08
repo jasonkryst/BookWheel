@@ -308,6 +308,7 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("overflow-y: auto;", css, StringComparison.Ordinal);
         Assert.Contains("width: calc(100% - 20px);", css, StringComparison.Ordinal);
         Assert.Contains("flex: 1 1 160px;", css, StringComparison.Ordinal);
+        Assert.Contains(".transfer-modal input[type=\"file\"] {\n  width: 100%;\n  max-width: 100%;\n  min-width: 0;", css, StringComparison.Ordinal);
 
         // Negative: fixed-width dialogs overflow narrow mobile and tablet viewports.
         Assert.DoesNotContain(".transfer-modal {\n  width: 900px;", css, StringComparison.Ordinal);
