@@ -613,15 +613,19 @@ button:disabled {
   border: 1px solid color-mix(in srgb, var(--accent) 52%, transparent);
 }
 
-.user-search-label {
-  position: sticky;
-  top: 0;
-  z-index: 2;
+.user-directory-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 220px) auto;
+  align-items: end;
+  gap: 10px;
   padding: 10px;
-  margin: 0 -2px;
   border-radius: 12px;
   background: color-mix(in srgb, var(--card) 90%, transparent);
   border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.user-filter-clear {
+  min-height: 46px;
 }
 
 .user-row {
@@ -709,6 +713,35 @@ button:disabled {
   font-weight: 700;
   background: color-mix(in srgb, var(--chip-bg) 60%, var(--accent) 40%);
   border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.user-status-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.user-status-pill {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.user-status-disabled {
+  color: #fee2e2;
+  background: #7f1d1d;
+}
+
+.user-status-locked {
+  color: #fef3c7;
+  background: #92400e;
+}
+
+.user-status-reset {
+  color: #dbeafe;
+  background: #1e3a8a;
 }
 
 .user-edit-grid {
@@ -995,6 +1028,12 @@ button:disabled {
   .user-list-header-row {
     align-items: start;
     flex-direction: column;
+  }
+  .user-directory-tools {
+    grid-template-columns: 1fr;
+  }
+  .user-filter-clear {
+    width: 100%;
   }
   .user-edit-grid {
     grid-template-columns: 1fr;

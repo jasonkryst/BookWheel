@@ -143,6 +143,8 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("id=\"createUserUsername\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"createUserIsAdmin\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"userList\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"userStatusFilter\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"clearUserFiltersBtn\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"closeUserManagementBtn\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"deleteUserDialog\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"deleteUserConfirmMessage\"", html, StringComparison.Ordinal);
@@ -223,6 +225,8 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("downloadExportJsonFile", script, StringComparison.Ordinal);
         Assert.Contains("document.createElement('details')", script, StringComparison.Ordinal);
         Assert.Contains("user-row-controls", script, StringComparison.Ordinal);
+        Assert.Contains("userStatusFilter", script, StringComparison.Ordinal);
+        Assert.Contains("user-status-pills", script, StringComparison.Ordinal);
         Assert.Contains("/api/version", script, StringComparison.Ordinal);
         Assert.Contains("loadAppVersion", script, StringComparison.Ordinal);
         Assert.Contains("toLocaleLowerCase", script, StringComparison.Ordinal);

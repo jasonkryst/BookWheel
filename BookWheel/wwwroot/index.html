@@ -256,10 +256,24 @@
             <span id="userCountBadge" class="count-badge">0 users</span>
           </div>
           <p class="message" data-i18n="users.updateDescription">Administrators can update other user accounts. Your own account is read-only here.</p>
-          <label class="user-search-label">
-            <span data-i18n="users.searchLabel">Search users</span>
-            <input id="userSearchInput" maxlength="64" placeholder="Filter by username" data-i18n-placeholder="users.searchPlaceholder" />
-          </label>
+          <div class="user-directory-tools">
+            <label class="user-search-label">
+              <span data-i18n="users.searchLabel">Search users</span>
+              <input id="userSearchInput" maxlength="64" placeholder="Filter by username" data-i18n-placeholder="users.searchPlaceholder" />
+            </label>
+            <label class="user-filter-label">
+              <span data-i18n="users.accountStatusLabel">Account status</span>
+              <select id="userStatusFilter">
+                <option value="all" data-i18n="users.allAccounts">All accounts</option>
+                <option value="attention" data-i18n="users.needsAttention">Needs attention</option>
+                <option value="admin" data-i18n="users.roleAdmin">Administrator</option>
+                <option value="locked" data-i18n="users.lockedCheckbox">Locked</option>
+                <option value="disabled" data-i18n="users.disabledCheckbox">Disabled</option>
+                <option value="reset" data-i18n="users.requireResetCheckbox">Require reset</option>
+              </select>
+            </label>
+            <button type="button" id="clearUserFiltersBtn" class="secondary user-filter-clear" data-i18n="common.clear">Clear</button>
+          </div>
           <div id="userList" class="book-list"></div>
         </section>
       </div>

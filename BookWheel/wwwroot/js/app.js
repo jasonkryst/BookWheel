@@ -74,6 +74,8 @@ const createUserForm = document.getElementById('createUserForm');
 const createUserUsername = document.getElementById('createUserUsername');
 const createUserIsAdmin = document.getElementById('createUserIsAdmin');
 const userSearchInput = document.getElementById('userSearchInput');
+const userStatusFilter = document.getElementById('userStatusFilter');
+const clearUserFiltersBtn = document.getElementById('clearUserFiltersBtn');
 const userCountBadge = document.getElementById('userCountBadge');
 const userList = document.getElementById('userList');
 const userManagementMessage = document.getElementById('userManagementMessage');
@@ -479,6 +481,9 @@ function closeUserManagementDialog() {
   if (userSearchInput) {
     userSearchInput.value = '';
   }
+  if (userStatusFilter) {
+    userStatusFilter.value = 'all';
+  }
 
   closeDialog(userManagementDialog);
 }
@@ -524,9 +529,19 @@ function renderUserRows(users) {
   userList.innerHTML = '';
 
   const filterTerm = (userSearchInput?.value || '').trim().toLocaleLowerCase();
-  const visibleUsers = filterTerm
-    ? users.filter(user => user.username.toLocaleLowerCase().includes(filterTerm))
-    : users;
+  const statusFilter = userStatusFilter?.value || 'all';
+  const visibleUsers = users.filter(user => {
+    const matchesSearch = !filterTerm || user.username.toLocaleLowerCase().includes(filterTerm);
+    const needsAttention = user.isDisabled || user.isLocked || user.forcePasswordReset;
+    const matchesStatus = statusFilter === 'all' ||
+      (statusFilter === 'attention' && needsAttention) ||
+      (statusFilter === 'admin' && user.isAdmin) ||
+      (statusFilter === 'locked' && user.isLocked) ||
+      (statusFilter === 'disabled' && user.isDisabled) ||
+      (statusFilter === 'reset' && user.forcePasswordReset);
+
+    return matchesSearch && matchesStatus;
+  });
 
   renderUserCount(visibleUsers.length, users.length);
 
@@ -550,6 +565,25 @@ function renderUserRows(users) {
     const rolePill = document.createElement('span');
     rolePill.className = 'user-role-pill';
     rolePill.textContent = user.isAdmin ? t('users.roleAdmin') : t('users.roleStandard');
+    const statusPills = document.createElement('div');
+    statusPills.className = 'user-status-pills';
+
+    const addStatusPill = (label, modifier) => {
+      const statusPill = document.createElement('span');
+      statusPill.className = `user-status-pill ${modifier}`;
+      statusPill.textContent = label;
+      statusPills.appendChild(statusPill);
+    };
+
+    if (user.isDisabled) {
+      addStatusPill(t('users.disabledCheckbox'), 'user-status-disabled');
+    }
+    if (user.isLocked) {
+      addStatusPill(t('users.lockedCheckbox'), 'user-status-locked');
+    }
+    if (user.forcePasswordReset) {
+      addStatusPill(t('users.requireResetCheckbox'), 'user-status-reset');
+    }
 
     const createdDate = user.createdAtUtc ? new Date(user.createdAtUtc) : null;
     metaLine.textContent = createdDate && !Number.isNaN(createdDate.getTime())
@@ -763,6 +797,9 @@ function renderUserRows(users) {
     nameText.textContent = isCurrentUser ? t('users.currentUserSuffix', { username: user.username }) : user.username;
     nameLine.append(nameText, rolePill);
     header.append(nameLine, metaLine);
+    if (statusPills.childElementCount) {
+      header.appendChild(statusPills);
+    }
 
     row.append(header, controls);
     userList.appendChild(row);
@@ -1573,6 +1610,21 @@ if (resetPasswordForm) {
 if (userSearchInput) {
   userSearchInput.addEventListener('input', () => {
     renderUserRows(allUsers);
+  });
+}
+
+if (userStatusFilter) {
+  userStatusFilter.addEventListener('change', () => {
+    renderUserRows(allUsers);
+  });
+}
+
+if (clearUserFiltersBtn) {
+  clearUserFiltersBtn.addEventListener('click', () => {
+    userSearchInput.value = '';
+    userStatusFilter.value = 'all';
+    renderUserRows(allUsers);
+    userSearchInput.focus();
   });
 }
 

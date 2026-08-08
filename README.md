@@ -16,7 +16,7 @@ This solution is split into separate application and test projects:
 
 - First-run account creation plus cookie-based login/logout
 - First created account is automatically assigned administrator role
-- Administrator-only user management for creating, updating, and removing other user accounts
+- Administrator-only user management for creating, updating, and removing other user accounts, with searchable status filters and at-a-glance account-state indicators
 - New-user onboarding uses admin-shared setup links instead of admin-supplied passwords
 - Administrator-generated password reset links (24-hour expiry) instead of direct password setting
 - User management link is visible only to administrators
