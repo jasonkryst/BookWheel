@@ -6,6 +6,6 @@
     <RootNamespace>BookWheel</RootNamespace>
     <!-- CI (ci.yml) validates this value against ^[0-9]+(\.[0-9]+){0,3}$ before appending a
          -ci.<run>+<sha> suffix; a version format change here can silently break 4 of 7 CI jobs. -->
-    <InformationalVersion Condition="'$(InformationalVersion)' == ''">1.9.3</InformationalVersion>
+    <InformationalVersion Condition="'$(InformationalVersion)' == ''">1.9.5</InformationalVersion>
   </PropertyGroup>
 </Project>
