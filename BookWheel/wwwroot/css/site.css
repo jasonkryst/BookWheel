@@ -791,6 +791,16 @@ button:disabled {
 
 .transfer-modal {
   width: min(900px, calc(100% - 24px));
+  overflow: hidden;
+}
+
+.transfer-modal h2 {
+  margin: 0;
+}
+
+.transfer-modal .message:empty,
+.transfer-modal .error:empty {
+  display: none;
 }
 
 .tab-row {
@@ -836,7 +846,13 @@ button:disabled {
 }
 
 .transfer-modal input[type="file"] {
-  max-width: 100%;
+  width: 100%;
+}
+
+.transfer-modal label,
+.transfer-modal .modal-actions {
+  min-width: 0;
+  width: 100%;
 }
 
 .json-textarea {
@@ -891,15 +907,22 @@ button:disabled {
   }
 
   .transfer-modal form {
+    gap: 10px;
     padding: 16px;
   }
 
   .transfer-modal .tab-panel {
-    padding: 12px;
+    gap: 8px;
+    padding: 10px;
   }
 
   .transfer-modal .modal-actions > button {
-    flex: 1 1 160px;
+    flex: 1 1 100%;
+  }
+
+  .transfer-modal input,
+  .transfer-modal button {
+    padding: 10px 12px;
   }
 
   .wheel-wrap {
