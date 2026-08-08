@@ -221,6 +221,8 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("importFileBtn", script, StringComparison.Ordinal);
         Assert.Contains("downloadExportBtn", script, StringComparison.Ordinal);
         Assert.Contains("downloadExportJsonFile", script, StringComparison.Ordinal);
+        Assert.Contains("document.createElement('details')", script, StringComparison.Ordinal);
+        Assert.Contains("user-row-controls", script, StringComparison.Ordinal);
         Assert.Contains("/api/version", script, StringComparison.Ordinal);
         Assert.Contains("loadAppVersion", script, StringComparison.Ordinal);
         Assert.Contains("toLocaleLowerCase", script, StringComparison.Ordinal);

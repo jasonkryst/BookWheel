@@ -636,6 +636,30 @@ button:disabled {
   transition: border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
 }
 
+.user-row > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.user-row > summary::-webkit-details-marker {
+  display: none;
+}
+
+.user-row > summary::after {
+  content: ">";
+  position: absolute;
+  top: 50%;
+  right: 0;
+  font-weight: 800;
+  color: var(--muted);
+  transform: translateY(-50%);
+  transition: transform 140ms ease;
+}
+
+.user-row[open] > summary::after {
+  transform: translateY(-50%) rotate(90deg);
+}
+
 .user-row:hover {
   transform: translateY(-1px);
   border-color: color-mix(in srgb, var(--accent) 34%, rgba(148, 163, 184, 0.24));
@@ -645,6 +669,19 @@ button:disabled {
 .user-row-header {
   display: grid;
   gap: 6px;
+  position: relative;
+  padding-right: 20px;
+}
+
+.user-row[open] > .user-row-header {
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.user-row-controls {
+  display: grid;
+  gap: 12px;
+  padding-top: 12px;
 }
 
 .user-name-line {

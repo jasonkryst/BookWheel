@@ -536,10 +536,10 @@ function renderUserRows(users) {
   }
 
   visibleUsers.forEach(user => {
-    const row = document.createElement('div');
+    const row = document.createElement('details');
     row.className = 'user-row';
 
-    const header = document.createElement('div');
+    const header = document.createElement('summary');
     header.className = 'user-row-header';
     const nameLine = document.createElement('div');
     nameLine.className = 'user-name-line';
@@ -626,6 +626,10 @@ function renderUserRows(users) {
     const editGrid = document.createElement('div');
     editGrid.className = 'user-edit-grid';
     editGrid.append(usernameLabel, adminLabel, disabledLabel, forceResetLabel, lockLabel);
+
+    const controls = document.createElement('div');
+    controls.className = 'user-row-controls';
+    controls.append(editGrid, actions);
 
     const isCurrentUser = currentUser && user.userId === currentUser.userId;
     const firstUserId = users[0]?.userId || null;
@@ -760,7 +764,7 @@ function renderUserRows(users) {
     nameLine.append(nameText, rolePill);
     header.append(nameLine, metaLine);
 
-    row.append(header, editGrid, actions);
+    row.append(header, controls);
     userList.appendChild(row);
   });
 }
