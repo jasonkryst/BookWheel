@@ -832,10 +832,21 @@ button:disabled {
 .tab-panel {
   display: grid;
   gap: 10px;
+  min-width: 0;
   border: 1px solid rgba(148, 163, 184, 0.22);
   border-radius: 14px;
   padding: 14px;
   background: color-mix(in srgb, var(--card) 96%, transparent);
+}
+
+.transfer-modal label {
+  min-width: 0;
+}
+
+.transfer-modal input[type="file"] {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .tab-panel.hidden {
