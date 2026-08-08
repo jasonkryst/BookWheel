@@ -613,15 +613,19 @@ button:disabled {
   border: 1px solid color-mix(in srgb, var(--accent) 52%, transparent);
 }
 
-.user-search-label {
-  position: sticky;
-  top: 0;
-  z-index: 2;
+.user-directory-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 220px) auto;
+  align-items: end;
+  gap: 10px;
   padding: 10px;
-  margin: 0 -2px;
   border-radius: 12px;
   background: color-mix(in srgb, var(--card) 90%, transparent);
   border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.user-filter-clear {
+  min-height: 46px;
 }
 
 .user-row {
@@ -636,6 +640,30 @@ button:disabled {
   transition: border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
 }
 
+.user-row > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.user-row > summary::-webkit-details-marker {
+  display: none;
+}
+
+.user-row > summary::after {
+  content: ">";
+  position: absolute;
+  top: 50%;
+  right: 0;
+  font-weight: 800;
+  color: var(--muted);
+  transform: translateY(-50%);
+  transition: transform 140ms ease;
+}
+
+.user-row[open] > summary::after {
+  transform: translateY(-50%) rotate(90deg);
+}
+
 .user-row:hover {
   transform: translateY(-1px);
   border-color: color-mix(in srgb, var(--accent) 34%, rgba(148, 163, 184, 0.24));
@@ -645,6 +673,19 @@ button:disabled {
 .user-row-header {
   display: grid;
   gap: 6px;
+  position: relative;
+  padding-right: 20px;
+}
+
+.user-row[open] > .user-row-header {
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.user-row-controls {
+  display: grid;
+  gap: 12px;
+  padding-top: 12px;
 }
 
 .user-name-line {
@@ -672,6 +713,35 @@ button:disabled {
   font-weight: 700;
   background: color-mix(in srgb, var(--chip-bg) 60%, var(--accent) 40%);
   border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.user-status-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.user-status-pill {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.user-status-disabled {
+  color: #fee2e2;
+  background: #7f1d1d;
+}
+
+.user-status-locked {
+  color: #fef3c7;
+  background: #92400e;
+}
+
+.user-status-reset {
+  color: #dbeafe;
+  background: #1e3a8a;
 }
 
 .user-edit-grid {
@@ -958,6 +1028,12 @@ button:disabled {
   .user-list-header-row {
     align-items: start;
     flex-direction: column;
+  }
+  .user-directory-tools {
+    grid-template-columns: 1fr;
+  }
+  .user-filter-clear {
+    width: 100%;
   }
   .user-edit-grid {
     grid-template-columns: 1fr;

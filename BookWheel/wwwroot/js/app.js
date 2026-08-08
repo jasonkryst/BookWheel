@@ -70,10 +70,16 @@ const transferMessage = document.getElementById('transferMessage');
 const transferError = document.getElementById('transferError');
 const userManagementDialog = document.getElementById('userManagementDialog');
 const closeUserManagementBtn = document.getElementById('closeUserManagementBtn');
+const manageUsersTabBtn = document.getElementById('manageUsersTabBtn');
+const createUserTabBtn = document.getElementById('createUserTabBtn');
+const userDirectoryPanel = document.getElementById('userDirectoryPanel');
+const userCreatePanel = document.getElementById('userCreatePanel');
 const createUserForm = document.getElementById('createUserForm');
 const createUserUsername = document.getElementById('createUserUsername');
 const createUserIsAdmin = document.getElementById('createUserIsAdmin');
 const userSearchInput = document.getElementById('userSearchInput');
+const userStatusFilter = document.getElementById('userStatusFilter');
+const clearUserFiltersBtn = document.getElementById('clearUserFiltersBtn');
 const userCountBadge = document.getElementById('userCountBadge');
 const userList = document.getElementById('userList');
 const userManagementMessage = document.getElementById('userManagementMessage');
@@ -479,8 +485,63 @@ function closeUserManagementDialog() {
   if (userSearchInput) {
     userSearchInput.value = '';
   }
+  if (userStatusFilter) {
+    userStatusFilter.value = 'all';
+  }
 
   closeDialog(userManagementDialog);
+}
+
+function setUserManagementTab(tabName) {
+  const showDirectory = tabName === 'directory';
+  userDirectoryPanel.classList.toggle('hidden', !showDirectory);
+  userCreatePanel.classList.toggle('hidden', showDirectory);
+  userDirectoryPanel.setAttribute('aria-hidden', showDirectory ? 'false' : 'true');
+  userCreatePanel.setAttribute('aria-hidden', showDirectory ? 'true' : 'false');
+  manageUsersTabBtn.classList.toggle('active', showDirectory);
+  createUserTabBtn.classList.toggle('active', !showDirectory);
+  manageUsersTabBtn.setAttribute('aria-selected', showDirectory ? 'true' : 'false');
+  createUserTabBtn.setAttribute('aria-selected', showDirectory ? 'false' : 'true');
+  manageUsersTabBtn.tabIndex = showDirectory ? 0 : -1;
+  createUserTabBtn.tabIndex = showDirectory ? -1 : 0;
+}
+
+function moveUserManagementTabFocus(direction) {
+  const tabs = [manageUsersTabBtn, createUserTabBtn];
+  const currentIndex = tabs.findIndex(tab => tab === document.activeElement);
+  const nextIndex = currentIndex < 0
+    ? 0
+    : (currentIndex + direction + tabs.length) % tabs.length;
+  const nextTab = tabs[nextIndex];
+  setUserManagementTab(nextTab === manageUsersTabBtn ? 'directory' : 'create');
+  nextTab.focus();
+}
+
+function handleUserManagementTabKeydown(event) {
+  if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    moveUserManagementTabFocus(-1);
+    return;
+  }
+
+  if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+    event.preventDefault();
+    moveUserManagementTabFocus(1);
+    return;
+  }
+
+  if (event.key === 'Home') {
+    event.preventDefault();
+    setUserManagementTab('directory');
+    manageUsersTabBtn.focus();
+    return;
+  }
+
+  if (event.key === 'End') {
+    event.preventDefault();
+    setUserManagementTab('create');
+    createUserTabBtn.focus();
+  }
 }
 
 function closeDeleteUserDialog() {
@@ -524,9 +585,19 @@ function renderUserRows(users) {
   userList.innerHTML = '';
 
   const filterTerm = (userSearchInput?.value || '').trim().toLocaleLowerCase();
-  const visibleUsers = filterTerm
-    ? users.filter(user => user.username.toLocaleLowerCase().includes(filterTerm))
-    : users;
+  const statusFilter = userStatusFilter?.value || 'all';
+  const visibleUsers = users.filter(user => {
+    const matchesSearch = !filterTerm || user.username.toLocaleLowerCase().includes(filterTerm);
+    const needsAttention = user.isDisabled || user.isLocked || user.forcePasswordReset;
+    const matchesStatus = statusFilter === 'all' ||
+      (statusFilter === 'attention' && needsAttention) ||
+      (statusFilter === 'admin' && user.isAdmin) ||
+      (statusFilter === 'locked' && user.isLocked) ||
+      (statusFilter === 'disabled' && user.isDisabled) ||
+      (statusFilter === 'reset' && user.forcePasswordReset);
+
+    return matchesSearch && matchesStatus;
+  });
 
   renderUserCount(visibleUsers.length, users.length);
 
@@ -536,10 +607,10 @@ function renderUserRows(users) {
   }
 
   visibleUsers.forEach(user => {
-    const row = document.createElement('div');
+    const row = document.createElement('details');
     row.className = 'user-row';
 
-    const header = document.createElement('div');
+    const header = document.createElement('summary');
     header.className = 'user-row-header';
     const nameLine = document.createElement('div');
     nameLine.className = 'user-name-line';
@@ -550,6 +621,25 @@ function renderUserRows(users) {
     const rolePill = document.createElement('span');
     rolePill.className = 'user-role-pill';
     rolePill.textContent = user.isAdmin ? t('users.roleAdmin') : t('users.roleStandard');
+    const statusPills = document.createElement('div');
+    statusPills.className = 'user-status-pills';
+
+    const addStatusPill = (label, modifier) => {
+      const statusPill = document.createElement('span');
+      statusPill.className = `user-status-pill ${modifier}`;
+      statusPill.textContent = label;
+      statusPills.appendChild(statusPill);
+    };
+
+    if (user.isDisabled) {
+      addStatusPill(t('users.disabledCheckbox'), 'user-status-disabled');
+    }
+    if (user.isLocked) {
+      addStatusPill(t('users.lockedCheckbox'), 'user-status-locked');
+    }
+    if (user.forcePasswordReset) {
+      addStatusPill(t('users.requireResetCheckbox'), 'user-status-reset');
+    }
 
     const createdDate = user.createdAtUtc ? new Date(user.createdAtUtc) : null;
     metaLine.textContent = createdDate && !Number.isNaN(createdDate.getTime())
@@ -626,6 +716,10 @@ function renderUserRows(users) {
     const editGrid = document.createElement('div');
     editGrid.className = 'user-edit-grid';
     editGrid.append(usernameLabel, adminLabel, disabledLabel, forceResetLabel, lockLabel);
+
+    const controls = document.createElement('div');
+    controls.className = 'user-row-controls';
+    controls.append(editGrid, actions);
 
     const isCurrentUser = currentUser && user.userId === currentUser.userId;
     const firstUserId = users[0]?.userId || null;
@@ -759,8 +853,11 @@ function renderUserRows(users) {
     nameText.textContent = isCurrentUser ? t('users.currentUserSuffix', { username: user.username }) : user.username;
     nameLine.append(nameText, rolePill);
     header.append(nameLine, metaLine);
+    if (statusPills.childElementCount) {
+      header.appendChild(statusPills);
+    }
 
-    row.append(header, editGrid, actions);
+    row.append(header, controls);
     userList.appendChild(row);
   });
 }
@@ -774,8 +871,9 @@ async function loadUsers() {
 async function openUserManagementDialog() {
   resetUserManagementMessages();
   await loadUsers();
+  setUserManagementTab('directory');
 
-  openDialog(userManagementDialog, createUserUsername);
+  openDialog(userManagementDialog, manageUsersTabBtn);
 }
 
 function drawWheel() {
@@ -1416,6 +1514,17 @@ if (userManagementBtn) {
   });
 }
 
+manageUsersTabBtn.addEventListener('click', () => {
+  setUserManagementTab('directory');
+});
+
+createUserTabBtn.addEventListener('click', () => {
+  setUserManagementTab('create');
+});
+
+manageUsersTabBtn.addEventListener('keydown', handleUserManagementTabKeydown);
+createUserTabBtn.addEventListener('keydown', handleUserManagementTabKeydown);
+
 if (closeUserManagementBtn) {
   closeUserManagementBtn.addEventListener('click', () => {
     closeUserManagementDialog();
@@ -1569,6 +1678,21 @@ if (resetPasswordForm) {
 if (userSearchInput) {
   userSearchInput.addEventListener('input', () => {
     renderUserRows(allUsers);
+  });
+}
+
+if (userStatusFilter) {
+  userStatusFilter.addEventListener('change', () => {
+    renderUserRows(allUsers);
+  });
+}
+
+if (clearUserFiltersBtn) {
+  clearUserFiltersBtn.addEventListener('click', () => {
+    userSearchInput.value = '';
+    userStatusFilter.value = 'all';
+    renderUserRows(allUsers);
+    userSearchInput.focus();
   });
 }
 
