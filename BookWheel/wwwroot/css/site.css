@@ -473,13 +473,23 @@ button:disabled {
 }
 
 .user-management-dialog {
-  width: min(1225px, calc(100% - 24px));
+  width: calc(100% - 24px);
   max-height: min(90vh, 760px);
   padding: 0;
   background: var(--card);
   border: 1px solid var(--card-border);
   box-shadow: 0 16px 44px rgba(0, 0, 0, 0.34);
   overflow: hidden;
+}
+
+.user-management-dialog label {
+  min-width: 0;
+}
+
+.user-management-dialog input[type="file"] {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .user-management-shell {
@@ -518,27 +528,6 @@ button:disabled {
 .user-management-header h2 {
   margin: 0;
   letter-spacing: 0.02em;
-}
-
-.user-management-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.user-management-kicker {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 0.75rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text);
-  background: color-mix(in srgb, var(--accent) 25%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
 }
 
 .user-management-layout {
@@ -913,12 +902,6 @@ button:disabled {
   min-width: 0;
 }
 
-.transfer-modal input[type="file"] {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-}
-
 .tab-panel.hidden {
   display: none;
 }
@@ -1021,9 +1004,11 @@ button:disabled {
   .user-management-layout {
     grid-template-columns: 1fr;
   }
-  .user-management-title-row {
-    align-items: start;
-    flex-direction: column;
+  .user-management-dialog .tab-panel {
+    padding: 12px;
+  }
+  .user-management-dialog .modal-actions > button {
+    flex: 1 1 160px;
   }
   .user-list-header-row {
     align-items: start;
@@ -1050,6 +1035,12 @@ button:disabled {
 
   .user-edit-grid .checkbox-row {
     margin-bottom: 0;
+  }
+}
+
+@media (min-width: 901px) {
+  .user-management-dialog {
+    width: 80%;
   }
 }
 

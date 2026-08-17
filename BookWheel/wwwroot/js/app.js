@@ -27,8 +27,6 @@ const wheelSummaryEl = document.getElementById('wheelSummary');
 const wheelBooksSrListEl = document.getElementById('wheelBooksSrList');
 const spinBtn = document.getElementById('spinBtn');
 const logoutBtn = document.getElementById('logoutBtn');
-const userManagementBtn = document.getElementById('userManagementBtn');
-const importExportBtn = document.getElementById('importExportBtn');
 const themeToggleBtn = document.getElementById('themeToggleBtn');
 const themeToggleIcon = document.getElementById('themeToggleIcon');
 const userGreeting = document.getElementById('userGreeting');
@@ -56,7 +54,6 @@ const resetLinkValue = document.getElementById('resetLinkValue');
 const resetLinkError = document.getElementById('resetLinkError');
 const copyResetLinkBtn = document.getElementById('copyResetLinkBtn');
 const closeResetLinkBtn = document.getElementById('closeResetLinkBtn');
-const transferDialog = document.getElementById('transferDialog');
 const importTabBtn = document.getElementById('importTabBtn');
 const exportTabBtn = document.getElementById('exportTabBtn');
 const importPanel = document.getElementById('importPanel');
@@ -64,12 +61,8 @@ const exportPanel = document.getElementById('exportPanel');
 const importJsonFile = document.getElementById('importJsonFile');
 const importFileBtn = document.getElementById('importFileBtn');
 const downloadExportBtn = document.getElementById('downloadExportBtn');
-const cancelTransferBtn = document.getElementById('cancelTransferBtn');
-const closeExportBtn = document.getElementById('closeExportBtn');
 const transferMessage = document.getElementById('transferMessage');
 const transferError = document.getElementById('transferError');
-const userManagementDialog = document.getElementById('userManagementDialog');
-const closeUserManagementBtn = document.getElementById('closeUserManagementBtn');
 const manageUsersTabBtn = document.getElementById('manageUsersTabBtn');
 const createUserTabBtn = document.getElementById('createUserTabBtn');
 const userDirectoryPanel = document.getElementById('userDirectoryPanel');
@@ -84,6 +77,14 @@ const userCountBadge = document.getElementById('userCountBadge');
 const userList = document.getElementById('userList');
 const userManagementMessage = document.getElementById('userManagementMessage');
 const userManagementError = document.getElementById('userManagementError');
+const settingsDialog = document.getElementById('settingsDialog');
+const settingsTabRow = document.getElementById('settingsTabRow');
+const settingsManageUsersTabBtn = document.getElementById('settingsManageUsersTabBtn');
+const settingsImportExportTabBtn = document.getElementById('settingsImportExportTabBtn');
+const settingsPreferencesTabBtn = document.getElementById('settingsPreferencesTabBtn');
+const settingsManageUsersPanel = document.getElementById('settingsManageUsersPanel');
+const settingsImportExportPanel = document.getElementById('settingsImportExportPanel');
+const settingsPreferencesPanel = document.getElementById('settingsPreferencesPanel');
 const appVersionEl = document.getElementById('appVersion');
 const toastRegion = document.getElementById('toastRegion');
 
@@ -350,15 +351,21 @@ function showApp(show) {
 function applyCurrentUser(user) {
   currentUser = user;
   const canManageUsers = Boolean(currentUser && currentUser.isAdmin);
+  const isLoggedIn = Boolean(currentUser && currentUser.username);
 
   if (userGreeting) {
-    const hasUser = Boolean(currentUser && currentUser.username);
-    userGreeting.classList.toggle('hidden', !hasUser);
-    userGreeting.textContent = hasUser ? window.BookWheelI18n.t('users.greeting', { username: currentUser.username }) : '';
+    userGreeting.classList.toggle('hidden', !isLoggedIn);
+    userGreeting.textContent = isLoggedIn ? window.BookWheelI18n.t('users.greeting', { username: currentUser.username }) : '';
   }
 
-  if (userManagementBtn) {
-    userManagementBtn.classList.toggle('hidden', !canManageUsers);
+  if (settingsTabRow) {
+    settingsTabRow.classList.toggle('hidden', !isLoggedIn);
+  }
+  if (settingsManageUsersTabBtn) {
+    settingsManageUsersTabBtn.classList.toggle('hidden', !canManageUsers);
+  }
+  if (settingsImportExportTabBtn) {
+    settingsImportExportTabBtn.classList.toggle('hidden', !isLoggedIn);
   }
 }
 
@@ -478,7 +485,7 @@ function renderUserCount(filteredCount, totalCount) {
     : t('users.filteredUsers', { filtered: filteredCount, total: totalCount });
 }
 
-function closeUserManagementDialog() {
+function resetUserManagementState() {
   resetUserManagementMessages();
   allUsers = [];
   pendingDeleteUser = null;
@@ -488,8 +495,6 @@ function closeUserManagementDialog() {
   if (userStatusFilter) {
     userStatusFilter.value = 'all';
   }
-
-  closeDialog(userManagementDialog);
 }
 
 function setUserManagementTab(tabName) {
@@ -868,12 +873,10 @@ async function loadUsers() {
   renderUserRows(allUsers);
 }
 
-async function openUserManagementDialog() {
+async function activateSettingsManageUsersTab() {
   resetUserManagementMessages();
-  await loadUsers();
   setUserManagementTab('directory');
-
-  openDialog(userManagementDialog, manageUsersTabBtn);
+  await loadUsers();
 }
 
 function drawWheel() {
@@ -1076,22 +1079,13 @@ function moveTransferTabFocus(direction) {
   nextTab.focus();
 }
 
-function openTransferDialog() {
+function activateSettingsImportExportTab() {
   transferMessage.textContent = '';
   transferError.textContent = '';
   if (importJsonFile) {
     importJsonFile.value = '';
   }
   setTransferTab('import');
-
-  openDialog(transferDialog, importTabBtn);
-}
-
-function closeTransferDialog() {
-  transferMessage.textContent = '';
-  transferError.textContent = '';
-
-  closeDialog(transferDialog);
 }
 
 function parseImportTitles(rawJson) {
@@ -1310,14 +1304,6 @@ downloadExportBtn.addEventListener('click', () => {
   downloadExportJsonFile();
 });
 
-cancelTransferBtn.addEventListener('click', () => {
-  closeTransferDialog();
-});
-
-closeExportBtn.addEventListener('click', () => {
-  closeTransferDialog();
-});
-
 loginForm.addEventListener('submit', async event => {
   event.preventDefault();
   loginError.textContent = '';
@@ -1504,16 +1490,6 @@ logoutBtn.addEventListener('click', async () => {
   showToast(window.BookWheelI18n.t('auth.signedOutToast'), 'info');
 });
 
-if (userManagementBtn) {
-  userManagementBtn.addEventListener('click', async () => {
-    try {
-      await openUserManagementDialog();
-    } catch (error) {
-      userManagementError.textContent = error.message;
-    }
-  });
-}
-
 manageUsersTabBtn.addEventListener('click', () => {
   setUserManagementTab('directory');
 });
@@ -1524,12 +1500,6 @@ createUserTabBtn.addEventListener('click', () => {
 
 manageUsersTabBtn.addEventListener('keydown', handleUserManagementTabKeydown);
 createUserTabBtn.addEventListener('keydown', handleUserManagementTabKeydown);
-
-if (closeUserManagementBtn) {
-  closeUserManagementBtn.addEventListener('click', () => {
-    closeUserManagementDialog();
-  });
-}
 
 if (createUserForm) {
   createUserForm.addEventListener('submit', async event => {
@@ -1702,7 +1672,6 @@ if (themeToggleBtn) {
 
 const settingsBtnLoggedOut = document.getElementById('settingsBtnLoggedOut');
 const settingsBtnLoggedIn = document.getElementById('settingsBtnLoggedIn');
-const settingsDialog = document.getElementById('settingsDialog');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
 const langSelect = document.getElementById('langSelect');
 
@@ -1713,8 +1682,109 @@ function syncLangSelect() {
   langSelect.value = window.BookWheelI18n.getCurrentLocale();
 }
 
+function setSettingsTab(tabName) {
+  const panels = {
+    'manage-users': settingsManageUsersPanel,
+    'import-export': settingsImportExportPanel,
+    preferences: settingsPreferencesPanel
+  };
+  const tabButtons = {
+    'manage-users': settingsManageUsersTabBtn,
+    'import-export': settingsImportExportTabBtn,
+    preferences: settingsPreferencesTabBtn
+  };
+
+  Object.keys(panels).forEach(name => {
+    const isActive = name === tabName;
+    panels[name].classList.toggle('hidden', !isActive);
+    panels[name].setAttribute('aria-hidden', isActive ? 'false' : 'true');
+    tabButtons[name].classList.toggle('active', isActive);
+    tabButtons[name].setAttribute('aria-selected', isActive ? 'true' : 'false');
+    tabButtons[name].tabIndex = isActive ? 0 : -1;
+  });
+}
+
+async function activateSettingsTab(tabName) {
+  setSettingsTab(tabName);
+
+  if (tabName === 'manage-users') {
+    try {
+      await activateSettingsManageUsersTab();
+    } catch (error) {
+      userManagementError.textContent = error.message;
+    }
+  } else if (tabName === 'import-export') {
+    activateSettingsImportExportTab();
+  }
+}
+
+function getVisibleSettingsTabs() {
+  return [settingsManageUsersTabBtn, settingsImportExportTabBtn, settingsPreferencesTabBtn]
+    .filter(tab => tab && !tab.classList.contains('hidden'));
+}
+
+function settingsTabNameFor(tab) {
+  if (tab === settingsManageUsersTabBtn) {
+    return 'manage-users';
+  }
+  if (tab === settingsImportExportTabBtn) {
+    return 'import-export';
+  }
+  return 'preferences';
+}
+
+function moveSettingsTabFocus(direction) {
+  const tabs = getVisibleSettingsTabs();
+  const currentIndex = tabs.findIndex(tab => tab === document.activeElement);
+  const nextIndex = currentIndex < 0
+    ? 0
+    : (currentIndex + direction + tabs.length) % tabs.length;
+  const nextTab = tabs[nextIndex];
+  activateSettingsTab(settingsTabNameFor(nextTab));
+  nextTab.focus();
+}
+
+function handleSettingsTabKeydown(event) {
+  if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    moveSettingsTabFocus(-1);
+    return;
+  }
+
+  if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+    event.preventDefault();
+    moveSettingsTabFocus(1);
+    return;
+  }
+
+  const tabs = getVisibleSettingsTabs();
+
+  if (event.key === 'Home') {
+    event.preventDefault();
+    activateSettingsTab(settingsTabNameFor(tabs[0]));
+    tabs[0].focus();
+    return;
+  }
+
+  if (event.key === 'End') {
+    event.preventDefault();
+    const lastTab = tabs[tabs.length - 1];
+    activateSettingsTab(settingsTabNameFor(lastTab));
+    lastTab.focus();
+  }
+}
+
 function openSettingsDialog() {
-  openDialog(settingsDialog, themeToggleBtn);
+  setSettingsTab('preferences');
+  openDialog(settingsDialog, settingsPreferencesTabBtn);
+}
+
+function closeSettingsDialog() {
+  transferMessage.textContent = '';
+  transferError.textContent = '';
+  resetUserManagementState();
+
+  closeDialog(settingsDialog);
 }
 
 if (settingsBtnLoggedOut) {
@@ -1727,8 +1797,29 @@ if (settingsBtnLoggedIn) {
 
 if (closeSettingsBtn) {
   closeSettingsBtn.addEventListener('click', () => {
-    closeDialog(settingsDialog);
+    closeSettingsDialog();
   });
+}
+
+if (settingsManageUsersTabBtn) {
+  settingsManageUsersTabBtn.addEventListener('click', () => {
+    activateSettingsTab('manage-users');
+  });
+  settingsManageUsersTabBtn.addEventListener('keydown', handleSettingsTabKeydown);
+}
+
+if (settingsImportExportTabBtn) {
+  settingsImportExportTabBtn.addEventListener('click', () => {
+    activateSettingsTab('import-export');
+  });
+  settingsImportExportTabBtn.addEventListener('keydown', handleSettingsTabKeydown);
+}
+
+if (settingsPreferencesTabBtn) {
+  settingsPreferencesTabBtn.addEventListener('click', () => {
+    activateSettingsTab('preferences');
+  });
+  settingsPreferencesTabBtn.addEventListener('keydown', handleSettingsTabKeydown);
 }
 
 if (langSelect) {
@@ -1747,16 +1838,12 @@ window.addEventListener('bookwheel:locale-changed', () => {
   if (!appView.classList.contains('hidden')) {
     renderActiveBooks();
   }
-  if (userManagementDialog.hasAttribute('open')) {
+  if (settingsDialog.hasAttribute('open') && !settingsManageUsersPanel.classList.contains('hidden')) {
     renderUserRows(allUsers);
   }
 });
 
 syncLangSelect();
-
-if (importExportBtn) {
-  importExportBtn.addEventListener('click', openTransferDialog);
-}
 
 (async () => {
   const query = new URLSearchParams(window.location.search);
