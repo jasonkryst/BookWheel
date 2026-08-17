@@ -72,7 +72,11 @@
         title: 'Settings',
         openLabel: 'Settings',
         themeLabel: 'Theme',
-        languageLabel: 'Language'
+        languageLabel: 'Language',
+        tabsLabel: 'Settings sections',
+        manageUsersTab: 'Manage users',
+        importExportTab: 'Import / Export',
+        preferencesTab: 'Preferences'
       },
       wheel: {
         heading: 'Spin wheel',
@@ -120,10 +124,7 @@
       users: {
         manageUsersBtn: 'Manage users',
         greeting: 'Hello, {username}',
-        managementDialogTitle: 'User management',
         managementTabsLabel: 'User management options',
-        adminWorkspaceKicker: 'Admin workspace',
-        managementDescription: 'Create users, assign administrator access, and update account details in one place.',
         createUserHeading: 'Create user',
         newAccountTag: 'New account',
         createUserDescription: 'Create the account, then share the generated setup link so the user can set their own password.',
@@ -266,7 +267,11 @@
         title: 'Configuración',
         openLabel: 'Configuración',
         themeLabel: 'Tema',
-        languageLabel: 'Idioma'
+        languageLabel: 'Idioma',
+        tabsLabel: 'Secciones de configuración',
+        manageUsersTab: 'Gestionar usuarios',
+        importExportTab: 'Importar / Exportar',
+        preferencesTab: 'Preferencias'
       },
       wheel: {
         heading: 'Rueda giratoria',
@@ -314,10 +319,7 @@
       users: {
         manageUsersBtn: 'Gestionar usuarios',
         greeting: 'Hola, {username}',
-        managementDialogTitle: 'Gestión de usuarios',
         managementTabsLabel: 'Opciones de gestión de usuarios',
-        adminWorkspaceKicker: 'Espacio de administración',
-        managementDescription: 'Crea usuarios, asigna acceso de administrador y actualiza los datos de las cuentas en un solo lugar.',
         createUserHeading: 'Crear usuario',
         newAccountTag: 'Cuenta nueva',
         createUserDescription: 'Crea la cuenta y comparte el enlace de configuración generado para que el usuario establezca su propia contraseña.',
@@ -460,7 +462,11 @@
         title: 'Ustawienia',
         openLabel: 'Ustawienia',
         themeLabel: 'Motyw',
-        languageLabel: 'Język'
+        languageLabel: 'Język',
+        tabsLabel: 'Sekcje ustawień',
+        manageUsersTab: 'Zarządzaj użytkownikami',
+        importExportTab: 'Importuj / Eksportuj',
+        preferencesTab: 'Preferencje'
       },
       wheel: {
         heading: 'Koło losujące',
@@ -508,10 +514,7 @@
       users: {
         manageUsersBtn: 'Zarządzaj użytkownikami',
         greeting: 'Witaj, {username}',
-        managementDialogTitle: 'Zarządzanie użytkownikami',
         managementTabsLabel: 'Opcje zarządzania użytkownikami',
-        adminWorkspaceKicker: 'Panel administratora',
-        managementDescription: 'Twórz użytkowników, przyznawaj dostęp administratora i aktualizuj dane kont w jednym miejscu.',
         createUserHeading: 'Utwórz użytkownika',
         newAccountTag: 'Nowe konto',
         createUserDescription: 'Utwórz konto, a następnie udostępnij wygenerowany link konfiguracyjny, aby użytkownik mógł ustawić własne hasło.',

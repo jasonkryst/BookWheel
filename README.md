@@ -19,7 +19,7 @@ This solution is split into separate application and test projects:
 - Administrator-only user management uses separate creation and account-management tabs, with searchable status filters and at-a-glance account-state indicators
 - New-user onboarding uses admin-shared setup links instead of admin-supplied passwords
 - Administrator-generated password reset links (24-hour expiry) instead of direct password setting
-- User management link is visible only to administrators
+- User management tab is visible only to administrators, inside the consolidated Settings dialog
 - Add, edit, and remove books
 - Book collections are scoped per user account
 - Interactive spin wheel UI
@@ -32,7 +32,7 @@ This solution is split into separate application and test projects:
 - Delete confirmation modal for book removal
 - Login form reset on logout so credentials are not left in the UI
 - Wheel entropy shuffle when adding books
-- Import/export icon button with JSON file upload/download modal tabs
+- Import/export JSON file upload/download tabs, inside the consolidated Settings dialog
 - Persistent storage in `App_Data/books.json`
 - Encrypted credential storage in `App_Data/user.cred`
 - Structured audit logs for failed login and rate-limit events
@@ -48,15 +48,15 @@ This solution is split into separate application and test projects:
 - Optional centralized log shipping to an HTTP sink for production operations
 - Startup diagnostics for writable storage and expected runtime directories
 - First-time empty-state guidance when no books are present
-- Settings menu (theme switcher + language selector) with saved browser preference and localized server error messages
+- Single consolidated Settings dialog (GH #52) with Manage users (admin-only), Import/Export, and Preferences (theme switcher + language selector) tabs, replacing the previous separate toolbar buttons
 - Installable Progressive Web App with an offline-capable app shell (manifest, service worker, offline fallback page)
-- Mobile and tablet layouts keep the wheel and import/export dialog within the viewport without horizontal scrolling or browser zoom, including the Import tab's native file picker
+- Mobile and tablet layouts keep the wheel and Settings dialog within the viewport without horizontal scrolling or browser zoom, including the Import tab's native file picker
 
 ## Internationalization
 
 Book Wheel supports English, Spanish, and Polish.
 
-- A gear-icon Settings button opens a dialog with the theme switcher and a language dropdown; the language choice persists in the browser's `localStorage`. It's positioned inline in the toolbar when logged in, and in the corner of the login/setup card when logged out.
+- A gear-icon Settings button opens the consolidated Settings dialog; its Preferences tab holds the theme switcher and a language dropdown, and the language choice persists in the browser's `localStorage`. The button is positioned inline in the toolbar when logged in, and in the corner of the login/setup card when logged out. When logged out, or when the signed-in user isn't an administrator, the Manage users and/or Import/Export tabs are hidden and Preferences is the only tab shown.
 - On first visit, the language defaults to the browser's language if it's one of the supported three, otherwise English.
 - The frontend sends the selected language as an `Accept-Language` header on every API call, so server-generated error messages (e.g. "Book title is required.") come back already translated.
 - Frontend strings live in `BookWheel/wwwroot/js/i18n.js`; backend error-message translations live in `BookWheel/Resources/SharedErrors*.resx`, looked up through `ApiMessageLocalizer`.
@@ -452,9 +452,9 @@ Current integration tests cover:
 - CI dependency-audit gate (`scripts/check-vulnerable-packages.sh`): passes clean `dotnet list --vulnerable` output through unchanged and exits 0, and exits 1 when the report contains a vulnerable-packages finding
 - PWA manifest, icon, and service-worker behavior, including that `/api/*` requests are never intercepted or cached by the service worker
 
-Frontend-focused tests also verify that the HTML, JavaScript, and CSS expose the account setup mode, selected-book UI, pagination summary, delete confirmation flow, logout form reset behavior, icon-based dark/light/high-contrast theme toggle behavior, and file-based import/export behavior.
+Frontend-focused tests also verify that the HTML, JavaScript, and CSS expose the account setup mode, selected-book UI, pagination summary, delete confirmation flow, logout form reset behavior, icon-based dark/light/high-contrast theme toggle behavior, the consolidated Settings dialog's tab structure and visibility rules, and file-based import/export behavior.
 
-The frontend also includes import/export interactions (JSON tabbed modal) and wheel shuffle behavior when books are added.
+The frontend also includes import/export interactions (a JSON tabbed panel inside the Settings dialog) and wheel shuffle behavior when books are added.
 
 ## Project Documents
 
@@ -465,7 +465,7 @@ Additional project documentation is available in:
 
 ## Theme Toggle
 
-The application includes a theme control (inside the Settings dialog, opened via the gear-icon button) that cycles through dark, light, and high-contrast modes.
+The application includes a theme control (inside the Settings dialog's Preferences tab, opened via the gear-icon button) that cycles through dark, light, and high-contrast modes.
 
 - Theme choice is persisted in browser `localStorage` under `bookwheel-theme`.
 - On first load, when no saved preference exists, the UI follows the system contrast preference (`prefers-contrast: more`) if set, otherwise the system color preference (`prefers-color-scheme`).
@@ -474,7 +474,7 @@ The application includes a theme control (inside the Settings dialog, opened via
 
 ## Import and Export (JSON)
 
-Use the toolbar import/export icon button to open the transfer modal.
+Open the gear-icon Settings button and select the Import/Export tab.
 
 - Import tab accepts JSON in either `[{"title":"..."}]` form or `{ "books": [{"title":"..."}] }` form.
 - Import merges into existing books and skips case-insensitive title matches.

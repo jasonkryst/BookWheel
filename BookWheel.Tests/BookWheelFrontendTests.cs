@@ -136,9 +136,14 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("id=\"userGreeting\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"themeToggleBtn\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"themeToggleIcon\"", html, StringComparison.Ordinal);
-        Assert.Contains("id=\"importExportBtn\"", html, StringComparison.Ordinal);
-        Assert.Contains("id=\"userManagementBtn\"", html, StringComparison.Ordinal);
-        Assert.Contains("id=\"userManagementDialog\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"settingsTabRow\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"settingsManageUsersTabBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"settingsImportExportTabBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"settingsPreferencesTabBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"settingsManageUsersPanel\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"settingsImportExportPanel\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"settingsPreferencesPanel\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"closeSettingsBtn\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"createUserForm\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"createUserUsername\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"createUserIsAdmin\"", html, StringComparison.Ordinal);
@@ -147,7 +152,6 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("id=\"clearUserFiltersBtn\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"manageUsersTabBtn\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"createUserTabBtn\"", html, StringComparison.Ordinal);
-        Assert.Contains("id=\"closeUserManagementBtn\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"deleteUserDialog\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"deleteUserConfirmMessage\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"confirmDeleteUserBtn\"", html, StringComparison.Ordinal);
@@ -158,7 +162,6 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("id=\"closeResetLinkBtn\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"deleteDialog\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"confirmDeleteBtn\"", html, StringComparison.Ordinal);
-        Assert.Contains("id=\"transferDialog\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"importJsonFile\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"importFileBtn\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"downloadExportBtn\"", html, StringComparison.Ordinal);
@@ -193,9 +196,19 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("deleteDialog", script, StringComparison.Ordinal);
         Assert.Contains("shuffleArray", script, StringComparison.Ordinal);
         Assert.Contains("shuffleWheel", script, StringComparison.Ordinal);
-        Assert.Contains("importExportBtn", script, StringComparison.Ordinal);
-        Assert.Contains("userManagementBtn", script, StringComparison.Ordinal);
-        Assert.Contains("userManagementDialog", script, StringComparison.Ordinal);
+        Assert.Contains("settingsDialog", script, StringComparison.Ordinal);
+        Assert.Contains("settingsTabRow", script, StringComparison.Ordinal);
+        Assert.Contains("settingsManageUsersTabBtn", script, StringComparison.Ordinal);
+        Assert.Contains("settingsImportExportTabBtn", script, StringComparison.Ordinal);
+        Assert.Contains("settingsPreferencesTabBtn", script, StringComparison.Ordinal);
+        Assert.Contains("setSettingsTab", script, StringComparison.Ordinal);
+        Assert.Contains("activateSettingsTab", script, StringComparison.Ordinal);
+        Assert.Contains("handleSettingsTabKeydown", script, StringComparison.Ordinal);
+        Assert.Contains("moveSettingsTabFocus", script, StringComparison.Ordinal);
+        Assert.Contains("activateSettingsManageUsersTab", script, StringComparison.Ordinal);
+        Assert.Contains("activateSettingsImportExportTab", script, StringComparison.Ordinal);
+        Assert.Contains("resetUserManagementState", script, StringComparison.Ordinal);
+        Assert.Contains("closeSettingsDialog", script, StringComparison.Ordinal);
         Assert.Contains("createUserForm", script, StringComparison.Ordinal);
         Assert.Contains("deleteUserDialog", script, StringComparison.Ordinal);
         Assert.Contains("confirmDeleteUser", script, StringComparison.Ordinal);
@@ -240,6 +253,15 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("const selectedIndex = wheelBooks.findIndex", script, StringComparison.Ordinal);
         Assert.Contains("/api/auth/status", script, StringComparison.Ordinal);
         Assert.Contains("/api/auth/setup", script, StringComparison.Ordinal);
+
+        // Negative: menu consolidation (GH #52) replaced the separate "Manage users"
+        // and import/export toolbar buttons and their standalone dialogs with tabs
+        // inside a single Settings dialog, so the old open/close functions for those
+        // standalone dialogs must not linger as dead code.
+        Assert.DoesNotContain("openUserManagementDialog", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("openTransferDialog", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("closeTransferDialog", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("closeUserManagementDialog", script, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -301,7 +323,7 @@ public sealed class BookWheelFrontendTests
     }
 
     [Fact]
-    public async Task Frontend_Styles_Should_Keep_Import_Export_Modal_Responsive()
+    public async Task Frontend_Styles_Should_Keep_Settings_Dialog_Responsive()
     {
         using var factory = new BookWheelWebAppFactory();
         using var client = factory.CreateClient();
@@ -311,17 +333,24 @@ public sealed class BookWheelFrontendTests
 
         var css = (await response.Content.ReadAsStringAsync()).ReplaceLineEndings("\n");
 
-        // Positive: the dialog stays in the visible viewport and its form
-        // scrolls independently when import content is taller than the screen.
-        Assert.Contains(".transfer-modal {\n  width: min(900px, calc(100% - 24px));\n  max-height: calc(100vh - 24px);", css, StringComparison.Ordinal);
-        Assert.Contains(".transfer-modal form {\n  max-height: calc(100vh - 24px);", css, StringComparison.Ordinal);
+        // Positive: the consolidated Settings dialog (Manage users / Import-Export /
+        // Preferences tabs, GH #52) stays in the visible viewport and its shell
+        // scrolls independently when a tab's content is taller than the screen,
+        // regardless of which tab is active.
+        Assert.Contains(".user-management-dialog {\n  width: calc(100% - 24px);\n  max-height: min(90vh, 760px);", css, StringComparison.Ordinal);
+        Assert.Contains(".user-management-shell {\n  gap: 14px;\n  padding: 20px;\n  max-height: min(90vh, 760px);", css, StringComparison.Ordinal);
         Assert.Contains("overflow-y: auto;", css, StringComparison.Ordinal);
-        Assert.Contains("width: calc(100% - 20px);", css, StringComparison.Ordinal);
-        Assert.Contains("flex: 1 1 160px;", css, StringComparison.Ordinal);
-        Assert.Contains(".transfer-modal input[type=\"file\"] {\n  width: 100%;\n  max-width: 100%;\n  min-width: 0;", css, StringComparison.Ordinal);
+        Assert.Contains(".user-management-dialog .tab-panel {\n    padding: 12px;\n  }", css, StringComparison.Ordinal);
+        Assert.Contains(".user-management-dialog .modal-actions > button {\n    flex: 1 1 160px;\n  }", css, StringComparison.Ordinal);
+        Assert.Contains(".user-management-dialog input[type=\"file\"] {\n  width: 100%;\n  max-width: 100%;\n  min-width: 0;", css, StringComparison.Ordinal);
+
+        // Positive: on tablet and wider viewports the dialog widens to 80% of
+        // the viewport instead of staying pinned to the narrow mobile inset.
+        Assert.Contains("@media (min-width: 901px) {\n  .user-management-dialog {\n    width: 80%;\n  }\n}", css, StringComparison.Ordinal);
 
         // Negative: fixed-width dialogs overflow narrow mobile and tablet viewports.
-        Assert.DoesNotContain(".transfer-modal {\n  width: 900px;", css, StringComparison.Ordinal);
+        Assert.DoesNotContain(".user-management-dialog {\n  width: 1450px;", css, StringComparison.Ordinal);
+        Assert.DoesNotContain(".user-management-dialog {\n  width: 1225px;", css, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -394,5 +423,94 @@ public sealed class BookWheelFrontendTests
         // palette, since a hardcoded array can't be re-themed for
         // high-contrast mode.
         Assert.DoesNotContain("['#38bdf8', '#60a5fa', '#818cf8', '#f472b6', '#34d399', '#fbbf24']", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Settings_Dialog_Should_Expose_Consolidated_Tab_Structure()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var html = await response.Content.ReadAsStringAsync();
+
+        // Positive: GH #52 consolidates the "Manage users", import/export, and
+        // preferences entry points into one Settings dialog with three ARIA tabs,
+        // each wired to its own panel via aria-controls / aria-labelledby.
+        Assert.Contains("id=\"settingsTabRow\" class=\"tab-row\" role=\"tablist\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"settingsManageUsersTabBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("aria-controls=\"settingsManageUsersPanel\"", html, StringComparison.Ordinal);
+        Assert.Contains("aria-controls=\"settingsImportExportPanel\"", html, StringComparison.Ordinal);
+        Assert.Contains("aria-controls=\"settingsPreferencesPanel\"", html, StringComparison.Ordinal);
+        Assert.Contains("aria-labelledby=\"settingsManageUsersTabBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("aria-labelledby=\"settingsImportExportTabBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("aria-labelledby=\"settingsPreferencesTabBtn\"", html, StringComparison.Ordinal);
+
+        // Positive: the admin-only Manage users tab starts hidden in markup (JS
+        // reveals it only for admins), while Preferences is the default active
+        // tab, matching the dialog always opening on Preferences.
+        Assert.Contains("id=\"settingsManageUsersTabBtn\" class=\"secondary tab-btn hidden\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"settingsPreferencesTabBtn\" class=\"secondary tab-btn active\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"settingsPreferencesPanel\" class=\"tab-panel\" role=\"tabpanel\"", html, StringComparison.Ordinal);
+
+        // Negative: the old standalone dialogs and their toolbar entry points are
+        // gone now that everything lives inside the single Settings dialog.
+        Assert.DoesNotContain("id=\"userManagementDialog\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("id=\"transferDialog\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("id=\"userManagementBtn\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("id=\"importExportBtn\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Script_Should_Gate_Settings_Tabs_By_Login_And_Admin_State()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var script = (await response.Content.ReadAsStringAsync()).ReplaceLineEndings("\n");
+
+        // Positive: applyCurrentUser hides the whole tab row when logged out
+        // (only Preferences is relevant without a session), hides Manage users
+        // unless the current user is an admin, and hides Import/Export unless
+        // a session exists.
+        Assert.Contains("settingsTabRow.classList.toggle('hidden', !isLoggedIn)", script, StringComparison.Ordinal);
+        Assert.Contains("settingsManageUsersTabBtn.classList.toggle('hidden', !canManageUsers)", script, StringComparison.Ordinal);
+        Assert.Contains("settingsImportExportTabBtn.classList.toggle('hidden', !isLoggedIn)", script, StringComparison.Ordinal);
+
+        // Positive: opening the dialog always lands on Preferences without
+        // eagerly loading the user directory; the user list is only fetched
+        // once the Manage users tab is actually activated.
+        Assert.Contains("function openSettingsDialog() {\n  setSettingsTab('preferences');\n  openDialog(settingsDialog, settingsPreferencesTabBtn);\n}", script, StringComparison.Ordinal);
+        Assert.Contains("async function activateSettingsManageUsersTab() {\n  resetUserManagementMessages();\n  setUserManagementTab('directory');\n  await loadUsers();\n}", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_I18n_Should_Include_Settings_Tab_Labels_In_All_Locales()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/i18n.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: the new consolidated tab labels are translated for every
+        // supported locale, not just English.
+        Assert.Contains("manageUsersTab: 'Manage users'", script, StringComparison.Ordinal);
+        Assert.Contains("importExportTab: 'Import / Export'", script, StringComparison.Ordinal);
+        Assert.Contains("preferencesTab: 'Preferences'", script, StringComparison.Ordinal);
+        Assert.Contains("manageUsersTab: 'Gestionar usuarios'", script, StringComparison.Ordinal);
+        Assert.Contains("importExportTab: 'Importar / Exportar'", script, StringComparison.Ordinal);
+        Assert.Contains("preferencesTab: 'Preferencias'", script, StringComparison.Ordinal);
+        Assert.Contains("manageUsersTab: 'Zarządzaj użytkownikami'", script, StringComparison.Ordinal);
+        Assert.Contains("importExportTab: 'Importuj / Eksportuj'", script, StringComparison.Ordinal);
+        Assert.Contains("preferencesTab: 'Preferencje'", script, StringComparison.Ordinal);
+
+        // Negative: the retired standalone dialog titles/kicker strings for the
+        // old "User management" dialog should not linger as unused translations.
+        Assert.DoesNotContain("managementDialogTitle", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("adminWorkspaceKicker", script, StringComparison.Ordinal);
     }
 }
