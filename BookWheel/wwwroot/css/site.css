@@ -1038,6 +1038,32 @@ button:disabled {
   }
 }
 
+/* Installed standalone app on a wide window: let the layout fill the
+   window like a native app instead of floating a fixed-width column,
+   and put the wheel and book list side by side so the extra width
+   is put to use. A regular browser tab keeps the centered, capped
+   layout above. */
+@media (display-mode: standalone) and (min-width: 1280px) {
+  .shell {
+    max-width: none;
+    width: calc(100% - 64px);
+  }
+
+  .app {
+    grid-template-columns: minmax(380px, 460px) 1fr;
+    align-items: start;
+  }
+
+  .toolbar {
+    grid-column: 1 / -1;
+  }
+
+  .wheel-card {
+    position: sticky;
+    top: 24px;
+  }
+}
+
 @media (min-width: 901px) {
   .user-management-dialog {
     width: 80%;
