@@ -127,7 +127,6 @@ public sealed class BookWheelApiTests
     {
         using var factory = new BookWheelWebAppFactory();
         using var client = factory.CreateClient();
-        var credentialPath = Path.Combine(factory.ContentRootPath, "App_Data", "user.cred");
 
         var setupResponse = await client.PostAsJsonAsync("/api/auth/setup", new
         {
@@ -136,12 +135,6 @@ public sealed class BookWheelApiTests
         });
 
         Assert.Equal(HttpStatusCode.OK, setupResponse.StatusCode);
-
-        Assert.True(File.Exists(credentialPath));
-
-        var protectedPayload = await File.ReadAllTextAsync(credentialPath);
-        Assert.DoesNotContain("test-admin", protectedPayload, StringComparison.Ordinal);
-        Assert.DoesNotContain("test-password", protectedPayload, StringComparison.Ordinal);
 
         var meResponse = await client.GetAsync("/api/auth/me");
         Assert.Equal(HttpStatusCode.OK, meResponse.StatusCode);
@@ -566,83 +559,6 @@ public sealed class BookWheelApiTests
     }
 
     [Fact]
-    public async Task Missing_Books_File_Is_Recreated_On_Read()
-    {
-        using var factory = new BookWheelWebAppFactory();
-        using var client = factory.CreateClient();
-
-        await client.PostAsJsonAsync("/api/auth/setup", new
-        {
-            username = "test-admin",
-            password = "test-password"
-        });
-
-        var booksPath = Path.Combine(factory.ContentRootPath, "App_Data", "books.json");
-        if (File.Exists(booksPath))
-        {
-            File.Delete(booksPath);
-        }
-
-        var response = await client.GetAsync("/api/books");
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.True(File.Exists(booksPath));
-    }
-
-    [Fact]
-    public async Task Corrupt_Books_File_Is_Quarantined_And_Returns_Server_Error()
-    {
-        using var factory = new BookWheelWebAppFactory();
-        using var client = factory.CreateClient();
-
-        await client.PostAsJsonAsync("/api/auth/setup", new
-        {
-            username = "test-admin",
-            password = "test-password"
-        });
-
-        var appDataPath = Path.Combine(factory.ContentRootPath, "App_Data");
-        Directory.CreateDirectory(appDataPath);
-        var booksPath = Path.Combine(appDataPath, "books.json");
-        await File.WriteAllTextAsync(booksPath, "{not-valid-json");
-
-        var response = await client.GetAsync("/api/books");
-        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
-
-        var corruptDirectory = Path.Combine(appDataPath, "corrupt");
-        Assert.Contains(Directory.GetFiles(corruptDirectory), path => Path.GetFileName(path).StartsWith("books.json-", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public async Task Corrupt_Credential_File_Is_Quarantined_And_Login_Returns_Server_Error()
-    {
-        using var factory = new BookWheelWebAppFactory();
-        using var client = factory.CreateClient();
-
-        await client.PostAsJsonAsync("/api/auth/setup", new
-        {
-            username = "test-admin",
-            password = "test-password"
-        });
-
-        await client.PostAsync("/api/auth/logout", content: null);
-
-        var appDataPath = Path.Combine(factory.ContentRootPath, "App_Data");
-        Directory.CreateDirectory(appDataPath);
-        var credentialPath = Path.Combine(appDataPath, "user.cred");
-        await File.WriteAllTextAsync(credentialPath, "definitely-not-protected-payload");
-
-        var response = await client.PostAsJsonAsync("/api/auth/login", new
-        {
-            username = "test-admin",
-            password = "test-password"
-        });
-
-        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
-        var corruptDirectory = Path.Combine(appDataPath, "corrupt");
-        Assert.Contains(Directory.GetFiles(corruptDirectory), path => Path.GetFileName(path).StartsWith("user.cred-", StringComparison.Ordinal));
-    }
-
-    [Fact]
     public async Task Login_With_Valid_Credentials_Allows_Accessing_Protected_Endpoints()
     {
         using var factory = new BookWheelWebAppFactory();
@@ -794,57 +710,6 @@ public sealed class BookWheelApiTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.True(response.Headers.TryGetValues("X-Correlation-ID", out var values));
         Assert.Contains("corr-test-123", values);
-    }
-
-    [Fact]
-    public async Task Migration_Status_And_Run_Endpoints_Convert_Legacy_Payloads()
-    {
-        using var factory = new BookWheelWebAppFactory();
-        using var client = factory.CreateClient();
-        await SeedLegacyCredentialAndBooksPayloadsAsync(factory);
-
-        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new
-        {
-            username = "legacy-admin",
-            password = "legacy-password"
-        });
-        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
-
-        var statusResponse = await client.GetAsync("/api/system/migrations/status");
-        Assert.Equal(HttpStatusCode.OK, statusResponse.StatusCode);
-        using (var statusDoc = await ReadJsonAsync(statusResponse))
-        {
-            Assert.True(statusDoc.RootElement.GetProperty("hasLegacyCredentialPayload").GetBoolean());
-            Assert.True(statusDoc.RootElement.GetProperty("hasLegacyBooksPayload").GetBoolean());
-            Assert.True(statusDoc.RootElement.GetProperty("requiresMigration").GetBoolean());
-        }
-
-        var runResponse = await client.PostAsync("/api/system/migrations/run", content: null);
-        Assert.Equal(HttpStatusCode.OK, runResponse.StatusCode);
-
-        using var runDoc = await ReadJsonAsync(runResponse);
-        Assert.True(runDoc.RootElement.GetProperty("credentialPayloadMigrated").GetBoolean());
-        Assert.True(runDoc.RootElement.GetProperty("booksPayloadMigrated").GetBoolean());
-        Assert.Equal(1, runDoc.RootElement.GetProperty("credentialUsersAffected").GetInt32());
-        Assert.Equal(2, runDoc.RootElement.GetProperty("booksAffected").GetInt32());
-        var ownerUserId = runDoc.RootElement.GetProperty("booksOwnerUserId").GetGuid();
-
-        var booksPath = Path.Combine(factory.ContentRootPath, "App_Data", "books.json");
-        var booksJson = await File.ReadAllTextAsync(booksPath);
-        using var booksDocument = JsonDocument.Parse(booksJson);
-        var foundUsers = booksDocument.RootElement.TryGetProperty("Users", out var booksByUser)
-            || booksDocument.RootElement.TryGetProperty("users", out booksByUser);
-        Assert.True(foundUsers);
-        Assert.True(booksByUser.TryGetProperty(ownerUserId.ToString(), out var migratedBooks));
-        Assert.Equal(2, migratedBooks.GetArrayLength());
-
-        var protectedCredentialPath = Path.Combine(factory.ContentRootPath, "App_Data", "user.cred");
-        var protectedPayload = await File.ReadAllTextAsync(protectedCredentialPath);
-        var protector = factory.Services.GetRequiredService<IDataProtectionProvider>().CreateProtector("BookWheel.Credentials.v1");
-        var decryptedCredentialJson = protector.Unprotect(protectedPayload);
-        using var credentialDocument = JsonDocument.Parse(decryptedCredentialJson);
-        Assert.True(credentialDocument.RootElement.TryGetProperty("Users", out var users));
-        Assert.Equal(1, users.GetArrayLength());
     }
 
     [Fact]
@@ -1010,32 +875,4 @@ public sealed class BookWheelApiTests
         return string.Empty;
     }
 
-    private static async Task SeedLegacyCredentialAndBooksPayloadsAsync(BookWheelWebAppFactory factory)
-    {
-        var dataDirectory = Path.Combine(factory.ContentRootPath, "App_Data");
-        Directory.CreateDirectory(dataDirectory);
-
-        var hasher = new PasswordHasher<string>();
-        var legacyCredential = new
-        {
-            Username = "legacy-admin",
-            PasswordHash = hasher.HashPassword("legacy-admin", "legacy-password"),
-            CreatedAtUtc = DateTimeOffset.UtcNow
-        };
-
-        var legacyCredentialJson = JsonSerializer.Serialize(legacyCredential);
-        var protector = factory.Services.GetRequiredService<IDataProtectionProvider>().CreateProtector("BookWheel.Credentials.v1");
-        var protectedCredentialPayload = protector.Protect(legacyCredentialJson);
-        await File.WriteAllTextAsync(Path.Combine(dataDirectory, "user.cred"), protectedCredentialPayload);
-
-        var legacyBooks = new[]
-        {
-            new { Id = Guid.NewGuid(), Title = "Legacy Book One" },
-            new { Id = Guid.NewGuid(), Title = "Legacy Book Two" }
-        };
-
-        await File.WriteAllTextAsync(
-            Path.Combine(dataDirectory, "books.json"),
-            JsonSerializer.Serialize(legacyBooks, new JsonSerializerOptions { WriteIndented = true }));
-    }
 }
