@@ -46,6 +46,8 @@ These items provide the highest operational value and align with the latest secu
 4. [Done] Add username-aware throttling or short lockout/backoff for repeated failed logins.
 5. [Done] Configure explicit Data Protection key storage for production environments.
 6. [Done] Add CI secret scanning to prevent accidental credential or token commits.
+7. Pin an explicit `SSL Mode` (e.g. `Require` or `VerifyFull`) on the production PostgreSQL connection string; Npgsql's default (`Prefer`) does not guarantee encryption-in-transit (`SECURITY_AUDIT_REPORT.md`, 2026-08-19).
+8. Decide on a least-privilege strategy for the runtime PostgreSQL role: automatic startup migrations currently require the app's own connection to hold DDL privileges, not just DML (`SECURITY_AUDIT_REPORT.md`, 2026-08-19).
 
 Expected outcome:
 
