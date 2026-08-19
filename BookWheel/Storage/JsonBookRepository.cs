@@ -40,6 +40,19 @@ public sealed class JsonBookRepository : IBookRepository
         _dataFilePath = Path.Combine(_dataDirectory, "books.json");
     }
 
+    public async Task<Dictionary<string, List<BookRecord>>> GetAllForMigrationAsync()
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            return await ReadStoreUnsafeAsync();
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     public async Task<bool> HasLegacyPayloadAsync()
     {
         await _gate.WaitAsync();

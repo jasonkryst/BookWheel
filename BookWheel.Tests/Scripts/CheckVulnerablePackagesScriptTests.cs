@@ -5,6 +5,7 @@ namespace BookWheel.Tests.Scripts;
 public sealed class CheckVulnerablePackagesScriptTests
 {
     private static readonly string ScriptPath = LocateScript();
+    private static readonly string BashExecutable = ResolveBashExecutable();
 
     [Fact]
     public async Task ExitsZero_When_Report_Has_No_Vulnerable_Packages()
@@ -48,7 +49,7 @@ public sealed class CheckVulnerablePackagesScriptTests
     {
         var startInfo = new ProcessStartInfo
         {
-            FileName = "bash",
+            FileName = BashExecutable,
             ArgumentList = { ScriptPath },
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
@@ -84,5 +85,42 @@ public sealed class CheckVulnerablePackagesScriptTests
         }
 
         throw new FileNotFoundException("Could not locate scripts/check-vulnerable-packages.sh relative to the test assembly.");
+    }
+
+    private static string ResolveBashExecutable()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return "bash";
+        }
+
+        // Plain "bash" resolves via the native Windows PATH, where Windows' own WSL launcher stub
+        // (C:\Windows\System32\bash.exe) shadows Git for Windows' real bash.exe. That stub fails
+        // with a WSL error when no distro is registered, so locate Git for Windows' bash.exe
+        // explicitly by finding git.exe on PATH (unambiguous - no WSL stub competes for that name)
+        // and deriving bash.exe relative to the Git installation root.
+        var pathEntries = (Environment.GetEnvironmentVariable("PATH") ?? string.Empty).Split(Path.PathSeparator);
+        foreach (var entry in pathEntries)
+        {
+            if (string.IsNullOrWhiteSpace(entry))
+            {
+                continue;
+            }
+
+            if (!File.Exists(Path.Combine(entry, "git.exe")))
+            {
+                continue;
+            }
+
+            var gitRoot = new DirectoryInfo(entry).Parent;
+            var candidateBash = gitRoot is null ? null : Path.Combine(gitRoot.FullName, "bin", "bash.exe");
+            if (candidateBash is not null && File.Exists(candidateBash))
+            {
+                return candidateBash;
+            }
+        }
+
+        throw new FileNotFoundException(
+            "Could not locate Git for Windows' bash.exe. Ensure Git for Windows is installed and its 'cmd' directory is on PATH.");
     }
 }

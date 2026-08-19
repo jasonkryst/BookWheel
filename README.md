@@ -107,6 +107,7 @@ Book Wheel/
 - .NET SDK 8.0+
 - PowerShell or terminal capable of running `dotnet` CLI commands
 - Docker Desktop (or Docker Engine) for containerized runs
+- PostgreSQL 16+ (or use the bundled `docker-compose.yml` service) — required at startup; set `ConnectionStrings:BookWheel` or the `ConnectionStrings__BookWheel` environment variable
 
 ## Getting Started
 
@@ -217,8 +218,9 @@ docker-compose down
 
 The compose setup persists:
 
-- App data (`/app/App_Data`) including books, credentials, and logs
+- App data (`/app/App_Data`) including logs
 - ASP.NET Core Data Protection keys (`/home/app/.aspnet/DataProtection-Keys`)
+- PostgreSQL data (`bookwheel_pg_data` volume)
 
 Note:
 
@@ -238,8 +240,11 @@ When you pull a newer image, Docker replaces the container filesystem from the n
 
 Book Wheel persists the important mutable paths through Docker volumes:
 
-- `/app/App_Data` for books, credentials, and logs
+- `/app/App_Data` for logs
 - `/home/app/.aspnet/DataProtection-Keys` for Data Protection keys
+- `bookwheel_pg_data` for PostgreSQL data (books, credentials, and password reset tokens)
+
+Do not run `docker compose down -v` unless data loss is intended — it deletes the `bookwheel_pg_data` volume along with the others.
 
 To upgrade safely:
 
@@ -296,31 +301,21 @@ Important:
 
 ## Data Storage
 
-Book data is stored in:
+Book, credential, and password-reset-token data is stored in PostgreSQL, configured via the `ConnectionStrings:BookWheel` setting (or the `ConnectionStrings__BookWheel` environment variable in containerized deployments). EF Core migrations run automatically at startup.
 
-- `BookWheel/App_Data/books.json`
-
-Books are grouped by user id in the JSON payload, so each account has an isolated collection.
-The file is created automatically if it does not exist.
-
-Credential data is stored in:
-
-- `BookWheel/App_Data/user.cred`
-
-The file is created only after account setup is completed.
+`docker-compose.yml`'s bundled `postgres` service uses a local-dev-only default password (`bookwheel`). Override it for anything beyond local dev by creating a `.env` file next to `docker-compose.yml` with `POSTGRES_PASSWORD=<your-password>` before running `docker compose up`.
 
 Log data is stored in:
 
 - `BookWheel/App_Data/logs/bookwheel-YYYY-MM-DD.jsonl`
 
-Each line is a JSON object with structured fields such as timestamp, level, category, message, request id, path, client IP, and user agent.
+Each line is a JSON object with structured fields such as timestamp, level, category, message, request id, path, client IP, and user agent. Log storage did not move to PostgreSQL — it remains file-based, same as before.
 
 Backup and restore guidance:
 
-- Back up the full `BookWheel/App_Data/` directory (books, credentials, reset tokens, logs, and corrupt-file quarantine artifacts).
-- Keep Data Protection keys backed up alongside app data for encrypted payload continuity.
-- Restore by stopping the app, replacing `App_Data/` with the backup copy, and starting the app again.
-- If corruption quarantine occurs, review `BookWheel/App_Data/corrupt/` and restore known-good files from backup.
+- Back up PostgreSQL with `pg_dump`/`pg_restore` (or your managed Postgres provider's snapshot tooling) on the schedule your data warrants.
+- Back up `BookWheel/App_Data/logs/` and `BookWheel/App_Data/DataProtection-Keys/` (or your configured `DataProtection:KeyDirectory`) separately — these remain file-based.
+- Restore by stopping the app, restoring the PostgreSQL database from a `pg_dump` backup, replacing the log/Data-Protection-key directories from their file backups, and starting the app again.
 
 Filesystem permission guidance for logs:
 
@@ -362,6 +357,16 @@ API utility (admin when account exists):
 - `POST /api/system/migrations/run`
 
 If an account exists, these endpoints require an authenticated administrator.
+
+### Migrating from file-based storage to PostgreSQL
+
+If you are upgrading from a version of Book Wheel that stored data in `App_Data/books.json` and `App_Data/user.cred`, run the one-shot migration once, with `ConnectionStrings:BookWheel` pointed at your new PostgreSQL database and the existing `App_Data/` directory still in place:
+
+```bash
+dotnet run --project BookWheel/BookWheel.csproj -- --migrate-to-postgres
+```
+
+This normalizes any legacy JSON schema first (same as `--migrate-data`), then copies all users, books, and password reset tokens into PostgreSQL in a single transaction, and exits. It refuses to run if PostgreSQL already has user data, so it is safe to leave in a deployment script — a second run is a no-op error, not a duplicate-data hazard. The original `App_Data/books.json` and `App_Data/user.cred` files are left untouched on disk as a historical backup; the running application no longer reads them.
 
 ## API Overview
 
@@ -541,7 +546,7 @@ Startup diagnostics:
 - If `dotnet test` reports file lock warnings from `testhost`, re-run the command; this is usually transient.
 - If authentication fails unexpectedly, verify whether `BookWheel/App_Data/user.cred` exists and whether the first-run setup was completed.
 - If a reset link does not work, verify the link has not expired (24 hours) and was not already used.
-- If the app starts but books are missing, check `BookWheel/App_Data/books.json` permissions.
+- If the app starts but books/users are missing, verify PostgreSQL connectivity via `GET /health/ready` and check the `ConnectionStrings:BookWheel` value.
 - If you need to reset the account, delete `BookWheel/App_Data/user.cred` and create a new account on next launch.
 - If you need to inspect logs, open the current day file under `BookWheel/App_Data/logs/`.
 - If the container starts but auth sessions break after restarts, verify Data Protection keys are persisted (compose handles this via `bookwheel_dp_keys`).

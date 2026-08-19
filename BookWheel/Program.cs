@@ -3,9 +3,11 @@ using BookWheel.Logging;
 using BookWheel.Models;
 using BookWheel.Services;
 using BookWheel.Storage;
+using BookWheel.Storage.Postgres;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Localization;
+using Microsoft.EntityFrameworkCore;
 using System.Globalization;
 using System.Text.Json;
 using System.Reflection;
@@ -25,6 +27,15 @@ if (!string.IsNullOrWhiteSpace(dataProtectionKeyPath))
 	Directory.CreateDirectory(dataProtectionKeyPath);
 	dataProtectionBuilder.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyPath));
 }
+var connectionString = builder.Configuration.GetConnectionString("BookWheel");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+	throw new InvalidOperationException(
+		"ConnectionStrings:BookWheel is not configured. Set it in appsettings.json, an environment variable (ConnectionStrings__BookWheel), or a deployment secret.");
+}
+
+builder.Services.AddPooledDbContextFactory<BookWheelDbContext>(options => options.UseNpgsql(connectionString));
+
 builder.Services.Configure<SecurityOptions>(builder.Configuration.GetSection(SecurityOptions.SectionName));
 builder.Services.Configure<ObservabilityOptions>(builder.Configuration.GetSection(ObservabilityOptions.SectionName));
 builder.Services.AddSingleton<AuthService>();
@@ -33,21 +44,26 @@ builder.Services.AddLocalization();
 builder.Services.AddSingleton<ApiMessageLocalizer>();
 
 builder.Services.AddSingleton<JsonBookRepository>();
-builder.Services.AddSingleton<IBookRepository>(sp => sp.GetRequiredService<JsonBookRepository>());
-
 builder.Services.AddSingleton<JsonCredentialRepository>();
-builder.Services.AddSingleton<ICredentialRepository>(sp => sp.GetRequiredService<JsonCredentialRepository>());
-
 builder.Services.AddSingleton<JsonPasswordResetTokenRepository>();
-builder.Services.AddSingleton<IPasswordResetTokenRepository>(sp => sp.GetRequiredService<JsonPasswordResetTokenRepository>());
+
+builder.Services.AddSingleton<PostgresBookRepository>();
+builder.Services.AddSingleton<IBookRepository>(sp => sp.GetRequiredService<PostgresBookRepository>());
+
+builder.Services.AddSingleton<PostgresCredentialRepository>();
+builder.Services.AddSingleton<ICredentialRepository>(sp => sp.GetRequiredService<PostgresCredentialRepository>());
+
+builder.Services.AddSingleton<PostgresPasswordResetTokenRepository>();
+builder.Services.AddSingleton<IPasswordResetTokenRepository>(sp => sp.GetRequiredService<PostgresPasswordResetTokenRepository>());
 
 builder.Services.AddSingleton<DataMigrationService>();
+builder.Services.AddSingleton<PostgresMigrationService>();
 builder.Services.AddControllers();
 builder.Services.AddHttpClient("central-log-shipper");
 builder.Services.AddHostedService<StartupDiagnosticsService>();
 builder.Services.AddHostedService<LogShippingService>();
 builder.Services.AddHealthChecks()
-	.AddCheck<StorageHealthCheck>("storage", tags: ["ready"])
+	.AddCheck<DatabaseHealthCheck>("database", tags: ["ready"])
 	.AddCheck<LoggingHealthCheck>("logging", tags: ["ready"])
 	.AddCheck("app", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("App is running."), tags: ["live", "ready"]);
 
@@ -107,6 +123,14 @@ builder.Services.AddRateLimiter(options =>
 });
 
 var app = builder.Build();
+
+using (var migrationScope = app.Services.CreateScope())
+{
+	var dbContextFactory = migrationScope.ServiceProvider.GetRequiredService<IDbContextFactory<BookWheelDbContext>>();
+	await using var startupDbContext = await dbContextFactory.CreateDbContextAsync();
+	await startupDbContext.Database.MigrateAsync();
+}
+
 var assembly = Assembly.GetExecutingAssembly();
 var informationalVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
 var assemblyVersion = assembly.GetName().Version?.ToString();
@@ -133,6 +157,19 @@ if (runMigrationOnly)
 		PropertyNamingPolicy = JsonNamingPolicy.CamelCase
 	}));
 
+	return;
+}
+
+var runPostgresMigrationOnly = args.Any(arg => string.Equals(arg, "--migrate-to-postgres", StringComparison.OrdinalIgnoreCase));
+if (runPostgresMigrationOnly)
+{
+	var postgresMigrationService = app.Services.GetRequiredService<PostgresMigrationService>();
+	var postgresReport = await postgresMigrationService.RunAsync();
+	Console.WriteLine(JsonSerializer.Serialize(postgresReport, new JsonSerializerOptions
+	{
+		WriteIndented = true,
+		PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+	}));
 	return;
 }
 

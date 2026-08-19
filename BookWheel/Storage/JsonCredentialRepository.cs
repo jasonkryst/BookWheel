@@ -43,6 +43,19 @@ public sealed class JsonCredentialRepository : ICredentialRepository
         _protector = dataProtectionProvider.CreateProtector("BookWheel.Credentials.v1");
     }
 
+    public async Task<List<CredentialRecord>> GetAllForMigrationAsync()
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            return await ReadUsersUnsafeAsync();
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     public async Task<bool> HasAccountAsync()
     {
         await _gate.WaitAsync();

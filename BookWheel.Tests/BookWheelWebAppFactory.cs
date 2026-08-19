@@ -3,10 +3,8 @@ using BookWheel.Storage;
 using BookWheel.Logging;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
+using Testcontainers.PostgreSql;
 
 namespace BookWheel.Tests;
 
@@ -14,6 +12,12 @@ public sealed class BookWheelWebAppFactory : WebApplicationFactory<Program>
 {
     private readonly string _tempContentRoot;
     private readonly TestLoggerProvider _loggerProvider = new();
+    private readonly PostgreSqlContainer _postgresContainer = new PostgreSqlBuilder()
+        .WithImage("postgres:16-alpine")
+        .WithDatabase("bookwheel_test")
+        .WithUsername("bookwheel_test")
+        .WithPassword("bookwheel_test")
+        .Build();
 
     public string ContentRootPath => _tempContentRoot;
 
@@ -32,39 +36,23 @@ public sealed class BookWheelWebAppFactory : WebApplicationFactory<Program>
         var sourceProjectRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "BookWheel"));
         var sourceWebRoot = Path.Combine(sourceProjectRoot, "wwwroot");
         CopyDirectory(sourceWebRoot, tempWebRoot);
+
+        // Test call sites construct this factory directly (`new BookWheelWebAppFactory()`), not via
+        // IClassFixture<T>, so there is no async lifecycle hook available — start synchronously.
+        _postgresContainer.StartAsync().GetAwaiter().GetResult();
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
         builder.UseContentRoot(_tempContentRoot);
+        builder.UseSetting("ConnectionStrings:BookWheel", _postgresContainer.GetConnectionString());
 
         builder.ConfigureLogging(logging =>
         {
             logging.ClearProviders();
             logging.AddProvider(_loggerProvider);
             logging.AddProvider(new JsonFileLoggerProvider(LogDirectoryPath));
-        });
-
-        builder.ConfigureServices(services =>
-        {
-            services.RemoveAll<JsonBookRepository>();
-            services.RemoveAll<IBookRepository>();
-            services.AddSingleton<JsonBookRepository>(_ =>
-            {
-                var env = new TestWebHostEnvironment
-                {
-                    ContentRootPath = _tempContentRoot,
-                    WebRootPath = Path.Combine(_tempContentRoot, "wwwroot"),
-                    EnvironmentName = "Testing",
-                    ApplicationName = "BookWheel"
-                };
-                env.ContentRootFileProvider = new PhysicalFileProvider(env.ContentRootPath);
-                env.WebRootFileProvider = new PhysicalFileProvider(env.WebRootPath);
-
-                return new JsonBookRepository(env);
-            });
-            services.AddSingleton<IBookRepository>(sp => sp.GetRequiredService<JsonBookRepository>());
         });
     }
 
@@ -75,6 +63,15 @@ public sealed class BookWheelWebAppFactory : WebApplicationFactory<Program>
         if (!disposing)
         {
             return;
+        }
+
+        try
+        {
+            _postgresContainer.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+        catch
+        {
+            // Ignore cleanup failures in tests.
         }
 
         if (Directory.Exists(_tempContentRoot))
@@ -115,15 +112,5 @@ public sealed class BookWheelWebAppFactory : WebApplicationFactory<Program>
 
             File.Copy(file, destination, overwrite: true);
         }
-    }
-
-    private sealed class TestWebHostEnvironment : IWebHostEnvironment
-    {
-        public string ApplicationName { get; set; } = string.Empty;
-        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
-        public string WebRootPath { get; set; } = string.Empty;
-        public string EnvironmentName { get; set; } = "Testing";
-        public string ContentRootPath { get; set; } = string.Empty;
-        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
 }
