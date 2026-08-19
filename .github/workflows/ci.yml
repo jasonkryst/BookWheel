@@ -149,9 +149,27 @@ jobs:
           build-args: APP_VERSION=${{ env.APP_VERSION }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Start Postgres for smoke test
+        run: |
+          docker network create bookwheel-smoke-net
+          docker run -d --name bookwheel-smoke-postgres --network bookwheel-smoke-net \
+            -e POSTGRES_DB=bookwheel -e POSTGRES_USER=bookwheel -e POSTGRES_PASSWORD=bookwheel \
+            postgres:16-alpine
+          for _ in {1..20}; do
+            if docker exec bookwheel-smoke-postgres pg_isready -U bookwheel -d bookwheel > /dev/null 2>&1; then
+              echo "postgres ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Postgres failed readiness check"
+          docker logs bookwheel-smoke-postgres
+          exit 1
       - name: Container startup smoke verification
         run: |
-          docker run -d --name bookwheel-smoke -p 18080:8080 bookwheel:${{ github.sha }}
+          docker run -d --name bookwheel-smoke --network bookwheel-smoke-net \
+            -e ConnectionStrings__BookWheel="Host=bookwheel-smoke-postgres;Database=bookwheel;Username=bookwheel;Password=bookwheel" \
+            -p 18080:8080 bookwheel:${{ github.sha }}
           for _ in {1..20}; do
             if curl -fsS http://127.0.0.1:18080/health/ready > /dev/null; then
               echo "ready"
@@ -164,7 +182,9 @@ jobs:
           exit 1
       - name: Cleanup smoke container
         if: always()
-        run: docker rm -f bookwheel-smoke || true
+        run: |
+          docker rm -f bookwheel-smoke bookwheel-smoke-postgres || true
+          docker network rm bookwheel-smoke-net || true
 
   trivy:
     runs-on: ubuntu-latest
