@@ -35,6 +35,19 @@ public sealed class JsonPasswordResetTokenRepository : IPasswordResetTokenReposi
         _protector = dataProtectionProvider.CreateProtector("BookWheel.Credentials.v1");
     }
 
+    public async Task<List<PasswordResetTokenRecord>> GetAllForMigrationAsync()
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            return await ReadTokensUnsafeAsync();
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     public async Task<(string RawToken, DateTimeOffset ExpiresAtUtc)> CreateAsync(Guid userId)
     {
         await _gate.WaitAsync();

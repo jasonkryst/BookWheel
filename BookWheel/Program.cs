@@ -42,6 +42,7 @@ builder.Services.AddSingleton<JsonPasswordResetTokenRepository>();
 builder.Services.AddSingleton<IPasswordResetTokenRepository>(sp => sp.GetRequiredService<JsonPasswordResetTokenRepository>());
 
 builder.Services.AddSingleton<DataMigrationService>();
+builder.Services.AddSingleton<PostgresMigrationService>();
 builder.Services.AddControllers();
 builder.Services.AddHttpClient("central-log-shipper");
 builder.Services.AddHostedService<StartupDiagnosticsService>();
@@ -133,6 +134,19 @@ if (runMigrationOnly)
 		PropertyNamingPolicy = JsonNamingPolicy.CamelCase
 	}));
 
+	return;
+}
+
+var runPostgresMigrationOnly = args.Any(arg => string.Equals(arg, "--migrate-to-postgres", StringComparison.OrdinalIgnoreCase));
+if (runPostgresMigrationOnly)
+{
+	var postgresMigrationService = app.Services.GetRequiredService<PostgresMigrationService>();
+	var postgresReport = await postgresMigrationService.RunAsync();
+	Console.WriteLine(JsonSerializer.Serialize(postgresReport, new JsonSerializerOptions
+	{
+		WriteIndented = true,
+		PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+	}));
 	return;
 }
 
