@@ -1,6 +1,22 @@
 version: "3.9"
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: bookwheel-postgres
+    environment:
+      POSTGRES_DB: bookwheel
+      POSTGRES_USER: bookwheel
+      POSTGRES_PASSWORD: bookwheel
+    volumes:
+      - bookwheel_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bookwheel -d bookwheel"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   bookwheel:
     build:
       context: .
@@ -12,9 +28,13 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__BookWheel: "Host=postgres;Database=bookwheel;Username=bookwheel;Password=bookwheel"
     volumes:
       - bookwheel_app_data:/app/App_Data
       - bookwheel_dp_keys:/home/app/.aspnet/DataProtection-Keys
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
@@ -22,3 +42,5 @@ volumes:
     name: bookwheel_app_data
   bookwheel_dp_keys:
     name: bookwheel_dp_keys
+  bookwheel_pg_data:
+    name: bookwheel_pg_data
