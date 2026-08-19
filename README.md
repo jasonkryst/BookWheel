@@ -33,8 +33,8 @@ This solution is split into separate application and test projects:
 - Login form reset on logout so credentials are not left in the UI
 - Wheel entropy shuffle when adding books
 - Import/export JSON file upload/download tabs, inside the consolidated Settings dialog
-- Persistent storage in `App_Data/books.json`
-- Encrypted credential storage in `App_Data/user.cred`
+- Persistent storage for books, credentials, and password-reset tokens in PostgreSQL
+- Credential storage with irreversible password hashing; production deployments rely on TLS-in-transit and disk/volume encryption for data at rest
 - Structured audit logs for failed login and rate-limit events
 - Persistent JSONL log files in `App_Data/logs/`
 - Log retention and size-based rotation for JSONL audit files

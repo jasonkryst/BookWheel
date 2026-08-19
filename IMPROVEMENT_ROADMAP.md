@@ -19,7 +19,7 @@ This document outlines practical ways to improve Book Wheel across product exper
 - Light/dark/high-contrast theme support with saved browser preference and system contrast/color-scheme detection
 - English/Spanish/Polish language support with a persisted user preference and localized server error messages
 - Persistent storage for books, credentials, logs, and Data Protection keys
-- Storage CRUD operations are abstracted behind repository interfaces (JSON-backed today), so a SQL/NoSQL backend can be swapped in later without touching controllers or services
+- Storage CRUD operations are abstracted behind repository interfaces, backed by PostgreSQL for books, credentials, and password-reset tokens (logs and Data Protection keys remain file-based)
 - Working Docker-based deployment path
 - Security hardening already in place for encrypted credential storage, HTTPS redirection, HSTS, and login rate limiting
 - Forwarded headers are configured for reverse-proxy deployments
@@ -113,7 +113,7 @@ The current file-based approach is simple, but it will eventually become limitin
 1. [Done] Add backup and restore guidance for `App_Data`.
 2. [Done] Add file corruption handling and recovery messaging.
 3. [Done] Add versioned data schema support for future migrations.
-4. Consider moving from flat files to SQLite for stronger consistency and easier querying.
+4. [Done] Move book, credential, and password-reset-token storage from flat JSON files to PostgreSQL for stronger consistency and easier querying.
 5. [Done] Add health checks for storage, logging, and app readiness.
 6. [Done] Abstract storage CRUD operations behind repository interfaces so the JSON-file backend can be swapped for SQL/NoSQL without touching business logic (#14).
 
@@ -176,7 +176,7 @@ Expected outcome:
 
 - [Done] Import/export
 - [Done] Backup and restore guidance
-- SQLite migration evaluation
+- [Done] PostgreSQL migration
 - [Done] Health checks and operational metrics
 
 ### Phase 4: Identity Expansion
@@ -191,7 +191,7 @@ If only three improvements are chosen next, these should provide the best immedi
 
 1. Add search/filter and spin history to improve day-to-day usability.
 2. Add user self-service password change from authenticated profile settings.
-3. Evaluate SQLite migration and rollout strategy for stronger long-term consistency.
+3. Consider ASP.NET Core Identity or an external OIDC provider now that the data layer runs on PostgreSQL, if broader/enterprise usage is expected.
 
 ## Success Metrics
 
