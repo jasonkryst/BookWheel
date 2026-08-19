@@ -7,7 +7,9 @@ services:
     environment:
       POSTGRES_DB: bookwheel
       POSTGRES_USER: bookwheel
-      POSTGRES_PASSWORD: bookwheel
+      # Local-dev default only. Override via a .env file (POSTGRES_PASSWORD=...) for anything
+      # beyond local dev — see README's "Data Storage" section.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bookwheel}
     volumes:
       - bookwheel_pg_data:/var/lib/postgresql/data
     healthcheck:
@@ -28,7 +30,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__BookWheel: "Host=postgres;Database=bookwheel;Username=bookwheel;Password=bookwheel"
+      ConnectionStrings__BookWheel: "Host=postgres;Database=bookwheel;Username=bookwheel;Password=${POSTGRES_PASSWORD:-bookwheel}"
     volumes:
       - bookwheel_app_data:/app/App_Data
       - bookwheel_dp_keys:/home/app/.aspnet/DataProtection-Keys
