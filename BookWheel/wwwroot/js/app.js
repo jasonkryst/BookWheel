@@ -1022,9 +1022,11 @@ function renderActiveBooks() {
       typeIcon.className = 'book-type-badge';
       typeIcon.textContent = BOOK_TYPE_ICONS[book.bookTypeId] || '📖';
       const typeLabelKey = BOOK_TYPE_I18N_KEYS[book.bookTypeId];
-      const typeLabel = typeLabelKey ? t(typeLabelKey) : '';
-      typeIcon.title = typeLabel;
-      typeIcon.setAttribute('aria-label', typeLabel);
+      if (typeLabelKey) {
+        const typeLabel = t(typeLabelKey);
+        typeIcon.title = typeLabel;
+        typeIcon.setAttribute('aria-label', typeLabel);
+      }
       details.appendChild(typeIcon);
     }
 
@@ -1507,6 +1509,7 @@ function parseImportBooks(rawJson) {
     let author;
     let coverUrl;
 
+    let bookTypeId;
     if (typeof item === 'string') {
       title = item;
     } else if (item && typeof item.title === 'string') {
@@ -1514,11 +1517,12 @@ function parseImportBooks(rawJson) {
       isbn = typeof item.isbn === 'string' ? item.isbn : undefined;
       author = typeof item.author === 'string' ? item.author : undefined;
       coverUrl = typeof item.coverUrl === 'string' ? item.coverUrl : undefined;
+      bookTypeId = typeof item.bookTypeId === 'number' ? item.bookTypeId : undefined;
     }
 
     const trimmed = title.trim();
     if (trimmed) {
-      books.push({ title: trimmed, isbn, author, coverUrl });
+      books.push({ title: trimmed, isbn, author, coverUrl, bookTypeId });
     }
   });
 
