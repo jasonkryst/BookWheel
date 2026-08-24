@@ -55,6 +55,7 @@ This solution is split into separate application and test projects:
 - Single consolidated Settings dialog (GH #52) with Manage users (admin-only), Import/Export, and Preferences (theme switcher + language selector) tabs, replacing the previous separate toolbar buttons
 - Installable Progressive Web App with an offline-capable app shell (manifest, service worker, offline fallback page)
 - Mobile and tablet layouts keep the wheel and Settings dialog within the viewport without horizontal scrolling or browser zoom, including the Import tab's native file picker
+- Barcode scanner for ISBN lookup: tap the camera (📷) button next to the ISBN field on the add-book row or the edit dialog to scan a book's barcode with the device camera; on detection the ISBN field is populated and the Open Library lookup fires automatically; the scanner supports camera flipping (front/rear) and shows a framing reticle; requires Chrome, Edge, or Android Chrome (uses the native Barcode Detection API — browsers that do not support it show a clear message instead of an error) (GH #69)
 
 ## Internationalization
 

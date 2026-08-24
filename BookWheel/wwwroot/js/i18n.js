@@ -206,6 +206,17 @@
         importCompleteMessage: 'Import complete. Added {added}, skipped {skipped} matches.',
         exportStartedMessage: 'Export file download started.',
         accountMismatchWarning: 'Note: this file was exported from a different account ({username}); it was imported into your current account.'
+      },
+      scanner: {
+        heading: 'Scan barcode',
+        hint: 'Point the camera at the book\'s barcode.',
+        flipBtn: 'Flip camera',
+        scanBtnTitle: 'Scan ISBN barcode',
+        scanBtnLabel: 'Scan ISBN barcode',
+        scanningStatus: 'Scanning…',
+        detectedToast: 'Barcode detected.',
+        notSupportedError: 'Barcode scanning is not supported on this device or browser.',
+        cameraAccessError: 'Camera access was denied or is unavailable.'
       }
     },
     es: {
@@ -410,6 +421,17 @@
         importCompleteMessage: 'Importación completa. Añadidos {added}, omitidas {skipped} coincidencias.',
         exportStartedMessage: 'Se inició la descarga del archivo de exportación.',
         accountMismatchWarning: 'Nota: este archivo se exportó desde otra cuenta ({username}); se importó en tu cuenta actual.'
+      },
+      scanner: {
+        heading: 'Escanear código de barras',
+        hint: 'Apunte la cámara al código de barras del libro.',
+        flipBtn: 'Cambiar cámara',
+        scanBtnTitle: 'Escanear código ISBN',
+        scanBtnLabel: 'Escanear código ISBN',
+        scanningStatus: 'Escaneando…',
+        detectedToast: 'Código de barras detectado.',
+        notSupportedError: 'El escaneo de códigos de barras no está disponible en este dispositivo o navegador.',
+        cameraAccessError: 'El acceso a la cámara fue denegado o no está disponible.'
       }
     },
     pl: {
@@ -614,6 +636,17 @@
         importCompleteMessage: 'Import zakończony. Dodano {added}, pominięto {skipped} dopasowań.',
         exportStartedMessage: 'Rozpoczęto pobieranie pliku eksportu.',
         accountMismatchWarning: 'Uwaga: ten plik wyeksportowano z innego konta ({username}); zaimportowano go na Twoje bieżące konto.'
+      },
+      scanner: {
+        heading: 'Skanuj kod kreskowy',
+        hint: 'Skieruj kamerę na kod kreskowy książki.',
+        flipBtn: 'Przełącz kamerę',
+        scanBtnTitle: 'Skanuj kod ISBN',
+        scanBtnLabel: 'Skanuj kod ISBN',
+        scanningStatus: 'Skanowanie…',
+        detectedToast: 'Wykryto kod kreskowy.',
+        notSupportedError: 'Skanowanie kodów kreskowych nie jest obsługiwane na tym urządzeniu ani w tej przeglądarce.',
+        cameraAccessError: 'Dostęp do kamery został zablokowany lub jest niedostępny.'
       }
     }
   };

@@ -104,6 +104,13 @@ const settingsImportExportPanel = document.getElementById('settingsImportExportP
 const settingsPreferencesPanel = document.getElementById('settingsPreferencesPanel');
 const appVersionEl = document.getElementById('appVersion');
 const toastRegion = document.getElementById('toastRegion');
+const scannerDialog = document.getElementById('scannerDialog');
+const scannerVideo = document.getElementById('scannerVideo');
+const scannerStatus = document.getElementById('scannerStatus');
+const scannerFlipBtn = document.getElementById('scannerFlipBtn');
+const cancelScannerBtn = document.getElementById('cancelScannerBtn');
+const bookScanBtn = document.getElementById('bookScanBtn');
+const editScanBtn = document.getElementById('editScanBtn');
 
 let activeBooks = [];
 let wheelBooks = [];
@@ -126,6 +133,12 @@ const THEME_ICONS = { [DARK_THEME]: '☾', [LIGHT_THEME]: '☀', [HIGH_CONTRAST_
 const THEME_LABEL_KEYS = { [DARK_THEME]: 'theme.dark', [LIGHT_THEME]: 'theme.light', [HIGH_CONTRAST_THEME]: 'theme.highContrast' };
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const dialogFocusReturnMap = new WeakMap();
+const BARCODE_SCANNER_SUPPORTED = typeof BarcodeDetector !== 'undefined';
+let scannerTarget = null;
+let scannerStream = null;
+let scannerDetector = null;
+let scannerRafId = null;
+let scannerFacingMode = 'environment';
 
 function showToast(message, type = 'info') {
   if (!toastRegion || !message) {
@@ -1239,6 +1252,132 @@ bookLookupBtn.addEventListener('click', () => runMetadataLookup({
 }));
 
 editLookupBtn.addEventListener('click', () => runMetadataLookup({
+  titleInput: editBookTitle,
+  isbnInput: editBookIsbn,
+  authorInput: editBookAuthor,
+  coverInput: editBookCoverUrl,
+  previewEl: editBookPreview,
+  coverImgEl: editBookCoverImg,
+  authorTextEl: editBookAuthorText,
+  messageEl: editError
+}));
+
+function stopScannerStream() {
+  if (scannerRafId !== null) {
+    cancelAnimationFrame(scannerRafId);
+    scannerRafId = null;
+  }
+  if (scannerStream) {
+    scannerStream.getTracks().forEach(track => track.stop());
+    scannerStream = null;
+  }
+  if (scannerVideo) {
+    scannerVideo.srcObject = null;
+  }
+}
+
+function startScanLoop() {
+  const detectFrame = async () => {
+    if (!scannerStream || !scannerDetector) {
+      return;
+    }
+
+    if (scannerVideo.readyState >= 2) {
+      try {
+        const barcodes = await scannerDetector.detect(scannerVideo);
+        if (barcodes.length > 0 && barcodes[0].rawValue) {
+          await onBarcodeDetected(barcodes[0].rawValue);
+          return;
+        }
+      } catch {
+        // Detection errors are normal when the video frame is not yet ready.
+      }
+    }
+
+    scannerRafId = requestAnimationFrame(detectFrame);
+  };
+
+  scannerRafId = requestAnimationFrame(detectFrame);
+}
+
+async function openBarcodeScanner(target) {
+  const { t } = window.BookWheelI18n;
+
+  if (!BARCODE_SCANNER_SUPPORTED) {
+    target.messageEl.textContent = t('scanner.notSupportedError');
+    return;
+  }
+
+  scannerTarget = target;
+
+  try {
+    scannerStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: scannerFacingMode }, width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    scannerVideo.srcObject = scannerStream;
+    scannerDetector = new BarcodeDetector({ formats: ['ean_13', 'ean_8'] });
+    openDialog(scannerDialog, cancelScannerBtn);
+    scannerStatus.textContent = t('scanner.scanningStatus');
+    startScanLoop();
+  } catch {
+    scannerStream = null;
+    target.messageEl.textContent = t('scanner.cameraAccessError');
+  }
+}
+
+async function flipScannerCamera() {
+  const { t } = window.BookWheelI18n;
+  scannerFacingMode = scannerFacingMode === 'environment' ? 'user' : 'environment';
+  stopScannerStream();
+
+  try {
+    scannerStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: scannerFacingMode }, width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    scannerVideo.srcObject = scannerStream;
+    startScanLoop();
+  } catch {
+    scannerStatus.textContent = t('scanner.cameraAccessError');
+  }
+}
+
+async function onBarcodeDetected(isbn) {
+  const target = scannerTarget;
+  closeBarcodeScanner();
+  if (!target) {
+    return;
+  }
+
+  target.isbnInput.value = isbn;
+  showToast(window.BookWheelI18n.t('scanner.detectedToast'), 'success');
+  await runMetadataLookup(target);
+}
+
+function closeBarcodeScanner() {
+  stopScannerStream();
+  scannerDetector = null;
+  scannerTarget = null;
+  closeDialog(scannerDialog);
+}
+
+scannerDialog.addEventListener('close', () => stopScannerStream());
+
+cancelScannerBtn.addEventListener('click', () => closeBarcodeScanner());
+
+scannerFlipBtn.addEventListener('click', () => flipScannerCamera());
+
+bookScanBtn.addEventListener('click', () => openBarcodeScanner({
+  titleInput: bookTitle,
+  isbnInput: bookIsbn,
+  authorInput: bookAuthor,
+  coverInput: bookCoverUrl,
+  previewEl: bookAddPreview,
+  coverImgEl: bookAddCoverImg,
+  authorTextEl: bookAddAuthorText,
+  messageEl: bookMessage
+}));
+
+editScanBtn.addEventListener('click', () => openBarcodeScanner({
   titleInput: editBookTitle,
   isbnInput: editBookIsbn,
   authorInput: editBookAuthor,
