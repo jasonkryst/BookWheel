@@ -676,6 +676,33 @@ public sealed class BookWheelApiTests
     }
 
     [Fact]
+    public async Task Add_Book_Stores_AddedByScanner_Flag()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        await LoginAsync(client);
+
+        // Positive: addedByScanner=true is round-tripped through the API.
+        var scanResponse = await client.PostAsJsonAsync("/api/books", new { title = "Scanned Book", addedByScanner = true });
+        Assert.Equal(HttpStatusCode.OK, scanResponse.StatusCode);
+        using var scanDoc = await ReadJsonAsync(scanResponse);
+        Assert.True(scanDoc.RootElement.GetProperty("addedByScanner").GetBoolean());
+
+        // Negative: without the flag the field defaults to false.
+        var manualResponse = await client.PostAsJsonAsync("/api/books", new { title = "Manual Book" });
+        Assert.Equal(HttpStatusCode.OK, manualResponse.StatusCode);
+        using var manualDoc = await ReadJsonAsync(manualResponse);
+        Assert.False(manualDoc.RootElement.GetProperty("addedByScanner").GetBoolean());
+    }
+
+    [Fact]
     public async Task Update_Then_Remove_Book_Works()
     {
         using var factory = new BookWheelWebAppFactory();

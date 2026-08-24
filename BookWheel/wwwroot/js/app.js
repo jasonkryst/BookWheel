@@ -139,6 +139,7 @@ let scannerStream = null;
 let scannerDetector = null;
 let scannerRafId = null;
 let scannerFacingMode = 'environment';
+let addedByScanner = false;
 
 function showToast(message, type = 'info') {
   if (!toastRegion || !message) {
@@ -1003,6 +1004,15 @@ function renderActiveBooks() {
       details.appendChild(authorEl);
     }
 
+    if (book.addedByScanner) {
+      const badge = document.createElement('span');
+      badge.className = 'book-scanner-badge';
+      badge.textContent = '📷';
+      badge.title = t('books.scannedBadgeTitle');
+      badge.setAttribute('aria-label', t('books.scannedBadgeLabel'));
+      details.appendChild(badge);
+    }
+
     const removeButton = document.createElement('button');
     removeButton.type = 'button';
     removeButton.className = 'book-remove-btn';
@@ -1349,6 +1359,9 @@ async function onBarcodeDetected(isbn) {
   }
 
   target.isbnInput.value = isbn;
+  if (target.trackScanner) {
+    addedByScanner = true;
+  }
   showToast(window.BookWheelI18n.t('scanner.detectedToast'), 'success');
   await runMetadataLookup(target);
 }
@@ -1374,7 +1387,8 @@ bookScanBtn.addEventListener('click', () => openBarcodeScanner({
   previewEl: bookAddPreview,
   coverImgEl: bookAddCoverImg,
   authorTextEl: bookAddAuthorText,
-  messageEl: bookMessage
+  messageEl: bookMessage,
+  trackScanner: true
 }));
 
 editScanBtn.addEventListener('click', () => openBarcodeScanner({
@@ -1385,7 +1399,8 @@ editScanBtn.addEventListener('click', () => openBarcodeScanner({
   previewEl: editBookPreview,
   coverImgEl: editBookCoverImg,
   authorTextEl: editBookAuthorText,
-  messageEl: editError
+  messageEl: editError,
+  trackScanner: false
 }));
 
 async function removeBook(book) {
@@ -1734,13 +1749,16 @@ bookForm.addEventListener('submit', async event => {
 
   try {
     bookTitle.disabled = true;
+    const wasAddedByScanner = addedByScanner;
+    addedByScanner = false;
     await requestJson('/api/books', {
       method: 'POST',
       body: JSON.stringify({
         title: trimmedTitle,
         isbn: bookIsbn.value.trim(),
         author: bookAuthor.value.trim(),
-        coverUrl: bookCoverUrl.value.trim()
+        coverUrl: bookCoverUrl.value.trim(),
+        addedByScanner: wasAddedByScanner
       })
     });
     bookTitle.value = '';

@@ -127,7 +127,9 @@
         editTitleHint: 'Edit this title',
         editAria: 'Edit book title: {title}',
         removeHint: 'Remove from active list',
-        removeAria: 'Remove book: {title}'
+        removeAria: 'Remove book: {title}',
+        scannedBadgeTitle: 'Added via barcode scan',
+        scannedBadgeLabel: 'Added via barcode scan'
       },
       users: {
         manageUsersBtn: 'Manage users',
@@ -342,7 +344,9 @@
         editTitleHint: 'Editar este título',
         editAria: 'Editar título del libro: {title}',
         removeHint: 'Eliminar de la lista activa',
-        removeAria: 'Eliminar libro: {title}'
+        removeAria: 'Eliminar libro: {title}',
+        scannedBadgeTitle: 'Añadido mediante escaneo de código de barras',
+        scannedBadgeLabel: 'Añadido mediante escaneo de código de barras'
       },
       users: {
         manageUsersBtn: 'Gestionar usuarios',
@@ -557,7 +561,9 @@
         editTitleHint: 'Edytuj ten tytuł',
         editAria: 'Edytuj tytuł książki: {title}',
         removeHint: 'Usuń z listy aktywnych',
-        removeAria: 'Usuń książkę: {title}'
+        removeAria: 'Usuń książkę: {title}',
+        scannedBadgeTitle: 'Dodano przez skanowanie kodu kreskowego',
+        scannedBadgeLabel: 'Dodano przez skanowanie kodu kreskowego'
       },
       users: {
         manageUsersBtn: 'Zarządzaj użytkownikami',

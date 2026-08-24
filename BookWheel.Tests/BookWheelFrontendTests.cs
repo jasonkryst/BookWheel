@@ -838,6 +838,14 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("scannerDialog.addEventListener('close'", script, StringComparison.Ordinal);
         Assert.Contains("stopScannerStream()", script, StringComparison.Ordinal);
 
+        // Positive: the addedByScanner flag is captured from the scanner and included
+        // in the add-book form submission body.
+        Assert.Contains("addedByScanner", script, StringComparison.Ordinal);
+        Assert.Contains("trackScanner: true", script, StringComparison.Ordinal);
+
+        // Positive: the scanner badge is rendered for books that were added by scan.
+        Assert.Contains("book-scanner-badge", script, StringComparison.Ordinal);
+
         // Negative: the scanner must not reference BarcodeDetector directly
         // without guarding against the undefined case first.
         var detectorCheckIndex = script.IndexOf("BARCODE_SCANNER_SUPPORTED", StringComparison.Ordinal);
@@ -895,6 +903,11 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("cameraAccessError: 'El acceso a la cámara fue denegado", script, StringComparison.Ordinal);
         Assert.Contains("cameraAccessError: 'Dostęp do kamery", script, StringComparison.Ordinal);
 
+        // Positive: all three locales carry the scanner badge strings for books added by scan.
+        Assert.Contains("scannedBadgeTitle: 'Added via barcode scan'", script, StringComparison.Ordinal);
+        Assert.Contains("scannedBadgeTitle: 'Añadido mediante escaneo", script, StringComparison.Ordinal);
+        Assert.Contains("scannedBadgeTitle: 'Dodano przez skanowanie", script, StringComparison.Ordinal);
+
         // Negative: scanner strings must not fall back to English text in the
         // non-English locales (would mean the translation was accidentally skipped).
         var esStart = script.IndexOf("es: {", StringComparison.Ordinal);
@@ -943,5 +956,9 @@ public sealed class BookWheelFrontendTests
         Assert.True(reticleStart >= 0, "Expected a .scanner-reticle rule.");
         var reticleSnippet = css.Substring(reticleStart, Math.Min(200, css.Length - reticleStart));
         Assert.Contains("var(--accent)", reticleSnippet, StringComparison.Ordinal);
+
+        // Positive: the scanner badge has a dedicated rule so it renders as a
+        // low-weight indicator beside the book title.
+        Assert.Contains(".book-scanner-badge", css, StringComparison.Ordinal);
     }
 }
