@@ -155,6 +155,12 @@ public sealed class JsonBookRepository : IBookRepository
         }
     }
 
+    public async Task<IReadOnlyList<BookRecord>> GetAllForExportAsync(Guid userId)
+    {
+        // This store hard-deletes on RemoveAsync, so there are no soft-deleted rows to include.
+        return await GetAllAsync(userId);
+    }
+
     public async Task<BookRecord> AddAsync(Guid userId, string title, string? isbn = null, string? author = null, string? coverUrl = null)
     {
         await _gate.WaitAsync();

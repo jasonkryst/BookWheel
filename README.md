@@ -126,7 +126,7 @@ dotnet build BookWheel.slnx
 
 `BookWheel/BookWheel.csproj`'s `InformationalVersion` is the single source of truth for the app version. The footer and `/api/version` read it from the built assembly's `AssemblyInformationalVersion` attribute at runtime; everything else derives from or is validated against this value:
 
-- Local default: `2.4.0` (set in `BookWheel/BookWheel.csproj`)
+- Local default: `2.5.0` (set in `BookWheel/BookWheel.csproj`)
 - CI builds (`.github/workflows/ci.yml`): read the csproj's `InformationalVersion`, strip any suffix, and append `-ci.<run>+<sha>` via `/p:InformationalVersion=...`
 - Docker builds (`Dockerfile`): accept an optional `ARG APP_VERSION`; when unset, the build falls through to the csproj default rather than a second hardcoded value
 - Release builds (`.github/workflows/docker-release.yml`): derive the version from the GitHub Release tag, but the workflow **fails** if that version doesn't match the csproj's `InformationalVersion`, so a release can't ship without bumping the csproj first
@@ -134,13 +134,13 @@ dotnet build BookWheel.slnx
 Examples:
 
 ```bash
-dotnet build BookWheel.slnx /p:InformationalVersion=2.4.0
-docker build --build-arg APP_VERSION=2.4.0 -t jasonkryst/bookwheel:2.4.0 .
+dotnet build BookWheel.slnx /p:InformationalVersion=2.5.0
+docker build --build-arg APP_VERSION=2.5.0 -t jasonkryst/bookwheel:2.5.0 .
 ```
 
 ## Automated Docker Publish on Version Release
 
-GitHub Actions publishes Docker images to Docker Hub and GHCR when a GitHub Release is published (for example, tagged `v2.4.0`).
+GitHub Actions publishes Docker images to Docker Hub and GHCR when a GitHub Release is published (for example, tagged `v2.5.0`).
 
 Workflow file:
 
@@ -148,9 +148,9 @@ Workflow file:
 
 Published tags:
 
-- `jasonkryst/bookwheel:<version-without-v>` (for example `2.4.0`)
+- `jasonkryst/bookwheel:<version-without-v>` (for example `2.5.0`)
 - `jasonkryst/bookwheel:latest` (only for non-prerelease versions)
-- `ghcr.io/jasonkryst/bookwheel:<version-without-v>` (for example `2.4.0`)
+- `ghcr.io/jasonkryst/bookwheel:<version-without-v>` (for example `2.5.0`)
 - `ghcr.io/jasonkryst/bookwheel:latest` (only for non-prerelease versions)
 
 Required repository secrets:
@@ -500,11 +500,15 @@ The application includes a theme control (inside the Settings dialog's Preferenc
 
 Open the gear-icon Settings button and select the Import/Export tab.
 
-- Import tab accepts JSON in either `[{"title":"..."}]` form or `{ "books": [{"title":"..."}] }` form.
-- Import merges into existing books and skips case-insensitive title matches.
-- Import flow uses JSON file upload (`.json`).
-- Export tab generates a JSON file download of the current book list.
-- The download area is shown only when the Export tab is selected.
+- **Export** (`GET /api/books/export`) downloads a JSON file for the signed-in account containing:
+  - `schemaVersion`, `exportedAtUtc`, and `account.username` (who the file was exported from, for reference)
+  - `books`: every book on the account, active and soft-deleted, each with `title`, `isbn`, `author`, `coverUrl`, and `deletedAtUtc` (`null` for active books)
+  - `spinHistory`: a read-only record of past wheel spins (`title`, `selectedAtUtc`)
+- **Import** (`POST /api/books/import`) accepts JSON in `[{"title":"..."}]`, `{"books":[{"title":"..."}]}`, or the richer export shape (with `isbn`/`author`/`coverUrl` per book). It merges into your existing books:
+  - An incoming book is skipped if its title (case-insensitive) or ISBN matches a book you already have — **including books you've soft-deleted**, so re-importing an old backup won't resurrect something you removed on purpose.
+  - Spin history in an import file is never recreated; it's exported for backup/reference only, since imported books get new IDs and replaying spin counts against them would be misleading.
+  - If the file's `account.username` doesn't match the signed-in account, the import still proceeds but the UI shows a warning noting the mismatch.
+- Import flow uses JSON file upload (`.json`); the download area is shown only when the Export tab is selected.
 
 ## Development Notes
 

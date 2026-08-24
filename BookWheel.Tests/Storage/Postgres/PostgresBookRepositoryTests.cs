@@ -253,6 +253,37 @@ public sealed class PostgresBookRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task GetAllForExportAsync_Includes_SoftDeleted_Books_With_DeletedAtUtc_Set()
+    {
+        var userId = Guid.NewGuid();
+        var kept = await _repository.AddAsync(userId, "Kept Book");
+        var removed = await _repository.AddAsync(userId, "Removed Book");
+        await _repository.RemoveAsync(userId, removed.Id);
+
+        var exported = await _repository.GetAllForExportAsync(userId);
+
+        Assert.Equal(2, exported.Count);
+        var exportedKept = exported.Single(b => b.Id == kept.Id);
+        Assert.Null(exportedKept.DeletedAtUtc);
+        var exportedRemoved = exported.Single(b => b.Id == removed.Id);
+        Assert.NotNull(exportedRemoved.DeletedAtUtc);
+    }
+
+    [Fact]
+    public async Task GetAllForExportAsync_Only_Returns_Books_For_The_Requested_User()
+    {
+        var userOne = Guid.NewGuid();
+        var userTwo = Guid.NewGuid();
+        await _repository.AddAsync(userOne, "User One Book");
+        await _repository.AddAsync(userTwo, "User Two Book");
+
+        var exported = await _repository.GetAllForExportAsync(userOne);
+
+        var book = Assert.Single(exported);
+        Assert.Equal("User One Book", book.Title);
+    }
+
+    [Fact]
     public async Task RemoveUserDataAsync_HardDeletes_Including_Previously_SoftDeleted_Books()
     {
         var userId = Guid.NewGuid();

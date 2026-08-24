@@ -23,6 +23,17 @@ public sealed class PostgresBookRepository : IBookRepository
         return entities.Select(ToRecord).ToList();
     }
 
+    public async Task<IReadOnlyList<BookRecord>> GetAllForExportAsync(Guid userId)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var entities = await context.Books
+            .IgnoreQueryFilters()
+            .Where(b => b.UserId == userId)
+            .OrderBy(b => b.Id)
+            .ToListAsync();
+        return entities.Select(ToRecord).ToList();
+    }
+
     public async Task<BookRecord> AddAsync(Guid userId, string title, string? isbn = null, string? author = null, string? coverUrl = null)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
@@ -102,6 +113,7 @@ public sealed class PostgresBookRepository : IBookRepository
         Title = entity.Title,
         Isbn = entity.Isbn,
         Author = entity.Author,
-        CoverUrl = entity.CoverUrl
+        CoverUrl = entity.CoverUrl,
+        DeletedAtUtc = entity.DeletedAtUtc
     };
 }

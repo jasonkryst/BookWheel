@@ -60,6 +60,118 @@ public sealed class BooksController : ControllerBase
         }
     }
 
+    [HttpGet("export")]
+    public async Task<IActionResult> Export()
+    {
+        var user = _authService.GetAuthenticatedUser(HttpContext);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var books = await _store.GetAllForExportAsync(user.UserId);
+            var history = await _spinHistory.GetForUserAsync(user.UserId);
+
+            return Ok(new
+            {
+                schemaVersion = 1,
+                exportedAtUtc = DateTimeOffset.UtcNow,
+                account = new { username = user.Username },
+                books = books.Select(book => new
+                {
+                    title = book.Title,
+                    isbn = book.Isbn,
+                    author = book.Author,
+                    coverUrl = book.CoverUrl,
+                    deletedAtUtc = book.DeletedAtUtc
+                }),
+                spinHistory = history.Select(entry => new
+                {
+                    title = entry.Title,
+                    selectedAtUtc = entry.SelectedAtUtc
+                })
+            });
+        }
+        catch (CorruptedDataException ex)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = _errors.Localize(ex.Message) });
+        }
+    }
+
+    [HttpPost("import")]
+    public async Task<IActionResult> Import([FromBody] ImportBooksRequest request)
+    {
+        var user = _authService.GetAuthenticatedUser(HttpContext);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        if (request.Books is null || request.Books.Count == 0)
+        {
+            return BadRequest(new { message = _errors.Localize("No books were provided to import.") });
+        }
+
+        try
+        {
+            var existingBooks = await _store.GetAllForExportAsync(user.UserId);
+            var existingTitles = new HashSet<string>(
+                existingBooks.Select(book => NormalizeTitleForMatch(book.Title)),
+                StringComparer.Ordinal);
+            var existingIsbns = new HashSet<string>(
+                existingBooks.Where(book => book.Isbn is not null).Select(book => book.Isbn!),
+                StringComparer.Ordinal);
+
+            var added = 0;
+            var skipped = 0;
+
+            foreach (var item in request.Books)
+            {
+                var title = item.Title?.Trim();
+                if (string.IsNullOrEmpty(title))
+                {
+                    continue;
+                }
+
+                string? normalizedIsbn = null;
+                if (!string.IsNullOrWhiteSpace(item.Isbn))
+                {
+                    IsbnValidator.TryNormalize(item.Isbn, out normalizedIsbn);
+                    normalizedIsbn = string.IsNullOrEmpty(normalizedIsbn) ? null : normalizedIsbn;
+                }
+
+                var normalizedTitle = NormalizeTitleForMatch(title);
+                var isDuplicate = existingTitles.Contains(normalizedTitle)
+                    || (normalizedIsbn is not null && existingIsbns.Contains(normalizedIsbn));
+
+                if (isDuplicate)
+                {
+                    skipped += 1;
+                    continue;
+                }
+
+                existingTitles.Add(normalizedTitle);
+                if (normalizedIsbn is not null)
+                {
+                    existingIsbns.Add(normalizedIsbn);
+                }
+
+                await _store.AddAsync(user.UserId, title, normalizedIsbn, NormalizeOptional(item.Author), NormalizeOptional(item.CoverUrl));
+                added += 1;
+            }
+
+            return Ok(new { added, skipped });
+        }
+        catch (CorruptedDataException ex)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = _errors.Localize(ex.Message) });
+        }
+    }
+
+    private static string NormalizeTitleForMatch(string title) => title.Trim().ToLowerInvariant();
+
     [HttpPost]
     public async Task<IActionResult> Add([FromBody] UpdateBookRequest request)
     {
