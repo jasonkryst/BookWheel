@@ -1014,6 +1014,37 @@ function renderActiveBooks() {
   renderPagination();
 }
 
+function renderSelectedBookResult(book) {
+  const { t } = window.BookWheelI18n;
+  selectedBookEl.textContent = '';
+
+  if (book.coverUrl) {
+    const coverImg = document.createElement('img');
+    coverImg.className = 'book-cover-thumb selected-book-cover';
+    coverImg.src = book.coverUrl;
+    coverImg.alt = t('books.coverAlt', { title: book.title });
+    coverImg.loading = 'lazy';
+    selectedBookEl.appendChild(coverImg);
+  }
+
+  const details = document.createElement('span');
+  details.className = 'selected-book-details';
+
+  const textEl = document.createElement('span');
+  textEl.className = 'selected-book-text';
+  textEl.textContent = t('wheel.lastSelected', { title: book.title });
+  details.appendChild(textEl);
+
+  if (book.author) {
+    const authorEl = document.createElement('span');
+    authorEl.className = 'book-author-text';
+    authorEl.textContent = book.author;
+    details.appendChild(authorEl);
+  }
+
+  selectedBookEl.appendChild(details);
+}
+
 async function refreshBooks(options = {}) {
   const data = await requestJson('/api/books');
   activeBooks = data.activeBooks || data.books || [];
@@ -1655,7 +1686,7 @@ spinBtn.addEventListener('click', async () => {
       clampCurrentPage();
       drawWheel();
       renderActiveBooks();
-      selectedBookEl.textContent = t('wheel.lastSelected', { title: selected.title });
+      renderSelectedBookResult(selected);
       spinning = false;
       spinBtn.disabled = activeBooks.length === 0;
       spinBtn.textContent = t('wheel.spinBtn');

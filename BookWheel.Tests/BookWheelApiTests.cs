@@ -620,6 +620,62 @@ public sealed class BookWheelApiTests
     }
 
     [Fact]
+    public async Task Spin_Response_Includes_Author_And_CoverUrl_When_Present()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        await LoginAsync(client);
+        await client.PostAsJsonAsync("/api/books", new
+        {
+            title = "Effective Java",
+            isbn = "978-0-13-468599-1",
+            author = "Joshua Bloch",
+            coverUrl = "https://covers.openlibrary.org/b/id/12345-L.jpg"
+        });
+
+        var spinResponse = await client.PostAsync("/api/books/spin", content: null);
+        Assert.Equal(HttpStatusCode.OK, spinResponse.StatusCode);
+
+        using var spinDoc = await ReadJsonAsync(spinResponse);
+        var selected = spinDoc.RootElement.GetProperty("selected");
+        Assert.Equal("Effective Java", selected.GetProperty("title").GetString());
+        Assert.Equal("Joshua Bloch", selected.GetProperty("author").GetString());
+        Assert.Equal("https://covers.openlibrary.org/b/id/12345-L.jpg", selected.GetProperty("coverUrl").GetString());
+    }
+
+    [Fact]
+    public async Task Spin_Response_Omits_Author_And_CoverUrl_When_Absent()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        await LoginAsync(client);
+        await AddBookAsync(client, "Untagged Book");
+
+        var spinResponse = await client.PostAsync("/api/books/spin", content: null);
+        Assert.Equal(HttpStatusCode.OK, spinResponse.StatusCode);
+
+        using var spinDoc = await ReadJsonAsync(spinResponse);
+        var selected = spinDoc.RootElement.GetProperty("selected");
+        Assert.Equal("Untagged Book", selected.GetProperty("title").GetString());
+        Assert.Equal(JsonValueKind.Null, selected.GetProperty("author").ValueKind);
+        Assert.Equal(JsonValueKind.Null, selected.GetProperty("coverUrl").ValueKind);
+    }
+
+    [Fact]
     public async Task Update_Then_Remove_Book_Works()
     {
         using var factory = new BookWheelWebAppFactory();
