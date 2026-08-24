@@ -232,6 +232,48 @@ public sealed class BookWheelFrontendTests
     }
 
     [Fact]
+    public async Task Home_Page_Should_Include_A_Lookup_Picker_For_Ambiguous_Title_Matches()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("id=\"lookupPickerDialog\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"lookupPickerList\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"cancelLookupPickerBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-i18n=\"books.pickerTitle\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-i18n=\"books.pickerHint\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Script_Should_Auto_Fill_On_A_Single_Match_And_Open_A_Picker_When_Ambiguous()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: a title lookup reads the `results` array from the API and
+        // branches on how many candidates came back.
+        Assert.Contains("data.results", script, StringComparison.Ordinal);
+        Assert.Contains("results.length === 1", script, StringComparison.Ordinal);
+        Assert.Contains("openLookupPicker(results, target)", script, StringComparison.Ordinal);
+        Assert.Contains("cancelLookupPickerBtn.addEventListener('click'", script, StringComparison.Ordinal);
+
+        // Negative: an ISBN lookup is an exact-key match and must go straight to
+        // applyLookupResult — it must never be routed through the ambiguous-title
+        // picker path, since an ISBN can't have multiple candidates.
+        var isbnBranchStart = script.IndexOf("if (isbnValue) {", StringComparison.Ordinal);
+        Assert.True(isbnBranchStart >= 0, "Expected an isbnValue branch in the lookup logic.");
+        var isbnBranchSnippet = script.Substring(isbnBranchStart, Math.Min(200, script.Length - isbnBranchStart));
+        Assert.Contains("await requestJson(`/api/books/lookup?isbn=", isbnBranchSnippet, StringComparison.Ordinal);
+        Assert.DoesNotContain("openLookupPicker", isbnBranchSnippet, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Frontend_Script_Should_Contain_Pagination_And_Selection_Behavior()
     {
         using var factory = new BookWheelWebAppFactory();

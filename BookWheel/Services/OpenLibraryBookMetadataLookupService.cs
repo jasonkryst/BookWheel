@@ -52,55 +52,53 @@ public sealed class OpenLibraryBookMetadataLookupService : IBookMetadataLookupSe
         }
     }
 
-    public async Task<BookMetadataResult?> LookupByTitleAsync(string title, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<BookMetadataResult>> LookupByTitleAsync(string title, int maxResults, CancellationToken cancellationToken)
     {
         try
         {
-            var requestUri = $"search.json?title={Uri.EscapeDataString(title)}&limit=1";
+            var requestUri = $"search.json?title={Uri.EscapeDataString(title)}&limit={maxResults}";
             using var response = await _httpClient.GetAsync(requestUri, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
-                return null;
+                return [];
             }
 
             using var document = await JsonDocument.ParseAsync(
                 await response.Content.ReadAsStreamAsync(cancellationToken),
                 cancellationToken: cancellationToken);
 
-            if (!document.RootElement.TryGetProperty("docs", out var docsElement) ||
-                docsElement.ValueKind != JsonValueKind.Array ||
-                docsElement.GetArrayLength() == 0)
+            if (!document.RootElement.TryGetProperty("docs", out var docsElement) || docsElement.ValueKind != JsonValueKind.Array)
             {
-                return null;
+                return [];
             }
 
-            var doc = docsElement[0];
-            var resultTitle = doc.TryGetProperty("title", out var titleElement) ? titleElement.GetString() : null;
-            if (string.IsNullOrWhiteSpace(resultTitle))
+            var results = new List<BookMetadataResult>();
+            foreach (var doc in docsElement.EnumerateArray())
             {
-                return null;
+                if (results.Count >= maxResults)
+                {
+                    break;
+                }
+
+                var resultTitle = doc.TryGetProperty("title", out var titleElement) ? titleElement.GetString() : null;
+                if (string.IsNullOrWhiteSpace(resultTitle))
+                {
+                    continue;
+                }
+
+                var author = ExtractSearchAuthors(doc);
+                var isbn = ExtractBestIsbn(doc);
+                var coverUrl = ExtractSearchCoverUrl(doc);
+
+                results.Add(new BookMetadataResult { Title = resultTitle, Author = author, Isbn = isbn, CoverUrl = coverUrl });
             }
 
-            var author = doc.TryGetProperty("author_name", out var authorNameElement) && authorNameElement.ValueKind == JsonValueKind.Array
-                ? string.Join(", ", authorNameElement.EnumerateArray().Select(x => x.GetString()).Where(x => !string.IsNullOrWhiteSpace(x)))
-                : null;
-            var isbn = ExtractBestIsbn(doc);
-            var coverUrl = doc.TryGetProperty("cover_i", out var coverIdElement) && coverIdElement.ValueKind == JsonValueKind.Number
-                ? $"https://covers.openlibrary.org/b/id/{coverIdElement.GetInt64()}-L.jpg"
-                : null;
-
-            return new BookMetadataResult
-            {
-                Title = resultTitle,
-                Author = string.IsNullOrWhiteSpace(author) ? null : author,
-                Isbn = isbn,
-                CoverUrl = coverUrl
-            };
+            return results;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             _logger.LogWarning(ex, "Title metadata lookup failed for {Title}.", title);
-            return null;
+            return [];
         }
     }
 
@@ -135,6 +133,28 @@ public sealed class OpenLibraryBookMetadataLookupService : IBookMetadataLookupSe
         }
 
         return null;
+    }
+
+    private static string? ExtractSearchAuthors(JsonElement doc)
+    {
+        if (!doc.TryGetProperty("author_name", out var authorNameElement) || authorNameElement.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        var names = authorNameElement.EnumerateArray()
+            .Select(x => x.GetString())
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .ToList();
+
+        return names.Count == 0 ? null : string.Join(", ", names);
+    }
+
+    private static string? ExtractSearchCoverUrl(JsonElement doc)
+    {
+        return doc.TryGetProperty("cover_i", out var coverIdElement) && coverIdElement.ValueKind == JsonValueKind.Number
+            ? $"https://covers.openlibrary.org/b/id/{coverIdElement.GetInt64()}-L.jpg"
+            : null;
     }
 
     private static string? ExtractBestIsbn(JsonElement doc)

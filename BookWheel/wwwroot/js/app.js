@@ -51,6 +51,9 @@ const editBookPreview = document.getElementById('editBookPreview');
 const editBookCoverImg = document.getElementById('editBookCoverImg');
 const editBookAuthorText = document.getElementById('editBookAuthorText');
 const editError = document.getElementById('editError');
+const lookupPickerDialog = document.getElementById('lookupPickerDialog');
+const lookupPickerList = document.getElementById('lookupPickerList');
+const cancelLookupPickerBtn = document.getElementById('cancelLookupPickerBtn');
 const cancelEditBtn = document.getElementById('cancelEditBtn');
 const deleteDialog = document.getElementById('deleteDialog');
 const deleteConfirmMessage = document.getElementById('deleteConfirmMessage');
@@ -1092,8 +1095,80 @@ function renderMetadataPreview({ previewEl, coverImgEl, authorTextEl, author, co
   }
 }
 
-async function runMetadataLookup({ titleInput, isbnInput, authorInput, coverInput, previewEl, coverImgEl, authorTextEl, messageEl }) {
+function applyLookupResult(result, { titleInput, isbnInput, authorInput, coverInput, previewEl, coverImgEl, authorTextEl }) {
+  const titleValue = titleInput.value.trim();
+  const isbnValue = isbnInput.value.trim();
+
+  if (!titleValue && result.title) {
+    titleInput.value = result.title;
+  }
+  if (!isbnValue && result.isbn) {
+    isbnInput.value = result.isbn;
+  }
+  authorInput.value = result.author || '';
+  coverInput.value = result.coverUrl || '';
+
+  renderMetadataPreview({
+    previewEl,
+    coverImgEl,
+    authorTextEl,
+    author: result.author,
+    coverUrl: result.coverUrl,
+    title: result.title || titleInput.value
+  });
+}
+
+function openLookupPicker(results, target) {
   const { t } = window.BookWheelI18n;
+  lookupPickerList.innerHTML = '';
+
+  results.forEach(result => {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'book-row lookup-picker-row';
+
+    if (result.coverUrl) {
+      const coverImg = document.createElement('img');
+      coverImg.className = 'book-cover-thumb';
+      coverImg.src = result.coverUrl;
+      coverImg.alt = '';
+      coverImg.loading = 'lazy';
+      row.appendChild(coverImg);
+    }
+
+    const details = document.createElement('span');
+    details.className = 'book-row-details';
+
+    const titleEl = document.createElement('span');
+    titleEl.className = 'lookup-picker-row-title';
+    titleEl.textContent = result.title || '';
+    details.appendChild(titleEl);
+
+    if (result.author) {
+      const authorEl = document.createElement('span');
+      authorEl.className = 'book-row-author';
+      authorEl.textContent = result.author;
+      details.appendChild(authorEl);
+    }
+
+    row.appendChild(details);
+    row.addEventListener('click', () => {
+      applyLookupResult(result, target);
+      target.messageEl.textContent = t('books.lookupSuccessMessage');
+      closeDialog(lookupPickerDialog);
+    });
+
+    lookupPickerList.appendChild(row);
+  });
+
+  openDialog(lookupPickerDialog, cancelLookupPickerBtn);
+}
+
+cancelLookupPickerBtn.addEventListener('click', () => closeDialog(lookupPickerDialog));
+
+async function runMetadataLookup(target) {
+  const { t } = window.BookWheelI18n;
+  const { titleInput, isbnInput, previewEl, messageEl } = target;
   const isbnValue = isbnInput.value.trim();
   const titleValue = titleInput.value.trim();
 
@@ -1102,32 +1177,23 @@ async function runMetadataLookup({ titleInput, isbnInput, authorInput, coverInpu
     return;
   }
 
-  const query = isbnValue
-    ? `isbn=${encodeURIComponent(isbnValue)}`
-    : `title=${encodeURIComponent(titleValue)}`;
-
   try {
-    const result = await requestJson(`/api/books/lookup?${query}`);
-
-    if (!titleValue && result.title) {
-      titleInput.value = result.title;
+    if (isbnValue) {
+      const result = await requestJson(`/api/books/lookup?isbn=${encodeURIComponent(isbnValue)}`);
+      applyLookupResult(result, target);
+      messageEl.textContent = t('books.lookupSuccessMessage');
+      return;
     }
-    if (!isbnValue && result.isbn) {
-      isbnInput.value = result.isbn;
+
+    const data = await requestJson(`/api/books/lookup?title=${encodeURIComponent(titleValue)}`);
+    const results = data.results || [];
+
+    if (results.length === 1) {
+      applyLookupResult(results[0], target);
+      messageEl.textContent = t('books.lookupSuccessMessage');
+    } else {
+      openLookupPicker(results, target);
     }
-    authorInput.value = result.author || '';
-    coverInput.value = result.coverUrl || '';
-
-    renderMetadataPreview({
-      previewEl,
-      coverImgEl,
-      authorTextEl,
-      author: result.author,
-      coverUrl: result.coverUrl,
-      title: result.title || titleInput.value
-    });
-
-    messageEl.textContent = t('books.lookupSuccessMessage');
   } catch (error) {
     previewEl.classList.add('hidden');
     messageEl.textContent = error.message;

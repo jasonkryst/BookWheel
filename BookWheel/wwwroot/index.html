@@ -264,6 +264,17 @@
     </form>
   </dialog>
 
+  <dialog id="lookupPickerDialog" class="modal">
+    <form method="dialog" class="stack">
+      <h2 data-i18n="books.pickerTitle">Choose a match</h2>
+      <p class="message" data-i18n="books.pickerHint">Multiple books matched. Pick the right one to fill in its details.</p>
+      <div id="lookupPickerList" class="book-list"></div>
+      <div class="actions modal-actions">
+        <button type="button" id="cancelLookupPickerBtn" class="secondary" data-i18n="common.cancel">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="deleteDialog" class="modal">
     <form method="dialog" class="stack">
       <h2 data-i18n="books.deleteDialogTitle">Remove book</h2>

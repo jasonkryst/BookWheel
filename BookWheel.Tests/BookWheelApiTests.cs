@@ -794,7 +794,7 @@ public sealed class BookWheelApiTests
     }
 
     [Fact]
-    public async Task Lookup_By_Title_Returns_Metadata_From_The_Lookup_Service()
+    public async Task Lookup_By_Title_Returns_A_Single_Item_Results_Array_When_Unambiguous()
     {
         using var factory = new BookWheelWebAppFactory();
         using var client = factory.CreateClient();
@@ -807,8 +807,32 @@ public sealed class BookWheelApiTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         using var doc = await ReadJsonAsync(response);
-        Assert.Equal(FakeBookMetadataLookupService.KnownTitleIsbn, doc.RootElement.GetProperty("isbn").GetString());
-        Assert.Equal(FakeBookMetadataLookupService.KnownTitleAuthor, doc.RootElement.GetProperty("author").GetString());
+        var results = doc.RootElement.GetProperty("results");
+        Assert.Equal(1, results.GetArrayLength());
+        Assert.Equal(FakeBookMetadataLookupService.KnownTitleIsbn, results[0].GetProperty("isbn").GetString());
+        Assert.Equal(FakeBookMetadataLookupService.KnownTitleAuthor, results[0].GetProperty("author").GetString());
+    }
+
+    [Fact]
+    public async Task Lookup_By_Title_Returns_All_Candidates_When_Ambiguous()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await LoginAsync(client);
+
+        var response = await client.GetAsync($"/api/books/lookup?title={Uri.EscapeDataString(FakeBookMetadataLookupService.AmbiguousTitle)}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var doc = await ReadJsonAsync(response);
+        var results = doc.RootElement.GetProperty("results");
+        Assert.Equal(3, results.GetArrayLength());
+        var authors = results.EnumerateArray().Select(r => r.GetProperty("author").GetString()).ToList();
+        Assert.Contains(FakeBookMetadataLookupService.AmbiguousTitleFirstAuthor, authors);
+        Assert.Contains(FakeBookMetadataLookupService.AmbiguousTitleSecondAuthor, authors);
+        Assert.Contains(FakeBookMetadataLookupService.AmbiguousTitleThirdAuthor, authors);
     }
 
     [Fact]

@@ -450,6 +450,26 @@ button:disabled {
   min-width: 0;
 }
 
+.lookup-picker-row {
+  width: 100%;
+  background: transparent;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  cursor: pointer;
+  text-align: left;
+}
+
+.lookup-picker-row:hover,
+.lookup-picker-row:focus-visible {
+  background: color-mix(in srgb, var(--chip-bg) 60%, transparent);
+}
+
+.lookup-picker-row-title {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .book-title-btn {
   background: transparent;
   color: var(--text);

@@ -2,6 +2,7 @@ using BookWheel.Models;
 using BookWheel.Services;
 using BookWheel.Storage;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace BookWheel.Controllers;
 
@@ -14,19 +15,22 @@ public sealed class BooksController : ControllerBase
     private readonly IBookRepository _store;
     private readonly ApiMessageLocalizer _errors;
     private readonly IBookMetadataLookupService _metadataLookup;
+    private readonly IOptionsSnapshot<BookMetadataOptions> _metadataOptions;
 
     public BooksController(
         AuthService authService,
         AppMetricsService metricsService,
         IBookRepository store,
         ApiMessageLocalizer errors,
-        IBookMetadataLookupService metadataLookup)
+        IBookMetadataLookupService metadataLookup,
+        IOptionsSnapshot<BookMetadataOptions> metadataOptions)
     {
         _authService = authService;
         _metricsService = metricsService;
         _store = store;
         _errors = errors;
         _metadataLookup = metadataLookup;
+        _metadataOptions = metadataOptions;
     }
 
     [HttpGet]
@@ -133,7 +137,6 @@ public sealed class BooksController : ControllerBase
             return BadRequest(new { message = _errors.Localize("Provide an ISBN or a title to look up.") });
         }
 
-        BookMetadataResult? result;
         if (!string.IsNullOrWhiteSpace(isbn))
         {
             if (!IsbnValidator.TryNormalize(isbn, out var normalizedIsbn))
@@ -141,22 +144,23 @@ public sealed class BooksController : ControllerBase
                 return BadRequest(new { message = _errors.Localize("The provided ISBN is not valid.") });
             }
 
-            result = await _metadataLookup.LookupByIsbnAsync(normalizedIsbn, HttpContext.RequestAborted);
-        }
-        else
-        {
-            result = await _metadataLookup.LookupByTitleAsync(title!.Trim(), HttpContext.RequestAborted);
+            var result = await _metadataLookup.LookupByIsbnAsync(normalizedIsbn, HttpContext.RequestAborted);
+            if (result is null)
+            {
+                return NotFound(new { message = _errors.Localize("No book metadata found for that ISBN.") });
+            }
+
+            return Ok(result);
         }
 
-        if (result is null)
+        var maxResults = Math.Clamp(_metadataOptions.Value.TitleSearchResultLimit, 1, 25);
+        var results = await _metadataLookup.LookupByTitleAsync(title!.Trim(), maxResults, HttpContext.RequestAborted);
+        if (results.Count == 0)
         {
-            var message = !string.IsNullOrWhiteSpace(isbn)
-                ? "No book metadata found for that ISBN."
-                : "No book metadata found for that title.";
-            return NotFound(new { message = _errors.Localize(message) });
+            return NotFound(new { message = _errors.Localize("No book metadata found for that title.") });
         }
 
-        return Ok(result);
+        return Ok(new { results });
     }
 
     private static string? NormalizeOptional(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
