@@ -22,6 +22,7 @@ This solution is split into separate application and test projects:
 - User management tab is visible only to administrators, inside the consolidated Settings dialog
 - Add, edit, and remove books
 - Optional ISBN tagging when adding or editing a book, with a Lookup action that queries the Open Library API to auto-fill author and cover art (GH #57)
+- Title-only Lookup queries Open Library's general search (not a strict title-field match), so titles that aren't indexed verbatim (subtitles, alternate editions) still surface results; the "Choose a match" picker and the spin-result highlight/toast now derive their accent color from the active theme instead of a fixed dark-mode blue, so they stay readable in light and high-contrast mode too; the "Last selected" cover image is shown larger (96x138 vs. the small 36x52 thumbnail used elsewhere) (GH #63)
 - Book collections are scoped per user account
 - Interactive spin wheel UI
 - Light/dark mode icon toggle with saved browser preference
@@ -125,7 +126,7 @@ dotnet build BookWheel.slnx
 
 `BookWheel/BookWheel.csproj`'s `InformationalVersion` is the single source of truth for the app version. The footer and `/api/version` read it from the built assembly's `AssemblyInformationalVersion` attribute at runtime; everything else derives from or is validated against this value:
 
-- Local default: `2.3.0` (set in `BookWheel/BookWheel.csproj`)
+- Local default: `2.4.0` (set in `BookWheel/BookWheel.csproj`)
 - CI builds (`.github/workflows/ci.yml`): read the csproj's `InformationalVersion`, strip any suffix, and append `-ci.<run>+<sha>` via `/p:InformationalVersion=...`
 - Docker builds (`Dockerfile`): accept an optional `ARG APP_VERSION`; when unset, the build falls through to the csproj default rather than a second hardcoded value
 - Release builds (`.github/workflows/docker-release.yml`): derive the version from the GitHub Release tag, but the workflow **fails** if that version doesn't match the csproj's `InformationalVersion`, so a release can't ship without bumping the csproj first
@@ -133,13 +134,13 @@ dotnet build BookWheel.slnx
 Examples:
 
 ```bash
-dotnet build BookWheel.slnx /p:InformationalVersion=2.3.0
-docker build --build-arg APP_VERSION=2.3.0 -t jasonkryst/bookwheel:2.3.0 .
+dotnet build BookWheel.slnx /p:InformationalVersion=2.4.0
+docker build --build-arg APP_VERSION=2.4.0 -t jasonkryst/bookwheel:2.4.0 .
 ```
 
 ## Automated Docker Publish on Version Release
 
-GitHub Actions publishes Docker images to Docker Hub and GHCR when a GitHub Release is published (for example, tagged `v2.3.0`).
+GitHub Actions publishes Docker images to Docker Hub and GHCR when a GitHub Release is published (for example, tagged `v2.4.0`).
 
 Workflow file:
 
@@ -147,9 +148,9 @@ Workflow file:
 
 Published tags:
 
-- `jasonkryst/bookwheel:<version-without-v>` (for example `2.3.0`)
+- `jasonkryst/bookwheel:<version-without-v>` (for example `2.4.0`)
 - `jasonkryst/bookwheel:latest` (only for non-prerelease versions)
-- `ghcr.io/jasonkryst/bookwheel:<version-without-v>` (for example `2.3.0`)
+- `ghcr.io/jasonkryst/bookwheel:<version-without-v>` (for example `2.4.0`)
 - `ghcr.io/jasonkryst/bookwheel:latest` (only for non-prerelease versions)
 
 Required repository secrets:
@@ -461,6 +462,7 @@ Current integration tests cover:
 - Book soft delete: excluded from the active list, spin selection, and total book count after removal; re-deleting or updating an already-removed book returns `404`; a full user-account removal still hard-purges all of that user's books, including any already soft-deleted
 - Spin-history recording and retrieval: each spin persists a user/book/timestamp entry, the read endpoint requires authentication, returns entries newest-first, keeps a book's title even after that book is later soft-deleted, and is isolated per user
 - ISBN validation (valid/invalid ISBN-10 and ISBN-13, with and without separators), ISBN/author/cover persistence on add and edit, and the `/api/books/lookup` endpoint's success, not-found, and validation-error responses
+- Title lookup requests Open Library's general search parameter (`q=`) rather than the strict title-field parameter, so titles not indexed verbatim still return matches (GH #63)
 - Spin selection response includes author/cover when the selected book has that metadata, and omits them (rather than erroring) when it doesn't (GH #62)
 - Security regression checks for encrypted credential storage, failed-login audit logging, and rate limiting
 - Proxy-aware rate-limit behavior using forwarded client IP headers
@@ -472,7 +474,7 @@ Current integration tests cover:
 - CI dependency-audit gate (`scripts/check-vulnerable-packages.sh`): passes clean `dotnet list --vulnerable` output through unchanged and exits 0, and exits 1 when the report contains a vulnerable-packages finding
 - PWA manifest, icon, and service-worker behavior, including that `/api/*` requests are never intercepted or cached by the service worker
 
-Frontend-focused tests also verify that the HTML, JavaScript, and CSS expose the account setup mode, selected-book UI (including the cover/author shown alongside the "Last selected" title, GH #62), pagination summary, delete confirmation flow, logout form reset behavior, icon-based dark/light/high-contrast theme toggle behavior, the consolidated Settings dialog's tab structure and visibility rules, file-based import/export behavior, and the ISBN lookup controls (input, Lookup button, cover/author preview) on both the add-book row and the edit dialog.
+Frontend-focused tests also verify that the HTML, JavaScript, and CSS expose the account setup mode, selected-book UI (including the cover/author shown alongside the "Last selected" title, GH #62), pagination summary, delete confirmation flow, logout form reset behavior, icon-based dark/light/high-contrast theme toggle behavior, the consolidated Settings dialog's tab structure and visibility rules, file-based import/export behavior, and the ISBN lookup controls (input, Lookup button, cover/author preview) on both the add-book row and the edit dialog. Additional checks confirm the spin-result highlight, ambiguous-match toast, and lookup-picker rows derive their color from the active theme's CSS variables rather than a fixed dark-mode color (GH #63).
 
 Integration tests never call the real Open Library API: `BookWheelWebAppFactory` substitutes a deterministic `IBookMetadataLookupService` fake, and `OpenLibraryBookMetadataLookupServiceTests` exercises the real HTTP-parsing logic against a stubbed `HttpMessageHandler` (success, not-found, malformed JSON, and network-failure cases).
 

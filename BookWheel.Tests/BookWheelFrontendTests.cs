@@ -268,6 +268,78 @@ public sealed class BookWheelFrontendTests
 
         Assert.Contains(".selected-book-cover", css, StringComparison.Ordinal);
         Assert.Contains(".selected-book-details", css, StringComparison.Ordinal);
+
+        // Positive: the "Last selected" cover is shown noticeably larger than
+        // the small 36x52 thumbnail used elsewhere (add/edit preview, active
+        // book rows, lookup picker), at 1.5x the original 64x92 size so the
+        // 2:3-ish book-cover aspect ratio is preserved (GH #63).
+        var coverStart = css.IndexOf(".selected-book-cover {", StringComparison.Ordinal);
+        Assert.True(coverStart >= 0, "Expected a .selected-book-cover rule.");
+        var coverSnippet = css.Substring(coverStart, Math.Min(150, css.Length - coverStart));
+        Assert.Contains("width: 96px", coverSnippet, StringComparison.Ordinal);
+        Assert.Contains("height: 138px", coverSnippet, StringComparison.Ordinal);
+
+        // Negative: must not still be the old, smaller thumbnail size.
+        Assert.DoesNotContain("width: 64px", coverSnippet, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Styles_Should_Derive_Selected_Book_Accent_From_The_Theme_Variable()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/css/site.css");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var css = await response.Content.ReadAsStringAsync();
+
+        // Positive: the spin-result highlight's glow and border derive from
+        // the theme's --accent variable, so they follow light/dark/
+        // high-contrast mode instead of a single fixed color (GH #63).
+        var selectedBookStart = css.IndexOf("\n.selected-book {", StringComparison.Ordinal);
+        Assert.True(selectedBookStart >= 0, "Expected a top-level .selected-book rule (not the high-contrast override).");
+        var selectedBookSnippet = css.Substring(selectedBookStart, Math.Min(300, css.Length - selectedBookStart));
+        Assert.Contains("color-mix(in srgb, var(--accent)", selectedBookSnippet, StringComparison.Ordinal);
+
+        var notEmptyStart = css.IndexOf("\n.selected-book:not(:empty) {", StringComparison.Ordinal);
+        Assert.True(notEmptyStart >= 0, "Expected a top-level .selected-book:not(:empty) rule (not the high-contrast override).");
+        var notEmptySnippet = css.Substring(notEmptyStart, Math.Min(300, css.Length - notEmptyStart));
+        Assert.Contains("color-mix(in srgb, var(--accent)", notEmptySnippet, StringComparison.Ordinal);
+
+        var toastInfoStart = css.IndexOf(".toast-info {", StringComparison.Ordinal);
+        Assert.True(toastInfoStart >= 0, "Expected a .toast-info rule.");
+        var toastInfoSnippet = css.Substring(toastInfoStart, Math.Min(150, css.Length - toastInfoStart));
+        Assert.Contains("color-mix(in srgb, var(--accent)", toastInfoSnippet, StringComparison.Ordinal);
+
+        // Negative: none of these should still hardcode the dark-theme
+        // accent blue, since that value doesn't shift with the active theme.
+        Assert.DoesNotContain("rgba(56, 189, 248", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Styles_Should_Give_Lookup_Picker_Rows_Readable_Text_In_Every_Theme()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/css/site.css");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var css = await response.Content.ReadAsStringAsync();
+
+        // Positive: picker rows are <button> elements, so without an
+        // explicit color they inherit the accent-button text color instead
+        // of the theme's body text color (GH #63).
+        var pickerRowStart = css.IndexOf(".lookup-picker-row {", StringComparison.Ordinal);
+        Assert.True(pickerRowStart >= 0, "Expected a .lookup-picker-row rule.");
+        var pickerRowSnippet = css.Substring(pickerRowStart, Math.Min(200, css.Length - pickerRowStart));
+        Assert.Contains("color: var(--text)", pickerRowSnippet, StringComparison.Ordinal);
+
+        // Negative: it must not rely on --button-primary-text (meant for
+        // solid accent-colored buttons), which is unreadable against a
+        // transparent row background in both light and dark mode.
+        Assert.DoesNotContain("--button-primary-text", pickerRowSnippet, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -180,6 +180,33 @@ public sealed class OpenLibraryBookMetadataLookupServiceTests
         Assert.Empty(results);
     }
 
+    [Fact]
+    public async Task LookupByTitleAsync_Queries_The_General_Search_Parameter_Instead_Of_The_Strict_Title_Field()
+    {
+        HttpRequestMessage? capturedRequest = null;
+        var handler = new StubHttpMessageHandler((request, _) =>
+        {
+            capturedRequest = request;
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("""{ "docs": [] }""") };
+        });
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://openlibrary.org/") };
+        var service = new OpenLibraryBookMetadataLookupService(httpClient, NullLogger<OpenLibraryBookMetadataLookupService>.Instance);
+
+        await service.LookupByTitleAsync("Bono: Stories of Surrender", 10, CancellationToken.None);
+
+        Assert.NotNull(capturedRequest);
+        var query = capturedRequest!.RequestUri!.Query;
+
+        // Positive: the general q= parameter has far better recall than the
+        // strict title= field match, which returns zero results for real
+        // titles that don't exactly match Open Library's indexed title text
+        // (e.g. "Bono: Stories of Surrender", GH #63).
+        Assert.Contains("q=", query, StringComparison.Ordinal);
+
+        // Negative: must not fall back to the strict field-only parameter.
+        Assert.DoesNotContain("title=", query, StringComparison.Ordinal);
+    }
+
     private static OpenLibraryBookMetadataLookupService CreateService(string responseJson, HttpStatusCode statusCode = HttpStatusCode.OK)
     {
         var handler = new StubHttpMessageHandler((_, _) => new HttpResponseMessage(statusCode)
