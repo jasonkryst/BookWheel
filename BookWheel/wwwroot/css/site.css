@@ -994,6 +994,12 @@ button:disabled {
   cursor: default;
 }
 
+.book-type-badge {
+  font-size: 0.8em;
+  opacity: 0.7;
+  cursor: default;
+}
+
 .transfer-modal form {
   max-height: calc(100vh - 24px);
   max-height: calc(100dvh - 24px);

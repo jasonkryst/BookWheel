@@ -283,6 +283,100 @@ public sealed class PostgresBookRepositoryTests : IAsyncLifetime
         Assert.Equal("User One Book", book.Title);
     }
 
+    // BookType: positive cases
+
+    [Fact]
+    public async Task AddAsync_Defaults_BookTypeId_To_Physical_When_Not_Specified()
+    {
+        var userId = Guid.NewGuid();
+
+        var book = await _repository.AddAsync(userId, "Default Type Book");
+
+        Assert.Equal(1, book.BookTypeId);
+    }
+
+    [Fact]
+    public async Task AddAsync_Persists_Digital_BookTypeId()
+    {
+        var userId = Guid.NewGuid();
+
+        var book = await _repository.AddAsync(userId, "Digital Book", bookTypeId: 2);
+
+        Assert.Equal(2, book.BookTypeId);
+        var stored = Assert.Single(await _repository.GetAllAsync(userId));
+        Assert.Equal(2, stored.BookTypeId);
+    }
+
+    [Fact]
+    public async Task AddAsync_Persists_NookOnly_BookTypeId()
+    {
+        var userId = Guid.NewGuid();
+
+        var book = await _repository.AddAsync(userId, "Nook Book", bookTypeId: 3);
+
+        Assert.Equal(3, book.BookTypeId);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_Changes_BookTypeId_On_Existing_Book()
+    {
+        var userId = Guid.NewGuid();
+        var book = await _repository.AddAsync(userId, "Originally Physical", bookTypeId: 1);
+
+        var updated = await _repository.UpdateAsync(userId, book.Id, "Now Digital", bookTypeId: 2);
+
+        Assert.Equal(2, updated.BookTypeId);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_Preserves_BookTypeId_When_Same_Value_Provided()
+    {
+        var userId = Guid.NewGuid();
+        var book = await _repository.AddAsync(userId, "Nook Title", bookTypeId: 3);
+
+        var updated = await _repository.UpdateAsync(userId, book.Id, "Nook Title v2", bookTypeId: 3);
+
+        Assert.Equal(3, updated.BookTypeId);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_Returns_Correct_BookTypeId_For_Each_Book()
+    {
+        var userId = Guid.NewGuid();
+        await _repository.AddAsync(userId, "Physical Book", bookTypeId: 1);
+        await _repository.AddAsync(userId, "Digital Book", bookTypeId: 2);
+        await _repository.AddAsync(userId, "Nook Book", bookTypeId: 3);
+
+        var books = await _repository.GetAllAsync(userId);
+
+        Assert.Equal(3, books.Count);
+        Assert.Contains(books, b => b.BookTypeId == 1);
+        Assert.Contains(books, b => b.BookTypeId == 2);
+        Assert.Contains(books, b => b.BookTypeId == 3);
+    }
+
+    // BookType: negative cases
+
+    [Fact]
+    public async Task UpdateAsync_On_Nonexistent_Book_Throws_Regardless_Of_BookTypeId()
+    {
+        var userId = Guid.NewGuid();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _repository.UpdateAsync(userId, Guid.NewGuid(), "Title", bookTypeId: 2));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_On_SoftDeleted_Book_Throws_Regardless_Of_BookTypeId()
+    {
+        var userId = Guid.NewGuid();
+        var book = await _repository.AddAsync(userId, "To Delete", bookTypeId: 1);
+        await _repository.RemoveAsync(userId, book.Id);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _repository.UpdateAsync(userId, book.Id, "Updated", bookTypeId: 2));
+    }
+
     [Fact]
     public async Task RemoveUserDataAsync_HardDeletes_Including_Previously_SoftDeleted_Books()
     {

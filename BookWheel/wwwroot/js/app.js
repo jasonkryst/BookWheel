@@ -111,6 +111,8 @@ const scannerFlipBtn = document.getElementById('scannerFlipBtn');
 const cancelScannerBtn = document.getElementById('cancelScannerBtn');
 const bookScanBtn = document.getElementById('bookScanBtn');
 const editScanBtn = document.getElementById('editScanBtn');
+const bookType = document.getElementById('bookType');
+const editBookType = document.getElementById('editBookType');
 
 let activeBooks = [];
 let wheelBooks = [];
@@ -140,6 +142,8 @@ let scannerDetector = null;
 let scannerRafId = null;
 let scannerFacingMode = 'environment';
 let addedByScanner = false;
+const BOOK_TYPE_ICONS = { 1: '📖', 2: '📱', 3: '🔖' };
+const BOOK_TYPE_I18N_KEYS = { 1: 'books.typePhysical', 2: 'books.typeDigital', 3: 'books.typeNookOnly' };
 
 function showToast(message, type = 'info') {
   if (!toastRegion || !message) {
@@ -1013,6 +1017,19 @@ function renderActiveBooks() {
       details.appendChild(badge);
     }
 
+    if (book.bookTypeId) {
+      const typeIcon = document.createElement('span');
+      typeIcon.className = 'book-type-badge';
+      typeIcon.textContent = BOOK_TYPE_ICONS[book.bookTypeId] || '📖';
+      const typeLabelKey = BOOK_TYPE_I18N_KEYS[book.bookTypeId];
+      if (typeLabelKey) {
+        const typeLabel = t(typeLabelKey);
+        typeIcon.title = typeLabel;
+        typeIcon.setAttribute('aria-label', typeLabel);
+      }
+      details.appendChild(typeIcon);
+    }
+
     const removeButton = document.createElement('button');
     removeButton.type = 'button';
     removeButton.className = 'book-remove-btn';
@@ -1085,6 +1102,7 @@ async function editBook(book) {
   editBookIsbn.value = book.isbn || '';
   editBookAuthor.value = book.author || '';
   editBookCoverUrl.value = book.coverUrl || '';
+  editBookType.value = String(book.bookTypeId || 1);
   renderMetadataPreview({
     previewEl: editBookPreview,
     coverImgEl: editBookCoverImg,
@@ -1113,7 +1131,8 @@ async function saveEdit() {
       title: trimmed,
       isbn: editBookIsbn.value.trim(),
       author: editBookAuthor.value.trim(),
-      coverUrl: editBookCoverUrl.value.trim()
+      coverUrl: editBookCoverUrl.value.trim(),
+      bookTypeId: parseInt(editBookType.value, 10) || 1
     })
   });
 
@@ -1490,6 +1509,7 @@ function parseImportBooks(rawJson) {
     let author;
     let coverUrl;
 
+    let bookTypeId;
     if (typeof item === 'string') {
       title = item;
     } else if (item && typeof item.title === 'string') {
@@ -1497,11 +1517,12 @@ function parseImportBooks(rawJson) {
       isbn = typeof item.isbn === 'string' ? item.isbn : undefined;
       author = typeof item.author === 'string' ? item.author : undefined;
       coverUrl = typeof item.coverUrl === 'string' ? item.coverUrl : undefined;
+      bookTypeId = typeof item.bookTypeId === 'number' ? item.bookTypeId : undefined;
     }
 
     const trimmed = title.trim();
     if (trimmed) {
-      books.push({ title: trimmed, isbn, author, coverUrl });
+      books.push({ title: trimmed, isbn, author, coverUrl, bookTypeId });
     }
   });
 
@@ -1758,13 +1779,15 @@ bookForm.addEventListener('submit', async event => {
         isbn: bookIsbn.value.trim(),
         author: bookAuthor.value.trim(),
         coverUrl: bookCoverUrl.value.trim(),
-        addedByScanner: wasAddedByScanner
+        addedByScanner: wasAddedByScanner,
+        bookTypeId: parseInt(bookType.value, 10) || 1
       })
     });
     bookTitle.value = '';
     bookIsbn.value = '';
     bookAuthor.value = '';
     bookCoverUrl.value = '';
+    bookType.value = '1';
     bookAddPreview.classList.add('hidden');
     bookAddCoverImg.hidden = true;
     bookAddAuthorText.textContent = '';

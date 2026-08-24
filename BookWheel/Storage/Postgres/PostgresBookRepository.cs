@@ -34,7 +34,7 @@ public sealed class PostgresBookRepository : IBookRepository
         return entities.Select(ToRecord).ToList();
     }
 
-    public async Task<BookRecord> AddAsync(Guid userId, string title, string? isbn = null, string? author = null, string? coverUrl = null, bool addedByScanner = false)
+    public async Task<BookRecord> AddAsync(Guid userId, string title, string? isbn = null, string? author = null, string? coverUrl = null, bool addedByScanner = false, int bookTypeId = 1)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
         var entity = new BookEntity
@@ -45,14 +45,15 @@ public sealed class PostgresBookRepository : IBookRepository
             Isbn = isbn,
             Author = author,
             CoverUrl = coverUrl,
-            AddedByScanner = addedByScanner
+            AddedByScanner = addedByScanner,
+            BookTypeId = bookTypeId
         };
         context.Books.Add(entity);
         await context.SaveChangesAsync();
         return ToRecord(entity);
     }
 
-    public async Task<BookRecord> UpdateAsync(Guid userId, Guid id, string title, string? isbn = null, string? author = null, string? coverUrl = null)
+    public async Task<BookRecord> UpdateAsync(Guid userId, Guid id, string title, string? isbn = null, string? author = null, string? coverUrl = null, int bookTypeId = 1)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
         var entity = await context.Books.FirstOrDefaultAsync(b => b.UserId == userId && b.Id == id)
@@ -61,6 +62,7 @@ public sealed class PostgresBookRepository : IBookRepository
         entity.Isbn = isbn;
         entity.Author = author;
         entity.CoverUrl = coverUrl;
+        entity.BookTypeId = bookTypeId;
         await context.SaveChangesAsync();
         return ToRecord(entity);
     }
@@ -116,6 +118,7 @@ public sealed class PostgresBookRepository : IBookRepository
         Author = entity.Author,
         CoverUrl = entity.CoverUrl,
         DeletedAtUtc = entity.DeletedAtUtc,
-        AddedByScanner = entity.AddedByScanner
+        AddedByScanner = entity.AddedByScanner,
+        BookTypeId = entity.BookTypeId
     };
 }
