@@ -85,6 +85,7 @@ The core idea of the app is strong, but the book list can become more useful wit
 4. Add exclude-from-next-spin or temporary skip behavior.
 5. Track spin history so users can review past selections.
 6. Add import/export for the book list using JSON or CSV.
+7. [Done] Tag books with ISBN and auto-fill author/cover art via an Open Library lookup (GH #57).
 
 Expected outcome:
 

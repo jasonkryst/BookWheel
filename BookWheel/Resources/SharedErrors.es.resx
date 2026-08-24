@@ -75,4 +75,16 @@
   <data name="AdminsCanOnlyRemoveOthers" xml:space="preserve">
     <value>Los administradores solo pueden eliminar otras cuentas de usuario.</value>
   </data>
+  <data name="InvalidIsbn" xml:space="preserve">
+    <value>El ISBN proporcionado no es válido.</value>
+  </data>
+  <data name="IsbnOrTitleRequired" xml:space="preserve">
+    <value>Proporciona un ISBN o un título para buscar.</value>
+  </data>
+  <data name="BookMetadataNotFoundByIsbn" xml:space="preserve">
+    <value>No se encontraron datos del libro para ese ISBN.</value>
+  </data>
+  <data name="BookMetadataNotFoundByTitle" xml:space="preserve">
+    <value>No se encontraron datos del libro para ese título.</value>
+  </data>
 </root>

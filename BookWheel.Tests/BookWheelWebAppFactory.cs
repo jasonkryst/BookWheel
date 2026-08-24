@@ -1,8 +1,11 @@
 using BookWheel.Services;
 using BookWheel.Storage;
 using BookWheel.Logging;
+using BookWheel.Tests.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Testcontainers.PostgreSql;
 
@@ -53,6 +56,12 @@ public sealed class BookWheelWebAppFactory : WebApplicationFactory<Program>
             logging.ClearProviders();
             logging.AddProvider(_loggerProvider);
             logging.AddProvider(new JsonFileLoggerProvider(LogDirectoryPath));
+        });
+
+        builder.ConfigureServices(services =>
+        {
+            services.RemoveAll<IBookMetadataLookupService>();
+            services.AddSingleton<IBookMetadataLookupService, FakeBookMetadataLookupService>();
         });
     }
 

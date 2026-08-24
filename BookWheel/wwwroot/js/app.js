@@ -15,6 +15,13 @@ const resetPasswordMessage = document.getElementById('resetPasswordMessage');
 const resetPasswordError = document.getElementById('resetPasswordError');
 const bookForm = document.getElementById('bookForm');
 const bookTitle = document.getElementById('bookTitle');
+const bookIsbn = document.getElementById('bookIsbn');
+const bookAuthor = document.getElementById('bookAuthor');
+const bookCoverUrl = document.getElementById('bookCoverUrl');
+const bookLookupBtn = document.getElementById('bookLookupBtn');
+const bookAddPreview = document.getElementById('bookAddPreview');
+const bookAddCoverImg = document.getElementById('bookAddCoverImg');
+const bookAddAuthorText = document.getElementById('bookAddAuthorText');
 const bookMessage = document.getElementById('bookMessage');
 const activeBooksEl = document.getElementById('activeBooks');
 const booksPaginationEl = document.getElementById('booksPagination');
@@ -36,6 +43,13 @@ const editDialog = document.getElementById('editDialog');
 const editForm = document.getElementById('editForm');
 const editBookId = document.getElementById('editBookId');
 const editBookTitle = document.getElementById('editBookTitle');
+const editBookIsbn = document.getElementById('editBookIsbn');
+const editBookAuthor = document.getElementById('editBookAuthor');
+const editBookCoverUrl = document.getElementById('editBookCoverUrl');
+const editLookupBtn = document.getElementById('editLookupBtn');
+const editBookPreview = document.getElementById('editBookPreview');
+const editBookCoverImg = document.getElementById('editBookCoverImg');
+const editBookAuthorText = document.getElementById('editBookAuthorText');
 const editError = document.getElementById('editError');
 const cancelEditBtn = document.getElementById('cancelEditBtn');
 const deleteDialog = document.getElementById('deleteDialog');
@@ -949,6 +963,18 @@ function renderActiveBooks() {
     const row = document.createElement('div');
     row.className = 'book-row';
 
+    if (book.coverUrl) {
+      const coverImg = document.createElement('img');
+      coverImg.className = 'book-cover-thumb';
+      coverImg.src = book.coverUrl;
+      coverImg.alt = t('books.coverAlt', { title: book.title });
+      coverImg.loading = 'lazy';
+      row.appendChild(coverImg);
+    }
+
+    const details = document.createElement('div');
+    details.className = 'book-row-details';
+
     const titleButton = document.createElement('button');
     titleButton.type = 'button';
     titleButton.className = 'book-title-btn';
@@ -956,6 +982,14 @@ function renderActiveBooks() {
     titleButton.title = t('books.editTitleHint');
     titleButton.setAttribute('aria-label', t('books.editAria', { title: book.title }));
     titleButton.addEventListener('click', () => editBook(book));
+    details.appendChild(titleButton);
+
+    if (book.author) {
+      const authorEl = document.createElement('span');
+      authorEl.className = 'book-row-author';
+      authorEl.textContent = book.author;
+      details.appendChild(authorEl);
+    }
 
     const removeButton = document.createElement('button');
     removeButton.type = 'button';
@@ -969,7 +1003,7 @@ function renderActiveBooks() {
     actions.className = 'book-row-actions';
     actions.appendChild(removeButton);
 
-    row.append(titleButton, actions);
+    row.append(details, actions);
     activeBooksEl.appendChild(row);
   });
 
@@ -995,6 +1029,17 @@ async function editBook(book) {
   editError.textContent = '';
   editBookId.value = book.id;
   editBookTitle.value = book.title;
+  editBookIsbn.value = book.isbn || '';
+  editBookAuthor.value = book.author || '';
+  editBookCoverUrl.value = book.coverUrl || '';
+  renderMetadataPreview({
+    previewEl: editBookPreview,
+    coverImgEl: editBookCoverImg,
+    authorTextEl: editBookAuthorText,
+    author: book.author,
+    coverUrl: book.coverUrl,
+    title: book.title
+  });
   openDialog(editDialog, editBookTitle);
 }
 
@@ -1011,7 +1056,12 @@ async function saveEdit() {
 
   await requestJson(`/api/books/${editBookId.value}`, {
     method: 'PUT',
-    body: JSON.stringify({ title: trimmed })
+    body: JSON.stringify({
+      title: trimmed,
+      isbn: editBookIsbn.value.trim(),
+      author: editBookAuthor.value.trim(),
+      coverUrl: editBookCoverUrl.value.trim()
+    })
   });
 
   closeDialog(editDialog);
@@ -1019,6 +1069,92 @@ async function saveEdit() {
   showToast(t('books.updatedToast'), 'success');
   await refreshBooks();
 }
+
+function renderMetadataPreview({ previewEl, coverImgEl, authorTextEl, author, coverUrl, title }) {
+  const { t } = window.BookWheelI18n;
+
+  if (!author && !coverUrl) {
+    previewEl.classList.add('hidden');
+    coverImgEl.hidden = true;
+    authorTextEl.textContent = '';
+    return;
+  }
+
+  previewEl.classList.remove('hidden');
+  authorTextEl.textContent = author || '';
+
+  if (coverUrl) {
+    coverImgEl.src = coverUrl;
+    coverImgEl.alt = t('books.coverAlt', { title: title || '' });
+    coverImgEl.hidden = false;
+  } else {
+    coverImgEl.hidden = true;
+  }
+}
+
+async function runMetadataLookup({ titleInput, isbnInput, authorInput, coverInput, previewEl, coverImgEl, authorTextEl, messageEl }) {
+  const { t } = window.BookWheelI18n;
+  const isbnValue = isbnInput.value.trim();
+  const titleValue = titleInput.value.trim();
+
+  if (!isbnValue && !titleValue) {
+    messageEl.textContent = t('books.lookupNeedsInputError');
+    return;
+  }
+
+  const query = isbnValue
+    ? `isbn=${encodeURIComponent(isbnValue)}`
+    : `title=${encodeURIComponent(titleValue)}`;
+
+  try {
+    const result = await requestJson(`/api/books/lookup?${query}`);
+
+    if (!titleValue && result.title) {
+      titleInput.value = result.title;
+    }
+    if (!isbnValue && result.isbn) {
+      isbnInput.value = result.isbn;
+    }
+    authorInput.value = result.author || '';
+    coverInput.value = result.coverUrl || '';
+
+    renderMetadataPreview({
+      previewEl,
+      coverImgEl,
+      authorTextEl,
+      author: result.author,
+      coverUrl: result.coverUrl,
+      title: result.title || titleInput.value
+    });
+
+    messageEl.textContent = t('books.lookupSuccessMessage');
+  } catch (error) {
+    previewEl.classList.add('hidden');
+    messageEl.textContent = error.message;
+  }
+}
+
+bookLookupBtn.addEventListener('click', () => runMetadataLookup({
+  titleInput: bookTitle,
+  isbnInput: bookIsbn,
+  authorInput: bookAuthor,
+  coverInput: bookCoverUrl,
+  previewEl: bookAddPreview,
+  coverImgEl: bookAddCoverImg,
+  authorTextEl: bookAddAuthorText,
+  messageEl: bookMessage
+}));
+
+editLookupBtn.addEventListener('click', () => runMetadataLookup({
+  titleInput: editBookTitle,
+  isbnInput: editBookIsbn,
+  authorInput: editBookAuthor,
+  coverInput: editBookCoverUrl,
+  previewEl: editBookPreview,
+  coverImgEl: editBookCoverImg,
+  authorTextEl: editBookAuthorText,
+  messageEl: editError
+}));
 
 async function removeBook(book) {
   pendingDeleteBook = book;
@@ -1371,9 +1507,20 @@ bookForm.addEventListener('submit', async event => {
     bookTitle.disabled = true;
     await requestJson('/api/books', {
       method: 'POST',
-      body: JSON.stringify({ title: trimmedTitle })
+      body: JSON.stringify({
+        title: trimmedTitle,
+        isbn: bookIsbn.value.trim(),
+        author: bookAuthor.value.trim(),
+        coverUrl: bookCoverUrl.value.trim()
+      })
     });
     bookTitle.value = '';
+    bookIsbn.value = '';
+    bookAuthor.value = '';
+    bookCoverUrl.value = '';
+    bookAddPreview.classList.add('hidden');
+    bookAddCoverImg.hidden = true;
+    bookAddAuthorText.textContent = '';
     bookMessage.textContent = t('books.addedMessage');
     showToast(t('books.addedToast'), 'success');
     await refreshBooks({ goToLastPage: true, shuffleWheel: true });

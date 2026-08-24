@@ -51,6 +51,49 @@ public sealed class PostgresBookRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task AddAsync_Persists_Isbn_Author_And_CoverUrl()
+    {
+        var userId = Guid.NewGuid();
+
+        var book = await _repository.AddAsync(userId, "Effective Java", "9780134685991", "Joshua Bloch", "https://covers.openlibrary.org/b/id/12345-L.jpg");
+
+        Assert.Equal("9780134685991", book.Isbn);
+        Assert.Equal("Joshua Bloch", book.Author);
+        Assert.Equal("https://covers.openlibrary.org/b/id/12345-L.jpg", book.CoverUrl);
+
+        var books = await _repository.GetAllAsync(userId);
+        var stored = Assert.Single(books);
+        Assert.Equal("9780134685991", stored.Isbn);
+        Assert.Equal("Joshua Bloch", stored.Author);
+        Assert.Equal("https://covers.openlibrary.org/b/id/12345-L.jpg", stored.CoverUrl);
+    }
+
+    [Fact]
+    public async Task AddAsync_Leaves_Isbn_Author_And_CoverUrl_Null_When_Not_Provided()
+    {
+        var userId = Guid.NewGuid();
+
+        var book = await _repository.AddAsync(userId, "Untagged Book");
+
+        Assert.Null(book.Isbn);
+        Assert.Null(book.Author);
+        Assert.Null(book.CoverUrl);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_Backfills_Isbn_Author_And_CoverUrl_On_An_Existing_Book()
+    {
+        var userId = Guid.NewGuid();
+        var book = await _repository.AddAsync(userId, "Untagged Book");
+
+        var updated = await _repository.UpdateAsync(userId, book.Id, "Untagged Book", "9780134685991", "Joshua Bloch", "https://covers.openlibrary.org/b/id/12345-L.jpg");
+
+        Assert.Equal("9780134685991", updated.Isbn);
+        Assert.Equal("Joshua Bloch", updated.Author);
+        Assert.Equal("https://covers.openlibrary.org/b/id/12345-L.jpg", updated.CoverUrl);
+    }
+
+    [Fact]
     public async Task RemoveAsync_Removes_Book_And_Reduces_Count()
     {
         var userId = Guid.NewGuid();

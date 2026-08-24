@@ -21,6 +21,7 @@ This solution is split into separate application and test projects:
 - Administrator-generated password reset links (24-hour expiry) instead of direct password setting
 - User management tab is visible only to administrators, inside the consolidated Settings dialog
 - Add, edit, and remove books
+- Optional ISBN tagging when adding or editing a book, with a Lookup action that queries the Open Library API to auto-fill author and cover art (GH #57)
 - Book collections are scoped per user account
 - Interactive spin wheel UI
 - Light/dark mode icon toggle with saved browser preference
@@ -419,6 +420,9 @@ Book endpoints (authentication required):
 - `PUT /api/books/{id}`
 - `DELETE /api/books/{id}`
 - `POST /api/books/spin`
+- `GET /api/books/lookup?isbn={isbn}` or `GET /api/books/lookup?title={title}` — queries the Open Library API for a book's title, author, ISBN, and cover URL; returns `404` when nothing matches and `400` when neither `isbn` nor `title` is supplied or the ISBN fails checksum validation
+
+`POST /api/books` and `PUT /api/books/{id}` accept optional `isbn`, `author`, and `coverUrl` fields alongside the required `title`. A supplied `isbn` is validated (ISBN-10 or ISBN-13, hyphens/spaces ignored) and rejected with `400` if it fails checksum validation.
 
 ## Testing
 
@@ -447,6 +451,7 @@ Current integration tests cover:
 - Book list isolation across different users
 - Spin behavior preserving active book count
 - Book update and remove flow
+- ISBN validation (valid/invalid ISBN-10 and ISBN-13, with and without separators), ISBN/author/cover persistence on add and edit, and the `/api/books/lookup` endpoint's success, not-found, and validation-error responses
 - Security regression checks for encrypted credential storage, failed-login audit logging, and rate limiting
 - Proxy-aware rate-limit behavior using forwarded client IP headers
 - Corrupt/missing data file handling with quarantine and recovery responses
@@ -457,7 +462,9 @@ Current integration tests cover:
 - CI dependency-audit gate (`scripts/check-vulnerable-packages.sh`): passes clean `dotnet list --vulnerable` output through unchanged and exits 0, and exits 1 when the report contains a vulnerable-packages finding
 - PWA manifest, icon, and service-worker behavior, including that `/api/*` requests are never intercepted or cached by the service worker
 
-Frontend-focused tests also verify that the HTML, JavaScript, and CSS expose the account setup mode, selected-book UI, pagination summary, delete confirmation flow, logout form reset behavior, icon-based dark/light/high-contrast theme toggle behavior, the consolidated Settings dialog's tab structure and visibility rules, and file-based import/export behavior.
+Frontend-focused tests also verify that the HTML, JavaScript, and CSS expose the account setup mode, selected-book UI, pagination summary, delete confirmation flow, logout form reset behavior, icon-based dark/light/high-contrast theme toggle behavior, the consolidated Settings dialog's tab structure and visibility rules, file-based import/export behavior, and the ISBN lookup controls (input, Lookup button, cover/author preview) on both the add-book row and the edit dialog.
+
+Integration tests never call the real Open Library API: `BookWheelWebAppFactory` substitutes a deterministic `IBookMetadataLookupService` fake, and `OpenLibraryBookMetadataLookupServiceTests` exercises the real HTTP-parsing logic against a stubbed `HttpMessageHandler` (success, not-found, malformed JSON, and network-failure cases).
 
 The frontend also includes import/export interactions (a JSON tabbed panel inside the Settings dialog) and wheel shuffle behavior when books are added.
 

@@ -7,7 +7,7 @@ namespace BookWheel.Storage;
 
 public sealed class JsonBookRepository : IBookRepository
 {
-    private const int CurrentBookSchemaVersion = 2;
+    private const int CurrentBookSchemaVersion = 3;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -155,7 +155,7 @@ public sealed class JsonBookRepository : IBookRepository
         }
     }
 
-    public async Task<BookRecord> AddAsync(Guid userId, string title)
+    public async Task<BookRecord> AddAsync(Guid userId, string title, string? isbn = null, string? author = null, string? coverUrl = null)
     {
         await _gate.WaitAsync();
         try
@@ -165,7 +165,10 @@ public sealed class JsonBookRepository : IBookRepository
             var record = new BookRecord
             {
                 Id = Guid.NewGuid(),
-                Title = title.Trim()
+                Title = title.Trim(),
+                Isbn = isbn,
+                Author = author,
+                CoverUrl = coverUrl
             };
 
             books.Add(record);
@@ -178,7 +181,7 @@ public sealed class JsonBookRepository : IBookRepository
         }
     }
 
-    public async Task<BookRecord> UpdateAsync(Guid userId, Guid id, string title)
+    public async Task<BookRecord> UpdateAsync(Guid userId, Guid id, string title, string? isbn = null, string? author = null, string? coverUrl = null)
     {
         await _gate.WaitAsync();
         try
@@ -187,6 +190,9 @@ public sealed class JsonBookRepository : IBookRepository
             var books = GetBooksForUser(booksByUser, userId);
             var book = books.FirstOrDefault(x => x.Id == id) ?? throw new InvalidOperationException("Book not found.");
             book.Title = title.Trim();
+            book.Isbn = isbn;
+            book.Author = author;
+            book.CoverUrl = coverUrl;
             await WriteStoreUnsafeAsync(booksByUser);
             return book;
         }

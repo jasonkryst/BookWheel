@@ -60,6 +60,12 @@ builder.Services.AddSingleton<DataMigrationService>();
 builder.Services.AddSingleton<PostgresMigrationService>();
 builder.Services.AddControllers();
 builder.Services.AddHttpClient("central-log-shipper");
+builder.Services.AddHttpClient<IBookMetadataLookupService, OpenLibraryBookMetadataLookupService>(client =>
+{
+	client.BaseAddress = new Uri("https://openlibrary.org/");
+	client.Timeout = TimeSpan.FromSeconds(8);
+	client.DefaultRequestHeaders.UserAgent.ParseAdd("BookWheel/1.0 (+https://github.com/jasonkryst/BookWheel)");
+});
 builder.Services.AddHostedService<StartupDiagnosticsService>();
 builder.Services.AddHostedService<LogShippingService>();
 builder.Services.AddHealthChecks()

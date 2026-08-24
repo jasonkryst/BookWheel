@@ -27,6 +27,10 @@ public sealed class ApiMessageLocalizer(IStringLocalizer<SharedErrors> localizer
 		["Administrators can only update other user accounts."] = "AdminsCanOnlyUpdateOthers",
 		["Administrators can only generate reset links for other user accounts."] = "AdminsCanOnlyGenerateResetLinksForOthers",
 		["Administrators can only remove other user accounts."] = "AdminsCanOnlyRemoveOthers",
+		["The provided ISBN is not valid."] = "InvalidIsbn",
+		["Provide an ISBN or a title to look up."] = "IsbnOrTitleRequired",
+		["No book metadata found for that ISBN."] = "BookMetadataNotFoundByIsbn",
+		["No book metadata found for that title."] = "BookMetadataNotFoundByTitle",
 	};
 
 	public static IReadOnlyDictionary<string, string> KnownMessageKeys => KeysByEnglishMessage;

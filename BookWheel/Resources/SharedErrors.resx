@@ -75,4 +75,16 @@
   <data name="AdminsCanOnlyRemoveOthers" xml:space="preserve">
     <value>Administrators can only remove other user accounts.</value>
   </data>
+  <data name="InvalidIsbn" xml:space="preserve">
+    <value>The provided ISBN is not valid.</value>
+  </data>
+  <data name="IsbnOrTitleRequired" xml:space="preserve">
+    <value>Provide an ISBN or a title to look up.</value>
+  </data>
+  <data name="BookMetadataNotFoundByIsbn" xml:space="preserve">
+    <value>No book metadata found for that ISBN.</value>
+  </data>
+  <data name="BookMetadataNotFoundByTitle" xml:space="preserve">
+    <value>No book metadata found for that title.</value>
+  </data>
 </root>
