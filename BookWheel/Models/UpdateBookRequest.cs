@@ -16,4 +16,6 @@ public sealed class UpdateBookRequest
 
     [StringLength(2048)]
     public string? CoverUrl { get; set; }
+
+    public bool AddedByScanner { get; set; }
 }

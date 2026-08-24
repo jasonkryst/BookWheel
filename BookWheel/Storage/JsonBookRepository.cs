@@ -161,7 +161,7 @@ public sealed class JsonBookRepository : IBookRepository
         return await GetAllAsync(userId);
     }
 
-    public async Task<BookRecord> AddAsync(Guid userId, string title, string? isbn = null, string? author = null, string? coverUrl = null)
+    public async Task<BookRecord> AddAsync(Guid userId, string title, string? isbn = null, string? author = null, string? coverUrl = null, bool addedByScanner = false)
     {
         await _gate.WaitAsync();
         try
@@ -174,7 +174,8 @@ public sealed class JsonBookRepository : IBookRepository
                 Title = title.Trim(),
                 Isbn = isbn,
                 Author = author,
-                CoverUrl = coverUrl
+                CoverUrl = coverUrl,
+                AddedByScanner = addedByScanner
             };
 
             books.Add(record);

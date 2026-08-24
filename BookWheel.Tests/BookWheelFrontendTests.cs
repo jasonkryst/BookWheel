@@ -757,4 +757,208 @@ public sealed class BookWheelFrontendTests
         Assert.Contains("accountMismatchWarning: 'Nota: este archivo se exportó desde otra cuenta", script, StringComparison.Ordinal);
         Assert.Contains("accountMismatchWarning: 'Uwaga: ten plik wyeksportowano z innego konta", script, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task Home_Page_Should_Include_Barcode_Scanner_Dialog_And_Scan_Buttons()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var html = await response.Content.ReadAsStringAsync();
+
+        // Positive: the scanner dialog and all its interactive children are present.
+        Assert.Contains("id=\"scannerDialog\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"scannerVideo\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"scannerStatus\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"cancelScannerBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"scannerFlipBtn\"", html, StringComparison.Ordinal);
+
+        // Positive: both the add-book row and the edit dialog expose a scan button.
+        Assert.Contains("id=\"bookScanBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"editScanBtn\"", html, StringComparison.Ordinal);
+
+        // Positive: scan buttons are properly labelled for accessibility.
+        Assert.Contains("data-i18n-aria-label=\"scanner.scanBtnLabel\"", html, StringComparison.Ordinal);
+
+        // Positive: the video element uses the attributes required for mobile autoplay.
+        Assert.Contains("autoplay", html, StringComparison.Ordinal);
+        Assert.Contains("playsinline", html, StringComparison.Ordinal);
+        Assert.Contains("muted", html, StringComparison.Ordinal);
+
+        // Negative: the scan button must not have a 'required' attribute; it is
+        // a trigger, not an input field.
+        var scanBtnStart = html.IndexOf("id=\"bookScanBtn\"", StringComparison.Ordinal);
+        var scanBtnSnippet = html.Substring(scanBtnStart, Math.Min(200, html.Length - scanBtnStart));
+        Assert.DoesNotContain("required", scanBtnSnippet, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Script_Should_Implement_Barcode_Scanner_Logic()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: core scanner functions are present and named consistently.
+        Assert.Contains("function openBarcodeScanner(target)", script, StringComparison.Ordinal);
+        Assert.Contains("function closeBarcodeScanner()", script, StringComparison.Ordinal);
+        Assert.Contains("function startScanLoop()", script, StringComparison.Ordinal);
+        Assert.Contains("async function onBarcodeDetected(isbn)", script, StringComparison.Ordinal);
+        Assert.Contains("function stopScannerStream()", script, StringComparison.Ordinal);
+        Assert.Contains("function flipScannerCamera()", script, StringComparison.Ordinal);
+
+        // Positive: the scanner guards itself with a feature-detection check so
+        // it shows a graceful message on unsupported browsers instead of throwing.
+        Assert.Contains("BARCODE_SCANNER_SUPPORTED", script, StringComparison.Ordinal);
+        Assert.Contains("typeof BarcodeDetector !== 'undefined'", script, StringComparison.Ordinal);
+
+        // Positive: EAN-13 and EAN-8 formats are requested (ISBN barcodes are EAN).
+        Assert.Contains("ean_13", script, StringComparison.Ordinal);
+        Assert.Contains("ean_8", script, StringComparison.Ordinal);
+
+        // Positive: camera flip toggles between environment and user facing modes.
+        Assert.Contains("facingMode", script, StringComparison.Ordinal);
+        Assert.Contains("environment", script, StringComparison.Ordinal);
+
+        // Positive: both scan buttons wire to the same openBarcodeScanner function
+        // with the correct form-specific targets (matching the Lookup button pattern).
+        Assert.Contains("bookScanBtn.addEventListener('click'", script, StringComparison.Ordinal);
+        Assert.Contains("editScanBtn.addEventListener('click'", script, StringComparison.Ordinal);
+
+        // Positive: after detection the ISBN field is populated and the existing
+        // lookup path fires automatically — no duplicate fetch logic.
+        Assert.Contains("target.isbnInput.value = isbn", script, StringComparison.Ordinal);
+        Assert.Contains("await runMetadataLookup(target)", script, StringComparison.Ordinal);
+
+        // Positive: the scanner dialog's close event stops the camera stream so
+        // the camera indicator light turns off when the dialog is dismissed.
+        Assert.Contains("scannerDialog.addEventListener('close'", script, StringComparison.Ordinal);
+        Assert.Contains("stopScannerStream()", script, StringComparison.Ordinal);
+
+        // Positive: the addedByScanner flag is captured from the scanner and included
+        // in the add-book form submission body.
+        Assert.Contains("addedByScanner", script, StringComparison.Ordinal);
+        Assert.Contains("trackScanner: true", script, StringComparison.Ordinal);
+
+        // Positive: the scanner badge is rendered for books that were added by scan.
+        Assert.Contains("book-scanner-badge", script, StringComparison.Ordinal);
+
+        // Negative: the scanner must not reference BarcodeDetector directly
+        // without guarding against the undefined case first.
+        var detectorCheckIndex = script.IndexOf("BARCODE_SCANNER_SUPPORTED", StringComparison.Ordinal);
+        var firstRawDetectorUse = script.IndexOf("new BarcodeDetector", StringComparison.Ordinal);
+        Assert.True(detectorCheckIndex < firstRawDetectorUse,
+            "The BarcodeDetector availability check must appear before the first 'new BarcodeDetector' call.");
+    }
+
+    [Fact]
+    public async Task Frontend_Script_Should_Release_Camera_On_Scanner_Close()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: stopScannerStream cancels the rAF loop and stops all media
+        // tracks — not just pausing the video — so the camera light turns off.
+        var stopFnStart = script.IndexOf("function stopScannerStream()", StringComparison.Ordinal);
+        Assert.True(stopFnStart >= 0, "Expected a stopScannerStream function.");
+        var stopFnSnippet = script.Substring(stopFnStart, Math.Min(400, script.Length - stopFnStart));
+        Assert.Contains("cancelAnimationFrame", stopFnSnippet, StringComparison.Ordinal);
+        Assert.Contains("getTracks()", stopFnSnippet, StringComparison.Ordinal);
+        Assert.Contains("track.stop()", stopFnSnippet, StringComparison.Ordinal);
+
+        // Negative: closeBarcodeScanner must call stopScannerStream rather than
+        // duplicating the stream teardown, to avoid divergence over time.
+        var closeFnStart = script.IndexOf("function closeBarcodeScanner()", StringComparison.Ordinal);
+        Assert.True(closeFnStart >= 0, "Expected a closeBarcodeScanner function.");
+        var closeFnSnippet = script.Substring(closeFnStart, Math.Min(200, script.Length - closeFnStart));
+        Assert.Contains("stopScannerStream()", closeFnSnippet, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_I18n_Should_Include_Scanner_Strings_In_All_Locales()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/i18n.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: all three locales carry a scanner section with the
+        // strings needed by the scanner dialog and scan buttons.
+        Assert.Contains("scanBtnTitle: 'Scan ISBN barcode'", script, StringComparison.Ordinal);
+        Assert.Contains("scanBtnTitle: 'Escanear código ISBN'", script, StringComparison.Ordinal);
+        Assert.Contains("scanBtnTitle: 'Skanuj kod ISBN'", script, StringComparison.Ordinal);
+
+        Assert.Contains("notSupportedError: 'Barcode scanning is not supported", script, StringComparison.Ordinal);
+        Assert.Contains("notSupportedError: 'El escaneo de códigos de barras", script, StringComparison.Ordinal);
+        Assert.Contains("notSupportedError: 'Skanowanie kodów kreskowych", script, StringComparison.Ordinal);
+
+        Assert.Contains("cameraAccessError: 'Camera access was denied", script, StringComparison.Ordinal);
+        Assert.Contains("cameraAccessError: 'El acceso a la cámara fue denegado", script, StringComparison.Ordinal);
+        Assert.Contains("cameraAccessError: 'Dostęp do kamery", script, StringComparison.Ordinal);
+
+        // Positive: all three locales carry the scanner badge strings for books added by scan.
+        Assert.Contains("scannedBadgeTitle: 'Added via barcode scan'", script, StringComparison.Ordinal);
+        Assert.Contains("scannedBadgeTitle: 'Añadido mediante escaneo", script, StringComparison.Ordinal);
+        Assert.Contains("scannedBadgeTitle: 'Dodano przez skanowanie", script, StringComparison.Ordinal);
+
+        // Negative: scanner strings must not fall back to English text in the
+        // non-English locales (would mean the translation was accidentally skipped).
+        var esStart = script.IndexOf("es: {", StringComparison.Ordinal);
+        var plStart = script.IndexOf("pl: {", StringComparison.Ordinal);
+        Assert.True(esStart >= 0 && plStart >= 0);
+
+        var esSection = script.Substring(esStart, plStart - esStart);
+        Assert.DoesNotContain("scanBtnTitle: 'Scan ISBN barcode'", esSection, StringComparison.Ordinal);
+
+        var plSection = script.Substring(plStart);
+        Assert.DoesNotContain("scanBtnTitle: 'Scan ISBN barcode'", plSection, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Styles_Should_Include_Scanner_Video_And_Reticle_Rules()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/css/site.css");
+        var css = await response.Content.ReadAsStringAsync();
+
+        // Positive: the scanner modal and video container have dedicated rules.
+        Assert.Contains(".scanner-modal", css, StringComparison.Ordinal);
+        Assert.Contains(".scanner-video-wrap", css, StringComparison.Ordinal);
+        Assert.Contains("#scannerVideo", css, StringComparison.Ordinal);
+        Assert.Contains(".scanner-reticle", css, StringComparison.Ordinal);
+        Assert.Contains(".scanner-overlay", css, StringComparison.Ordinal);
+
+        // Positive: video fills its container without letterboxing.
+        var videoRuleStart = css.IndexOf("#scannerVideo {", StringComparison.Ordinal);
+        Assert.True(videoRuleStart >= 0, "Expected a #scannerVideo rule.");
+        var videoRuleSnippet = css.Substring(videoRuleStart, Math.Min(150, css.Length - videoRuleStart));
+        Assert.Contains("object-fit: cover", videoRuleSnippet, StringComparison.Ordinal);
+
+        // Positive: video container preserves a fixed aspect ratio so it doesn't
+        // collapse to zero height before the stream arrives.
+        var wrapRuleStart = css.IndexOf(".scanner-video-wrap {", StringComparison.Ordinal);
+        Assert.True(wrapRuleStart >= 0, "Expected a .scanner-video-wrap rule.");
+        var wrapRuleSnippet = css.Substring(wrapRuleStart, Math.Min(200, css.Length - wrapRuleStart));
+        Assert.Contains("aspect-ratio", wrapRuleSnippet, StringComparison.Ordinal);
+
+        // Positive: the reticle uses the theme accent so it stays visible
+        // in both light and dark modes.
+        var reticleStart = css.IndexOf(".scanner-reticle {", StringComparison.Ordinal);
+        Assert.True(reticleStart >= 0, "Expected a .scanner-reticle rule.");
+        var reticleSnippet = css.Substring(reticleStart, Math.Min(200, css.Length - reticleStart));
+        Assert.Contains("var(--accent)", reticleSnippet, StringComparison.Ordinal);
+
+        // Positive: the scanner badge has a dedicated rule so it renders as a
+        // low-weight indicator beside the book title.
+        Assert.Contains(".book-scanner-badge", css, StringComparison.Ordinal);
+    }
 }

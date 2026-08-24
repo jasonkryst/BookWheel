@@ -194,7 +194,7 @@ public sealed class BooksController : ControllerBase
 
         try
         {
-            var book = await _store.AddAsync(user.UserId, request.Title, normalizedIsbn, NormalizeOptional(request.Author), NormalizeOptional(request.CoverUrl));
+            var book = await _store.AddAsync(user.UserId, request.Title, normalizedIsbn, NormalizeOptional(request.Author), NormalizeOptional(request.CoverUrl), request.AddedByScanner);
             return Ok(book);
         }
         catch (CorruptedDataException ex)

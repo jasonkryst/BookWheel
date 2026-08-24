@@ -34,7 +34,7 @@ public sealed class PostgresBookRepository : IBookRepository
         return entities.Select(ToRecord).ToList();
     }
 
-    public async Task<BookRecord> AddAsync(Guid userId, string title, string? isbn = null, string? author = null, string? coverUrl = null)
+    public async Task<BookRecord> AddAsync(Guid userId, string title, string? isbn = null, string? author = null, string? coverUrl = null, bool addedByScanner = false)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
         var entity = new BookEntity
@@ -44,7 +44,8 @@ public sealed class PostgresBookRepository : IBookRepository
             Title = title.Trim(),
             Isbn = isbn,
             Author = author,
-            CoverUrl = coverUrl
+            CoverUrl = coverUrl,
+            AddedByScanner = addedByScanner
         };
         context.Books.Add(entity);
         await context.SaveChangesAsync();
@@ -114,6 +115,7 @@ public sealed class PostgresBookRepository : IBookRepository
         Isbn = entity.Isbn,
         Author = entity.Author,
         CoverUrl = entity.CoverUrl,
-        DeletedAtUtc = entity.DeletedAtUtc
+        DeletedAtUtc = entity.DeletedAtUtc,
+        AddedByScanner = entity.AddedByScanner
     };
 }

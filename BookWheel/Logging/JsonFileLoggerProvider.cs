@@ -14,6 +14,7 @@ public sealed class JsonFileLoggerProvider : ILoggerProvider
     private readonly string _logDirectory;
     private readonly JsonFileLoggerOptions _options;
     private readonly ConcurrentDictionary<string, JsonFileLogger> _loggers = new();
+    private readonly SemaphoreSlim _writeGate = new(1, 1);
 
     public JsonFileLoggerProvider(string logDirectory, JsonFileLoggerOptions? options = null)
     {
@@ -23,12 +24,13 @@ public sealed class JsonFileLoggerProvider : ILoggerProvider
 
     public ILogger CreateLogger(string categoryName)
     {
-        return _loggers.GetOrAdd(categoryName, static (name, state) => new JsonFileLogger(name, state._logDirectory, state._options), this);
+        return _loggers.GetOrAdd(categoryName, static (name, state) => new JsonFileLogger(name, state._logDirectory, state._options, state._writeGate), this);
     }
 
     public void Dispose()
     {
         _loggers.Clear();
+        _writeGate.Dispose();
     }
 
     private sealed class JsonFileLogger : ILogger
@@ -36,14 +38,15 @@ public sealed class JsonFileLoggerProvider : ILoggerProvider
         private readonly string _categoryName;
         private readonly string _logDirectory;
         private readonly JsonFileLoggerOptions _options;
-        private readonly SemaphoreSlim _writeGate = new(1, 1);
+        private readonly SemaphoreSlim _writeGate;
         private DateOnly? _lastRetentionSweepDay;
 
-        public JsonFileLogger(string categoryName, string logDirectory, JsonFileLoggerOptions options)
+        public JsonFileLogger(string categoryName, string logDirectory, JsonFileLoggerOptions options, SemaphoreSlim writeGate)
         {
             _categoryName = categoryName;
             _logDirectory = logDirectory;
             _options = options;
+            _writeGate = writeGate;
         }
 
         public IDisposable BeginScope<TState>(TState state) where TState : notnull

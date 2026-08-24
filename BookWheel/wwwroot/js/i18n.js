@@ -127,7 +127,9 @@
         editTitleHint: 'Edit this title',
         editAria: 'Edit book title: {title}',
         removeHint: 'Remove from active list',
-        removeAria: 'Remove book: {title}'
+        removeAria: 'Remove book: {title}',
+        scannedBadgeTitle: 'Added via barcode scan',
+        scannedBadgeLabel: 'Added via barcode scan'
       },
       users: {
         manageUsersBtn: 'Manage users',
@@ -206,6 +208,17 @@
         importCompleteMessage: 'Import complete. Added {added}, skipped {skipped} matches.',
         exportStartedMessage: 'Export file download started.',
         accountMismatchWarning: 'Note: this file was exported from a different account ({username}); it was imported into your current account.'
+      },
+      scanner: {
+        heading: 'Scan barcode',
+        hint: 'Point the camera at the book\'s barcode.',
+        flipBtn: 'Flip camera',
+        scanBtnTitle: 'Scan ISBN barcode',
+        scanBtnLabel: 'Scan ISBN barcode',
+        scanningStatus: 'Scanning…',
+        detectedToast: 'Barcode detected.',
+        notSupportedError: 'Barcode scanning is not supported on this device or browser.',
+        cameraAccessError: 'Camera access was denied or is unavailable.'
       }
     },
     es: {
@@ -331,7 +344,9 @@
         editTitleHint: 'Editar este título',
         editAria: 'Editar título del libro: {title}',
         removeHint: 'Eliminar de la lista activa',
-        removeAria: 'Eliminar libro: {title}'
+        removeAria: 'Eliminar libro: {title}',
+        scannedBadgeTitle: 'Añadido mediante escaneo de código de barras',
+        scannedBadgeLabel: 'Añadido mediante escaneo de código de barras'
       },
       users: {
         manageUsersBtn: 'Gestionar usuarios',
@@ -410,6 +425,17 @@
         importCompleteMessage: 'Importación completa. Añadidos {added}, omitidas {skipped} coincidencias.',
         exportStartedMessage: 'Se inició la descarga del archivo de exportación.',
         accountMismatchWarning: 'Nota: este archivo se exportó desde otra cuenta ({username}); se importó en tu cuenta actual.'
+      },
+      scanner: {
+        heading: 'Escanear código de barras',
+        hint: 'Apunte la cámara al código de barras del libro.',
+        flipBtn: 'Cambiar cámara',
+        scanBtnTitle: 'Escanear código ISBN',
+        scanBtnLabel: 'Escanear código ISBN',
+        scanningStatus: 'Escaneando…',
+        detectedToast: 'Código de barras detectado.',
+        notSupportedError: 'El escaneo de códigos de barras no está disponible en este dispositivo o navegador.',
+        cameraAccessError: 'El acceso a la cámara fue denegado o no está disponible.'
       }
     },
     pl: {
@@ -535,7 +561,9 @@
         editTitleHint: 'Edytuj ten tytuł',
         editAria: 'Edytuj tytuł książki: {title}',
         removeHint: 'Usuń z listy aktywnych',
-        removeAria: 'Usuń książkę: {title}'
+        removeAria: 'Usuń książkę: {title}',
+        scannedBadgeTitle: 'Dodano przez skanowanie kodu kreskowego',
+        scannedBadgeLabel: 'Dodano przez skanowanie kodu kreskowego'
       },
       users: {
         manageUsersBtn: 'Zarządzaj użytkownikami',
@@ -614,6 +642,17 @@
         importCompleteMessage: 'Import zakończony. Dodano {added}, pominięto {skipped} dopasowań.',
         exportStartedMessage: 'Rozpoczęto pobieranie pliku eksportu.',
         accountMismatchWarning: 'Uwaga: ten plik wyeksportowano z innego konta ({username}); zaimportowano go na Twoje bieżące konto.'
+      },
+      scanner: {
+        heading: 'Skanuj kod kreskowy',
+        hint: 'Skieruj kamerę na kod kreskowy książki.',
+        flipBtn: 'Przełącz kamerę',
+        scanBtnTitle: 'Skanuj kod ISBN',
+        scanBtnLabel: 'Skanuj kod ISBN',
+        scanningStatus: 'Skanowanie…',
+        detectedToast: 'Wykryto kod kreskowy.',
+        notSupportedError: 'Skanowanie kodów kreskowych nie jest obsługiwane na tym urządzeniu ani w tej przeglądarce.',
+        cameraAccessError: 'Dostęp do kamery został zablokowany lub jest niedostępny.'
       }
     }
   };

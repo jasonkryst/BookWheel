@@ -87,6 +87,9 @@
               <input id="bookIsbn" maxlength="20" placeholder="ISBN (optional)" aria-describedby="bookMessage" data-i18n-placeholder="books.isbnPlaceholder" />
             </div>
             <div class="book-add-actions">
+              <button type="button" id="bookScanBtn" class="secondary icon-btn" title="Scan ISBN barcode" aria-label="Scan ISBN barcode" data-i18n-title="scanner.scanBtnTitle" data-i18n-aria-label="scanner.scanBtnLabel">
+                <span class="icon-glyph" aria-hidden="true">📷</span>
+              </button>
               <button type="button" id="bookLookupBtn" class="secondary" data-i18n="books.lookupBtn">Lookup</button>
               <button type="submit" data-i18n="books.addBtn">Add</button>
             </div>
@@ -248,6 +251,9 @@
         <input id="editBookIsbn" maxlength="20" data-i18n-placeholder="books.isbnPlaceholder" />
       </label>
       <div class="actions modal-actions">
+        <button type="button" id="editScanBtn" class="secondary icon-btn" title="Scan ISBN barcode" aria-label="Scan ISBN barcode" data-i18n-title="scanner.scanBtnTitle" data-i18n-aria-label="scanner.scanBtnLabel">
+          <span class="icon-glyph" aria-hidden="true">📷</span>
+        </button>
         <button type="button" id="editLookupBtn" class="secondary" data-i18n="books.lookupBtn">Lookup</button>
       </div>
       <div id="editBookPreview" class="book-metadata-preview hidden" aria-live="polite">
@@ -314,6 +320,24 @@
       </div>
       <p id="resetLinkError" class="error" role="alert" aria-live="assertive" aria-atomic="true"></p>
     </form>
+  </dialog>
+
+  <dialog id="scannerDialog" class="modal scanner-modal">
+    <div class="stack scanner-stack">
+      <h2 data-i18n="scanner.heading">Scan barcode</h2>
+      <p class="message" data-i18n="scanner.hint">Point the camera at the book's barcode.</p>
+      <div class="scanner-video-wrap">
+        <video id="scannerVideo" autoplay playsinline muted></video>
+        <div class="scanner-overlay" aria-hidden="true">
+          <div class="scanner-reticle"></div>
+        </div>
+      </div>
+      <p id="scannerStatus" class="message scanner-status" aria-live="polite"></p>
+      <div class="actions modal-actions">
+        <button type="button" id="scannerFlipBtn" class="secondary" data-i18n="scanner.flipBtn">Flip camera</button>
+        <button type="button" id="cancelScannerBtn" class="secondary" data-i18n="common.cancel">Cancel</button>
+      </div>
+    </div>
   </dialog>
 
   <section id="toastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></section>
