@@ -194,17 +194,18 @@
         dialogTitle: 'Import / Export books',
         importTab: 'Import',
         exportTab: 'Export',
-        importDescription: 'Import JSON data and merge into your list. Existing title matches are skipped case-insensitively.',
+        importDescription: 'Import JSON data and merge into your list. Existing title or ISBN matches, including previously deleted books, are skipped.',
         chooseFileLabel: 'Choose JSON file',
         importFileBtn: 'Import File',
-        exportDescription: 'Download your current books as a JSON file.',
+        exportDescription: 'Download your current books, including ISBN/author/cover, deleted books, and spin history, as a JSON file.',
         downloadBtn: 'Download JSON',
         invalidJsonError: 'Invalid JSON format. Use an array or an object with a books array.',
         chooseFileError: 'Choose a JSON file to import.',
         emptyFileError: 'The selected file is empty.',
         noTitlesError: 'No valid titles found in JSON.',
         importCompleteMessage: 'Import complete. Added {added}, skipped {skipped} matches.',
-        exportStartedMessage: 'Export file download started.'
+        exportStartedMessage: 'Export file download started.',
+        accountMismatchWarning: 'Note: this file was exported from a different account ({username}); it was imported into your current account.'
       }
     },
     es: {
@@ -397,17 +398,18 @@
         dialogTitle: 'Importar / Exportar libros',
         importTab: 'Importar',
         exportTab: 'Exportar',
-        importDescription: 'Importa datos JSON y combínalos con tu lista. Los títulos coincidentes se omiten sin distinguir mayúsculas y minúsculas.',
+        importDescription: 'Importa datos JSON y combínalos con tu lista. Se omiten las coincidencias de título o ISBN existentes, incluidos los libros eliminados anteriormente.',
         chooseFileLabel: 'Elegir archivo JSON',
         importFileBtn: 'Importar archivo',
-        exportDescription: 'Descarga tus libros actuales como archivo JSON.',
+        exportDescription: 'Descarga tus libros actuales, incluyendo ISBN/autor/portada, libros eliminados e historial de giros, como archivo JSON.',
         downloadBtn: 'Descargar JSON',
         invalidJsonError: 'Formato JSON no válido. Usa un array o un objeto con un array de libros.',
         chooseFileError: 'Elige un archivo JSON para importar.',
         emptyFileError: 'El archivo seleccionado está vacío.',
         noTitlesError: 'No se encontraron títulos válidos en el JSON.',
         importCompleteMessage: 'Importación completa. Añadidos {added}, omitidas {skipped} coincidencias.',
-        exportStartedMessage: 'Se inició la descarga del archivo de exportación.'
+        exportStartedMessage: 'Se inició la descarga del archivo de exportación.',
+        accountMismatchWarning: 'Nota: este archivo se exportó desde otra cuenta ({username}); se importó en tu cuenta actual.'
       }
     },
     pl: {
@@ -600,17 +602,18 @@
         dialogTitle: 'Importuj / eksportuj książki',
         importTab: 'Import',
         exportTab: 'Eksport',
-        importDescription: 'Zaimportuj dane JSON i połącz je z listą. Pasujące tytuły są pomijane bez rozróżniania wielkości liter.',
+        importDescription: 'Zaimportuj dane JSON i połącz je z listą. Pasujące tytuły lub numery ISBN, w tym wcześniej usunięte książki, są pomijane.',
         chooseFileLabel: 'Wybierz plik JSON',
         importFileBtn: 'Importuj plik',
-        exportDescription: 'Pobierz swoje bieżące książki jako plik JSON.',
+        exportDescription: 'Pobierz swoje bieżące książki, w tym ISBN/autora/okładkę, usunięte książki i historię losowań, jako plik JSON.',
         downloadBtn: 'Pobierz JSON',
         invalidJsonError: 'Nieprawidłowy format JSON. Użyj tablicy lub obiektu z tablicą książek.',
         chooseFileError: 'Wybierz plik JSON do zaimportowania.',
         emptyFileError: 'Wybrany plik jest pusty.',
         noTitlesError: 'Nie znaleziono prawidłowych tytułów w pliku JSON.',
         importCompleteMessage: 'Import zakończony. Dodano {added}, pominięto {skipped} dopasowań.',
-        exportStartedMessage: 'Rozpoczęto pobieranie pliku eksportu.'
+        exportStartedMessage: 'Rozpoczęto pobieranie pliku eksportu.',
+        accountMismatchWarning: 'Uwaga: ten plik wyeksportowano z innego konta ({username}); zaimportowano go na Twoje bieżące konto.'
       }
     }
   };

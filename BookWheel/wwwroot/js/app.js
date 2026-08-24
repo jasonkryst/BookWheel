@@ -164,10 +164,6 @@ function shuffleArray(items) {
   return items;
 }
 
-function normalizeTitle(title) {
-  return title.trim().toLocaleLowerCase();
-}
-
 function isReducedMotionEnabled() {
   return Boolean(prefersReducedMotion && prefersReducedMotion.matches);
 }
@@ -1321,7 +1317,7 @@ function activateSettingsImportExportTab() {
   setTransferTab('import');
 }
 
-function parseImportTitles(rawJson) {
+function parseImportBooks(rawJson) {
   const parsed = JSON.parse(rawJson);
   const source = Array.isArray(parsed)
     ? parsed
@@ -1333,22 +1329,30 @@ function parseImportTitles(rawJson) {
     throw new Error(window.BookWheelI18n.t('transfer.invalidJsonError'));
   }
 
-  const titles = [];
+  const books = [];
   source.forEach(item => {
     let title = '';
+    let isbn;
+    let author;
+    let coverUrl;
+
     if (typeof item === 'string') {
       title = item;
     } else if (item && typeof item.title === 'string') {
       title = item.title;
+      isbn = typeof item.isbn === 'string' ? item.isbn : undefined;
+      author = typeof item.author === 'string' ? item.author : undefined;
+      coverUrl = typeof item.coverUrl === 'string' ? item.coverUrl : undefined;
     }
 
     const trimmed = title.trim();
     if (trimmed) {
-      titles.push(trimmed);
+      books.push({ title: trimmed, isbn, author, coverUrl });
     }
   });
 
-  return titles;
+  const account = (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed.account : undefined;
+  return { books, account };
 }
 
 async function importBooksFromJsonFile() {
@@ -1371,48 +1375,30 @@ async function importBooksFromJsonFile() {
     return;
   }
 
-  const importTitles = parseImportTitles(rawJson);
-  if (!importTitles.length) {
+  const { books: importBooks, account } = parseImportBooks(rawJson);
+  if (!importBooks.length) {
     transferError.textContent = t('transfer.noTitlesError');
     return;
   }
 
-  const existingTitles = new Set(activeBooks.map(book => normalizeTitle(book.title)));
-  const seenImportTitles = new Set();
-  const titlesToAdd = [];
-  let skippedMatches = 0;
-
-  importTitles.forEach(title => {
-    const normalized = normalizeTitle(title);
-    if (seenImportTitles.has(normalized) || existingTitles.has(normalized)) {
-      skippedMatches += 1;
-      return;
-    }
-
-    seenImportTitles.add(normalized);
-    titlesToAdd.push(title);
+  const result = await requestJson('/api/books/import', {
+    method: 'POST',
+    body: JSON.stringify({ books: importBooks })
   });
 
-  let addedCount = 0;
-  for (const title of titlesToAdd) {
-    await requestJson('/api/books', {
-      method: 'POST',
-      body: JSON.stringify({ title })
-    });
-    addedCount += 1;
-  }
-
-  if (addedCount > 0) {
+  if (result.added > 0) {
     await refreshBooks({ goToLastPage: true, shuffleWheel: true });
   }
 
-  transferMessage.textContent = t('transfer.importCompleteMessage', { added: addedCount, skipped: skippedMatches });
+  const messages = [t('transfer.importCompleteMessage', { added: result.added, skipped: result.skipped })];
+  if (account && typeof account.username === 'string' && currentUser && account.username !== currentUser.username) {
+    messages.push(t('transfer.accountMismatchWarning', { username: account.username }));
+  }
+  transferMessage.textContent = messages.join(' ');
 }
 
-function downloadExportJsonFile() {
-  const exportPayload = {
-    books: activeBooks.map(book => ({ title: book.title }))
-  };
+async function downloadExportJsonFile() {
+  const exportPayload = await requestJson('/api/books/export');
 
   const payload = JSON.stringify(exportPayload, null, 2);
   const blob = new Blob([payload], { type: 'application/json' });
@@ -1531,10 +1517,17 @@ if (importJsonFile) {
   });
 }
 
-downloadExportBtn.addEventListener('click', () => {
+downloadExportBtn.addEventListener('click', async () => {
   transferError.textContent = '';
   transferMessage.textContent = '';
-  downloadExportJsonFile();
+  downloadExportBtn.disabled = true;
+  try {
+    await downloadExportJsonFile();
+  } catch (error) {
+    transferError.textContent = error.message;
+  } finally {
+    downloadExportBtn.disabled = false;
+  }
 });
 
 loginForm.addEventListener('submit', async event => {

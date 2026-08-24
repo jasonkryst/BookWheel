@@ -472,6 +472,29 @@ public sealed class BookWheelFrontendTests
     }
 
     [Fact]
+    public async Task Frontend_Script_Should_Contain_Import_Export_Isbn_Account_And_History_Behavior()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var script = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("parseImportBooks", script, StringComparison.Ordinal);
+        Assert.Contains("'/api/books/import'", script, StringComparison.Ordinal);
+        Assert.Contains("await requestJson('/api/books/export')", script, StringComparison.Ordinal);
+        Assert.Contains("accountMismatchWarning", script, StringComparison.Ordinal);
+
+        // Negative: import moved from a client-side per-title POST loop to a single
+        // batched call against the new import endpoint, so the old parsing helper
+        // and per-title dedupe logic must not linger as dead code.
+        Assert.DoesNotContain("parseImportTitles", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("normalizeTitle", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Frontend_Script_Should_Contain_Theme_Toggle_Behavior()
     {
         using var factory = new BookWheelWebAppFactory();
@@ -719,5 +742,19 @@ public sealed class BookWheelFrontendTests
         // old "User management" dialog should not linger as unused translations.
         Assert.DoesNotContain("managementDialogTitle", script, StringComparison.Ordinal);
         Assert.DoesNotContain("adminWorkspaceKicker", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_I18n_Should_Include_Account_Mismatch_Warning_In_All_Locales()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/i18n.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("accountMismatchWarning: 'Note: this file was exported from a different account", script, StringComparison.Ordinal);
+        Assert.Contains("accountMismatchWarning: 'Nota: este archivo se exportó desde otra cuenta", script, StringComparison.Ordinal);
+        Assert.Contains("accountMismatchWarning: 'Uwaga: ten plik wyeksportowano z innego konta", script, StringComparison.Ordinal);
     }
 }

@@ -904,6 +904,360 @@ public sealed class BookWheelApiTests
     }
 
     [Fact]
+    public async Task Export_Includes_Isbn_Author_And_CoverUrl_For_Tagged_Books()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        await LoginAsync(client);
+        await AddBookWithDetailsAsync(client, "Effective Java", "9780134685991", "Joshua Bloch", "https://covers.openlibrary.org/b/id/12345-L.jpg");
+
+        var response = await client.GetAsync("/api/books/export");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var doc = await ReadJsonAsync(response);
+        var book = Assert.Single(doc.RootElement.GetProperty("books").EnumerateArray());
+        Assert.Equal("Effective Java", book.GetProperty("title").GetString());
+        Assert.Equal("9780134685991", book.GetProperty("isbn").GetString());
+        Assert.Equal("Joshua Bloch", book.GetProperty("author").GetString());
+        Assert.Equal("https://covers.openlibrary.org/b/id/12345-L.jpg", book.GetProperty("coverUrl").GetString());
+        Assert.Equal(JsonValueKind.Null, book.GetProperty("deletedAtUtc").ValueKind);
+    }
+
+    [Fact]
+    public async Task Export_Includes_SoftDeleted_Books_With_DeletedAtUtc_Set()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        await LoginAsync(client);
+        await AddBookAsync(client, "Kept Book");
+        var removedBookId = await AddBookAsync(client, "Removed Book");
+        await client.DeleteAsync($"/api/books/{removedBookId}");
+
+        var response = await client.GetAsync("/api/books/export");
+        using var doc = await ReadJsonAsync(response);
+        var books = doc.RootElement.GetProperty("books").EnumerateArray().ToList();
+
+        Assert.Equal(2, books.Count);
+        var removed = books.Single(book => book.GetProperty("title").GetString() == "Removed Book");
+        Assert.NotEqual(JsonValueKind.Null, removed.GetProperty("deletedAtUtc").ValueKind);
+        var kept = books.Single(book => book.GetProperty("title").GetString() == "Kept Book");
+        Assert.Equal(JsonValueKind.Null, kept.GetProperty("deletedAtUtc").ValueKind);
+
+        // The active-only endpoint is unaffected by export exposing deleted rows.
+        using var activeDoc = await GetBooksDocumentAsync(client);
+        var activeTitles = activeDoc.RootElement.GetProperty("activeBooks").EnumerateArray()
+            .Select(book => book.GetProperty("title").GetString())
+            .ToList();
+        Assert.DoesNotContain("Removed Book", activeTitles);
+    }
+
+    [Fact]
+    public async Task Export_Includes_SpinHistory_And_Account_Username()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        await LoginAsync(client);
+        await AddBookAsync(client, "Spun Book");
+        await client.PostAsync("/api/books/spin", content: null);
+
+        var response = await client.GetAsync("/api/books/export");
+        using var doc = await ReadJsonAsync(response);
+
+        Assert.Equal("test-admin", doc.RootElement.GetProperty("account").GetProperty("username").GetString());
+        var historyEntry = Assert.Single(doc.RootElement.GetProperty("spinHistory").EnumerateArray());
+        Assert.Equal("Spun Book", historyEntry.GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task Export_Endpoint_Requires_Authentication()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/books/export");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Import_Adds_New_Books_And_Reports_Counts()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        await LoginAsync(client);
+
+        var importResponse = await client.PostAsJsonAsync("/api/books/import", new
+        {
+            books = new[]
+            {
+                new { title = "Dune", isbn = (string?)"9780441013593", author = (string?)"Frank Herbert", coverUrl = (string?)null },
+                new { title = "Foundation", isbn = (string?)null, author = (string?)null, coverUrl = (string?)null }
+            }
+        });
+
+        Assert.Equal(HttpStatusCode.OK, importResponse.StatusCode);
+        using var doc = await ReadJsonAsync(importResponse);
+        Assert.Equal(2, doc.RootElement.GetProperty("added").GetInt32());
+        Assert.Equal(0, doc.RootElement.GetProperty("skipped").GetInt32());
+
+        using var booksDoc = await GetBooksDocumentAsync(client);
+        var dune = booksDoc.RootElement.GetProperty("activeBooks").EnumerateArray()
+            .Single(book => book.GetProperty("title").GetString() == "Dune");
+        Assert.Equal("9780441013593", dune.GetProperty("isbn").GetString());
+        Assert.Equal("Frank Herbert", dune.GetProperty("author").GetString());
+    }
+
+    [Fact]
+    public async Task Import_Skips_Case_Insensitive_Title_Duplicate()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        await LoginAsync(client);
+        await AddBookAsync(client, "Dune");
+
+        var importResponse = await client.PostAsJsonAsync("/api/books/import", new
+        {
+            books = new[] { new { title = "  DUNE  " } }
+        });
+
+        using var doc = await ReadJsonAsync(importResponse);
+        Assert.Equal(0, doc.RootElement.GetProperty("added").GetInt32());
+        Assert.Equal(1, doc.RootElement.GetProperty("skipped").GetInt32());
+    }
+
+    [Fact]
+    public async Task Import_Skips_Isbn_Duplicate_Even_When_Title_Differs()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        await LoginAsync(client);
+        await AddBookWithDetailsAsync(client, "Dune", "9780441013593", null, null);
+
+        var importResponse = await client.PostAsJsonAsync("/api/books/import", new
+        {
+            books = new[] { new { title = "Dune (Reissue)", isbn = "9780441013593" } }
+        });
+
+        using var doc = await ReadJsonAsync(importResponse);
+        Assert.Equal(0, doc.RootElement.GetProperty("added").GetInt32());
+        Assert.Equal(1, doc.RootElement.GetProperty("skipped").GetInt32());
+    }
+
+    [Fact]
+    public async Task Import_Skips_Match_Against_A_SoftDeleted_Book_Without_Restoring_It()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        await LoginAsync(client);
+        var bookId = await AddBookAsync(client, "Deleted On Purpose");
+        await client.DeleteAsync($"/api/books/{bookId}");
+
+        var importResponse = await client.PostAsJsonAsync("/api/books/import", new
+        {
+            books = new[] { new { title = "Deleted On Purpose" } }
+        });
+
+        using var doc = await ReadJsonAsync(importResponse);
+        Assert.Equal(0, doc.RootElement.GetProperty("added").GetInt32());
+        Assert.Equal(1, doc.RootElement.GetProperty("skipped").GetInt32());
+
+        using var activeDoc = await GetBooksDocumentAsync(client);
+        Assert.Empty(activeDoc.RootElement.GetProperty("activeBooks").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Import_Dedupes_Duplicates_Within_The_Same_Batch()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        await LoginAsync(client);
+
+        var importResponse = await client.PostAsJsonAsync("/api/books/import", new
+        {
+            books = new[] { new { title = "Dune" }, new { title = "dune" } }
+        });
+
+        using var doc = await ReadJsonAsync(importResponse);
+        Assert.Equal(1, doc.RootElement.GetProperty("added").GetInt32());
+        Assert.Equal(1, doc.RootElement.GetProperty("skipped").GetInt32());
+    }
+
+    [Fact]
+    public async Task Import_Tolerates_An_Invalid_Isbn_By_Dropping_It_Instead_Of_Failing()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        await LoginAsync(client);
+
+        var importResponse = await client.PostAsJsonAsync("/api/books/import", new
+        {
+            books = new[] { new { title = "Bad Isbn Book", isbn = "not-a-real-isbn" } }
+        });
+
+        Assert.Equal(HttpStatusCode.OK, importResponse.StatusCode);
+        using var doc = await ReadJsonAsync(importResponse);
+        Assert.Equal(1, doc.RootElement.GetProperty("added").GetInt32());
+
+        using var booksDoc = await GetBooksDocumentAsync(client);
+        var imported = Assert.Single(booksDoc.RootElement.GetProperty("activeBooks").EnumerateArray());
+        Assert.Equal(JsonValueKind.Null, imported.GetProperty("isbn").ValueKind);
+    }
+
+    [Fact]
+    public async Task Import_Skips_Blank_Titles_Without_Counting_Or_Failing()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        await LoginAsync(client);
+
+        var importResponse = await client.PostAsJsonAsync("/api/books/import", new
+        {
+            books = new[] { new { title = "   " }, new { title = "Valid Title" } }
+        });
+
+        Assert.Equal(HttpStatusCode.OK, importResponse.StatusCode);
+        using var doc = await ReadJsonAsync(importResponse);
+        Assert.Equal(1, doc.RootElement.GetProperty("added").GetInt32());
+        Assert.Equal(0, doc.RootElement.GetProperty("skipped").GetInt32());
+    }
+
+    [Fact]
+    public async Task Import_With_Empty_Books_Array_Returns_BadRequest()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        await LoginAsync(client);
+
+        var importResponse = await client.PostAsJsonAsync("/api/books/import", new { books = Array.Empty<object>() });
+
+        Assert.Equal(HttpStatusCode.BadRequest, importResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Import_Endpoint_Requires_Authentication()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/books/import", new
+        {
+            books = new[] { new { title = "Some Book" } }
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Import_Only_Adds_Books_To_The_Importing_Users_Account()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        await LoginAsync(client);
+        var (_, readerSetupLink) = await CreateUserAsync(client, "reader-import");
+        await SetPasswordFromSetupLinkAsync(client, readerSetupLink, "reader-pass-1");
+
+        await client.PostAsync("/api/auth/logout", content: null);
+        await LoginAsync(client, "reader-import", "reader-pass-1");
+        await client.PostAsJsonAsync("/api/books/import", new
+        {
+            books = new[] { new { title = "Reader's Import" } }
+        });
+
+        await client.PostAsync("/api/auth/logout", content: null);
+        await LoginAsync(client);
+
+        using var adminBooks = await GetBooksDocumentAsync(client);
+        var adminTitles = adminBooks.RootElement.GetProperty("activeBooks").EnumerateArray()
+            .Select(book => book.GetProperty("title").GetString())
+            .ToList();
+        Assert.DoesNotContain("Reader's Import", adminTitles);
+    }
+
+    [Fact]
     public async Task Add_Book_With_Whitespace_Title_Returns_BadRequest()
     {
         using var factory = new BookWheelWebAppFactory();
@@ -1290,6 +1644,15 @@ public sealed class BookWheelApiTests
     private static async Task<Guid> AddBookAsync(HttpClient client, string title)
     {
         var response = await client.PostAsJsonAsync("/api/books", new { title });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var doc = await ReadJsonAsync(response);
+        return doc.RootElement.GetProperty("id").GetGuid();
+    }
+
+    private static async Task<Guid> AddBookWithDetailsAsync(HttpClient client, string title, string? isbn, string? author, string? coverUrl)
+    {
+        var response = await client.PostAsJsonAsync("/api/books", new { title, isbn, author, coverUrl });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         using var doc = await ReadJsonAsync(response);

@@ -191,7 +191,7 @@
         </div>
 
         <section id="importPanel" class="tab-panel" role="tabpanel" aria-labelledby="importTabBtn" tabindex="0">
-          <p class="message" data-i18n="transfer.importDescription">Import JSON data and merge into your list. Existing title matches are skipped case-insensitively.</p>
+          <p class="message" data-i18n="transfer.importDescription">Import JSON data and merge into your list. Existing title or ISBN matches, including previously deleted books, are skipped.</p>
           <label>
             <span data-i18n="transfer.chooseFileLabel">Choose JSON file</span>
             <input id="importJsonFile" type="file" accept="application/json,.json" />
@@ -202,7 +202,7 @@
         </section>
 
         <section id="exportPanel" class="tab-panel hidden" role="tabpanel" aria-labelledby="exportTabBtn" tabindex="0" aria-hidden="true">
-          <p class="message" data-i18n="transfer.exportDescription">Download your current books as a JSON file.</p>
+          <p class="message" data-i18n="transfer.exportDescription">Download your current books, including ISBN/author/cover, deleted books, and spin history, as a JSON file.</p>
           <div class="actions modal-actions">
             <button type="button" id="downloadExportBtn" class="secondary" data-i18n="transfer.downloadBtn">Download JSON</button>
           </div>
