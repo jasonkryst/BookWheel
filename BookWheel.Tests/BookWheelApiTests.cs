@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using BookWheel.Tests.Services;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
@@ -680,6 +681,217 @@ public sealed class BookWheelApiTests
         var errors = doc.RootElement.GetProperty("errors");
         var titleErrors = errors.GetProperty("Title").EnumerateArray().Select(x => x.GetString()).ToList();
         Assert.Contains(titleErrors, message => string.Equals(message, "The Title field is required.", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Add_Book_With_Isbn_Author_And_CoverUrl_Persists_Metadata()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await LoginAsync(client);
+
+        var response = await client.PostAsJsonAsync("/api/books", new
+        {
+            title = "Effective Java",
+            isbn = "978-0-13-468599-1",
+            author = "Joshua Bloch",
+            coverUrl = "https://covers.openlibrary.org/b/id/12345-L.jpg"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var doc = await ReadJsonAsync(response);
+        Assert.Equal("9780134685991", doc.RootElement.GetProperty("isbn").GetString());
+        Assert.Equal("Joshua Bloch", doc.RootElement.GetProperty("author").GetString());
+        Assert.Equal("https://covers.openlibrary.org/b/id/12345-L.jpg", doc.RootElement.GetProperty("coverUrl").GetString());
+    }
+
+    [Fact]
+    public async Task Add_Book_With_Invalid_Isbn_Returns_BadRequest()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await LoginAsync(client);
+
+        var response = await client.PostAsJsonAsync("/api/books", new
+        {
+            title = "Untitled",
+            isbn = "not-a-real-isbn"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        using var doc = await ReadJsonAsync(response);
+        Assert.Equal("The provided ISBN is not valid.", doc.RootElement.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task Update_Book_Backfills_Isbn_Author_And_CoverUrl_On_An_Existing_Book()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await LoginAsync(client);
+        var bookId = await AddBookAsync(client, "Untagged Book");
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/books/{bookId}", new
+        {
+            title = "Untagged Book",
+            isbn = "9780134685991",
+            author = "Joshua Bloch",
+            coverUrl = "https://covers.openlibrary.org/b/id/12345-L.jpg"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+
+        using var doc = await ReadJsonAsync(updateResponse);
+        Assert.Equal("9780134685991", doc.RootElement.GetProperty("isbn").GetString());
+        Assert.Equal("Joshua Bloch", doc.RootElement.GetProperty("author").GetString());
+        Assert.Equal("https://covers.openlibrary.org/b/id/12345-L.jpg", doc.RootElement.GetProperty("coverUrl").GetString());
+    }
+
+    [Fact]
+    public async Task Update_Book_With_Invalid_Isbn_Returns_BadRequest()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await LoginAsync(client);
+        var bookId = await AddBookAsync(client, "Untagged Book");
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/books/{bookId}", new
+        {
+            title = "Untagged Book",
+            isbn = "1234567890"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, updateResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Lookup_By_Isbn_Returns_Metadata_From_The_Lookup_Service()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await LoginAsync(client);
+
+        var response = await client.GetAsync($"/api/books/lookup?isbn={FakeBookMetadataLookupService.KnownIsbn}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var doc = await ReadJsonAsync(response);
+        Assert.Equal(FakeBookMetadataLookupService.KnownIsbnTitle, doc.RootElement.GetProperty("title").GetString());
+        Assert.Equal(FakeBookMetadataLookupService.KnownIsbnAuthor, doc.RootElement.GetProperty("author").GetString());
+        Assert.Equal(FakeBookMetadataLookupService.KnownIsbnCoverUrl, doc.RootElement.GetProperty("coverUrl").GetString());
+    }
+
+    [Fact]
+    public async Task Lookup_By_Title_Returns_A_Single_Item_Results_Array_When_Unambiguous()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await LoginAsync(client);
+
+        var response = await client.GetAsync($"/api/books/lookup?title={Uri.EscapeDataString(FakeBookMetadataLookupService.KnownTitle)}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var doc = await ReadJsonAsync(response);
+        var results = doc.RootElement.GetProperty("results");
+        Assert.Equal(1, results.GetArrayLength());
+        Assert.Equal(FakeBookMetadataLookupService.KnownTitleIsbn, results[0].GetProperty("isbn").GetString());
+        Assert.Equal(FakeBookMetadataLookupService.KnownTitleAuthor, results[0].GetProperty("author").GetString());
+    }
+
+    [Fact]
+    public async Task Lookup_By_Title_Returns_All_Candidates_When_Ambiguous()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await LoginAsync(client);
+
+        var response = await client.GetAsync($"/api/books/lookup?title={Uri.EscapeDataString(FakeBookMetadataLookupService.AmbiguousTitle)}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var doc = await ReadJsonAsync(response);
+        var results = doc.RootElement.GetProperty("results");
+        Assert.Equal(3, results.GetArrayLength());
+        var authors = results.EnumerateArray().Select(r => r.GetProperty("author").GetString()).ToList();
+        Assert.Contains(FakeBookMetadataLookupService.AmbiguousTitleFirstAuthor, authors);
+        Assert.Contains(FakeBookMetadataLookupService.AmbiguousTitleSecondAuthor, authors);
+        Assert.Contains(FakeBookMetadataLookupService.AmbiguousTitleThirdAuthor, authors);
+    }
+
+    [Fact]
+    public async Task Lookup_With_No_Match_Returns_NotFound()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await LoginAsync(client);
+
+        var response = await client.GetAsync("/api/books/lookup?title=SomeTitleThatWillNeverMatchAnything");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+
+        using var doc = await ReadJsonAsync(response);
+        Assert.Equal("No book metadata found for that title.", doc.RootElement.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task Lookup_With_Invalid_Isbn_Returns_BadRequest()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await LoginAsync(client);
+
+        var response = await client.GetAsync("/api/books/lookup?isbn=not-a-real-isbn");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Lookup_Without_Isbn_Or_Title_Returns_BadRequest()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await LoginAsync(client);
+
+        var response = await client.GetAsync("/api/books/lookup");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        using var doc = await ReadJsonAsync(response);
+        Assert.Equal("Provide an ISBN or a title to look up.", doc.RootElement.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task Lookup_Requires_Authentication()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/books/lookup?isbn={FakeBookMetadataLookupService.KnownIsbn}");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]

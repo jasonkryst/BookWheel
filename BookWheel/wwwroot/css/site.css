@@ -390,14 +390,44 @@ button:disabled {
 
 .book-add-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.book-add-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.book-add-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.book-metadata-preview {
+  display: flex;
   align-items: center;
   gap: 10px;
 }
 
+.book-cover-thumb {
+  width: 36px;
+  height: 52px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--chip-bg);
+  flex-shrink: 0;
+}
+
+.book-author-text {
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
 .book-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
@@ -406,10 +436,38 @@ button:disabled {
   border: 1px solid rgba(148, 163, 184, 0.16);
 }
 
+
 .book-row-actions {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.book-row-details {
+  display: grid;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.lookup-picker-row {
+  width: 100%;
+  background: transparent;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  cursor: pointer;
+  text-align: left;
+}
+
+.lookup-picker-row:hover,
+.lookup-picker-row:focus-visible {
+  background: color-mix(in srgb, var(--chip-bg) 60%, transparent);
+}
+
+.lookup-picker-row-title {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .book-title-btn {
@@ -419,6 +477,14 @@ button:disabled {
   font-weight: 700;
   text-align: left;
   border-radius: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.book-row-author {
+  font-size: 0.8rem;
+  opacity: 0.7;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -991,11 +1057,10 @@ button:disabled {
     border-top-width: 24px;
   }
 
-  .book-add-row {
+  .book-add-fields {
     grid-template-columns: 1fr;
   }
   .book-row {
-    grid-template-columns: 1fr;
     gap: 8px;
   }
   .book-row-actions {

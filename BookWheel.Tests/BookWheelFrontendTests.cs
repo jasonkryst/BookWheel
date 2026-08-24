@@ -178,6 +178,102 @@ public sealed class BookWheelFrontendTests
     }
 
     [Fact]
+    public async Task Home_Page_Should_Include_Isbn_Lookup_Controls_For_Add_And_Edit()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var html = await response.Content.ReadAsStringAsync();
+
+        // Positive: the add-book row and edit dialog both expose an ISBN input,
+        // a Lookup action, and a metadata preview (cover + author).
+        Assert.Contains("id=\"bookIsbn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"bookLookupBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"bookAddPreview\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"bookAddCoverImg\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"bookAddAuthorText\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"editBookIsbn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"editLookupBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"editBookPreview\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-i18n=\"books.isbnLabel\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-i18n=\"books.lookupBtn\"", html, StringComparison.Ordinal);
+
+        // Negative: the ISBN field is optional metadata, unlike the title field,
+        // so it must not carry a required attribute.
+        var isbnInputStart = html.IndexOf("id=\"bookIsbn\"", StringComparison.Ordinal);
+        var isbnInputSnippet = html.Substring(isbnInputStart, Math.Min(120, html.Length - isbnInputStart));
+        Assert.DoesNotContain("required", isbnInputSnippet, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Script_Should_Wire_Up_Isbn_Lookup_And_Render_Metadata()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: both the add-book row and the edit dialog wire their Lookup
+        // button to the shared metadata lookup call against the API endpoint.
+        Assert.Contains("bookLookupBtn.addEventListener('click'", script, StringComparison.Ordinal);
+        Assert.Contains("editLookupBtn.addEventListener('click'", script, StringComparison.Ordinal);
+        Assert.Contains("/api/books/lookup?", script, StringComparison.Ordinal);
+        Assert.Contains("renderMetadataPreview", script, StringComparison.Ordinal);
+
+        // Positive: cover/author render in the active book list when present.
+        Assert.Contains("book-cover-thumb", script, StringComparison.Ordinal);
+        Assert.Contains("book-row-author", script, StringComparison.Ordinal);
+
+        // Negative: the add-book submit must not silently drop a fetched ISBN or
+        // author/cover — otherwise a successful Lookup would have no effect.
+        Assert.Contains("isbn: bookIsbn.value.trim()", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Home_Page_Should_Include_A_Lookup_Picker_For_Ambiguous_Title_Matches()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("id=\"lookupPickerDialog\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"lookupPickerList\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"cancelLookupPickerBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-i18n=\"books.pickerTitle\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-i18n=\"books.pickerHint\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Script_Should_Auto_Fill_On_A_Single_Match_And_Open_A_Picker_When_Ambiguous()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: a title lookup reads the `results` array from the API and
+        // branches on how many candidates came back.
+        Assert.Contains("data.results", script, StringComparison.Ordinal);
+        Assert.Contains("results.length === 1", script, StringComparison.Ordinal);
+        Assert.Contains("openLookupPicker(results, target)", script, StringComparison.Ordinal);
+        Assert.Contains("cancelLookupPickerBtn.addEventListener('click'", script, StringComparison.Ordinal);
+
+        // Negative: an ISBN lookup is an exact-key match and must go straight to
+        // applyLookupResult — it must never be routed through the ambiguous-title
+        // picker path, since an ISBN can't have multiple candidates.
+        var isbnBranchStart = script.IndexOf("if (isbnValue) {", StringComparison.Ordinal);
+        Assert.True(isbnBranchStart >= 0, "Expected an isbnValue branch in the lookup logic.");
+        var isbnBranchSnippet = script.Substring(isbnBranchStart, Math.Min(200, script.Length - isbnBranchStart));
+        Assert.Contains("await requestJson(`/api/books/lookup?isbn=", isbnBranchSnippet, StringComparison.Ordinal);
+        Assert.DoesNotContain("openLookupPicker", isbnBranchSnippet, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Frontend_Script_Should_Contain_Pagination_And_Selection_Behavior()
     {
         using var factory = new BookWheelWebAppFactory();

@@ -38,6 +38,7 @@ builder.Services.AddPooledDbContextFactory<BookWheelDbContext>(options => option
 
 builder.Services.Configure<SecurityOptions>(builder.Configuration.GetSection(SecurityOptions.SectionName));
 builder.Services.Configure<ObservabilityOptions>(builder.Configuration.GetSection(ObservabilityOptions.SectionName));
+builder.Services.Configure<BookMetadataOptions>(builder.Configuration.GetSection(BookMetadataOptions.SectionName));
 builder.Services.AddSingleton<AuthService>();
 builder.Services.AddSingleton<AppMetricsService>();
 builder.Services.AddLocalization();
@@ -60,6 +61,12 @@ builder.Services.AddSingleton<DataMigrationService>();
 builder.Services.AddSingleton<PostgresMigrationService>();
 builder.Services.AddControllers();
 builder.Services.AddHttpClient("central-log-shipper");
+builder.Services.AddHttpClient<IBookMetadataLookupService, OpenLibraryBookMetadataLookupService>(client =>
+{
+	client.BaseAddress = new Uri("https://openlibrary.org/");
+	client.Timeout = TimeSpan.FromSeconds(8);
+	client.DefaultRequestHeaders.UserAgent.ParseAdd("BookWheel/1.0 (+https://github.com/jasonkryst/BookWheel)");
+});
 builder.Services.AddHostedService<StartupDiagnosticsService>();
 builder.Services.AddHostedService<LogShippingService>();
 builder.Services.AddHealthChecks()

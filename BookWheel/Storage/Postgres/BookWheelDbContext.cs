@@ -31,6 +31,9 @@ public sealed class BookWheelDbContext : DbContext
             entity.ToTable("books");
             entity.HasKey(b => b.Id);
             entity.Property(b => b.Title).IsRequired();
+            entity.Property(b => b.Isbn).HasMaxLength(20);
+            entity.Property(b => b.Author).HasMaxLength(300);
+            entity.Property(b => b.CoverUrl).HasMaxLength(2048);
             entity.HasIndex(b => b.UserId);
         });
 

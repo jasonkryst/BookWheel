@@ -46,6 +46,18 @@ public sealed class JsonBookRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task AddAsync_Persists_Isbn_Author_And_CoverUrl()
+    {
+        var userId = Guid.NewGuid();
+
+        var book = await _repository.AddAsync(userId, "Effective Java", "9780134685991", "Joshua Bloch", "https://covers.openlibrary.org/b/id/12345-L.jpg");
+
+        Assert.Equal("9780134685991", book.Isbn);
+        Assert.Equal("Joshua Bloch", book.Author);
+        Assert.Equal("https://covers.openlibrary.org/b/id/12345-L.jpg", book.CoverUrl);
+    }
+
+    [Fact]
     public async Task UpdateAsync_Changes_Title_For_Existing_Book()
     {
         var userId = Guid.NewGuid();

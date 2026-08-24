@@ -71,7 +71,15 @@ public sealed class PostgresMigrationService
 
             foreach (var book in books)
             {
-                context.Books.Add(new BookEntity { Id = book.Id, UserId = userId, Title = book.Title });
+                context.Books.Add(new BookEntity
+                {
+                    Id = book.Id,
+                    UserId = userId,
+                    Title = book.Title,
+                    Isbn = book.Isbn,
+                    Author = book.Author,
+                    CoverUrl = book.CoverUrl
+                });
                 booksMigrated++;
             }
         }

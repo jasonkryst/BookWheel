@@ -80,9 +80,22 @@
           <h2 data-i18n="books.heading">Active books</h2>
           <p id="booksTotalCount" class="message books-total-count" aria-live="polite"></p>
           <form id="bookForm" class="book-add-row">
-            <label for="bookTitle" class="sr-only" data-i18n="books.titleLabel">Book title</label>
-            <input id="bookTitle" maxlength="200" placeholder="Book title" aria-describedby="bookMessage" required data-i18n-placeholder="books.titlePlaceholder" />
-            <button type="submit" data-i18n="books.addBtn">Add</button>
+            <div class="book-add-fields">
+              <label for="bookTitle" class="sr-only" data-i18n="books.titleLabel">Book title</label>
+              <input id="bookTitle" maxlength="200" placeholder="Book title" aria-describedby="bookMessage" required data-i18n-placeholder="books.titlePlaceholder" />
+              <label for="bookIsbn" class="sr-only" data-i18n="books.isbnLabel">ISBN</label>
+              <input id="bookIsbn" maxlength="20" placeholder="ISBN (optional)" aria-describedby="bookMessage" data-i18n-placeholder="books.isbnPlaceholder" />
+            </div>
+            <div class="book-add-actions">
+              <button type="button" id="bookLookupBtn" class="secondary" data-i18n="books.lookupBtn">Lookup</button>
+              <button type="submit" data-i18n="books.addBtn">Add</button>
+            </div>
+            <div id="bookAddPreview" class="book-metadata-preview hidden" aria-live="polite">
+              <img id="bookAddCoverImg" class="book-cover-thumb" alt="" hidden />
+              <span id="bookAddAuthorText" class="book-author-text"></span>
+            </div>
+            <input id="bookAuthor" type="hidden" />
+            <input id="bookCoverUrl" type="hidden" />
           </form>
           <div id="activeBooks" class="book-list"></div>
           <div id="booksPagination" class="pagination hidden">
@@ -230,11 +243,35 @@
         <span data-i18n="books.titleLabel">Book title</span>
         <input id="editBookTitle" maxlength="200" required />
       </label>
+      <label>
+        <span data-i18n="books.isbnLabel">ISBN</span>
+        <input id="editBookIsbn" maxlength="20" data-i18n-placeholder="books.isbnPlaceholder" />
+      </label>
+      <div class="actions modal-actions">
+        <button type="button" id="editLookupBtn" class="secondary" data-i18n="books.lookupBtn">Lookup</button>
+      </div>
+      <div id="editBookPreview" class="book-metadata-preview hidden" aria-live="polite">
+        <img id="editBookCoverImg" class="book-cover-thumb" alt="" hidden />
+        <span id="editBookAuthorText" class="book-author-text"></span>
+      </div>
+      <input id="editBookAuthor" type="hidden" />
+      <input id="editBookCoverUrl" type="hidden" />
       <div class="actions modal-actions">
         <button type="button" id="cancelEditBtn" class="secondary" data-i18n="common.cancel">Cancel</button>
         <button type="submit" data-i18n="common.save">Save</button>
       </div>
       <p id="editError" class="error" role="alert" aria-live="assertive" aria-atomic="true"></p>
+    </form>
+  </dialog>
+
+  <dialog id="lookupPickerDialog" class="modal">
+    <form method="dialog" class="stack">
+      <h2 data-i18n="books.pickerTitle">Choose a match</h2>
+      <p class="message" data-i18n="books.pickerHint">Multiple books matched. Pick the right one to fill in its details.</p>
+      <div id="lookupPickerList" class="book-list"></div>
+      <div class="actions modal-actions">
+        <button type="button" id="cancelLookupPickerBtn" class="secondary" data-i18n="common.cancel">Cancel</button>
+      </div>
     </form>
   </dialog>
 
