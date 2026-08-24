@@ -232,6 +232,45 @@ public sealed class BookWheelFrontendTests
     }
 
     [Fact]
+    public async Task Frontend_Script_Should_Render_Cover_And_Author_For_Spin_Selection()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: the spin result handler builds the selected-book display
+        // through a dedicated renderer rather than a plain text assignment,
+        // so it can include the cover image and author alongside the title.
+        Assert.Contains("function renderSelectedBookResult(book)", script, StringComparison.Ordinal);
+        Assert.Contains("renderSelectedBookResult(selected)", script, StringComparison.Ordinal);
+        Assert.Contains("selected-book-cover", script, StringComparison.Ordinal);
+        Assert.Contains("selected-book-details", script, StringComparison.Ordinal);
+
+        // Negative: the cover image and author must stay conditional on the
+        // book actually having that metadata (GH #57 fields are optional),
+        // not rendered unconditionally.
+        Assert.Contains("if (book.coverUrl)", script, StringComparison.Ordinal);
+        Assert.Contains("if (book.author)", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Styles_Should_Size_The_Selected_Book_Cover()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/css/site.css");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var css = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains(".selected-book-cover", css, StringComparison.Ordinal);
+        Assert.Contains(".selected-book-details", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Home_Page_Should_Include_A_Lookup_Picker_For_Ambiguous_Title_Matches()
     {
         using var factory = new BookWheelWebAppFactory();
