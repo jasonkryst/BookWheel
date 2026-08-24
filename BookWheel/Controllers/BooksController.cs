@@ -85,7 +85,8 @@ public sealed class BooksController : ControllerBase
                     isbn = book.Isbn,
                     author = book.Author,
                     coverUrl = book.CoverUrl,
-                    deletedAtUtc = book.DeletedAtUtc
+                    deletedAtUtc = book.DeletedAtUtc,
+                    bookTypeId = book.BookTypeId
                 }),
                 spinHistory = history.Select(entry => new
                 {
@@ -158,7 +159,7 @@ public sealed class BooksController : ControllerBase
                     existingIsbns.Add(normalizedIsbn);
                 }
 
-                await _store.AddAsync(user.UserId, title, normalizedIsbn, NormalizeOptional(item.Author), NormalizeOptional(item.CoverUrl));
+                await _store.AddAsync(user.UserId, title, normalizedIsbn, NormalizeOptional(item.Author), NormalizeOptional(item.CoverUrl), bookTypeId: item.BookTypeId ?? 1);
                 added += 1;
             }
 
@@ -194,7 +195,7 @@ public sealed class BooksController : ControllerBase
 
         try
         {
-            var book = await _store.AddAsync(user.UserId, request.Title, normalizedIsbn, NormalizeOptional(request.Author), NormalizeOptional(request.CoverUrl), request.AddedByScanner);
+            var book = await _store.AddAsync(user.UserId, request.Title, normalizedIsbn, NormalizeOptional(request.Author), NormalizeOptional(request.CoverUrl), request.AddedByScanner, request.BookTypeId);
             return Ok(book);
         }
         catch (CorruptedDataException ex)
@@ -225,7 +226,7 @@ public sealed class BooksController : ControllerBase
 
         try
         {
-            var book = await _store.UpdateAsync(user.UserId, id, request.Title, normalizedIsbn, NormalizeOptional(request.Author), NormalizeOptional(request.CoverUrl));
+            var book = await _store.UpdateAsync(user.UserId, id, request.Title, normalizedIsbn, NormalizeOptional(request.Author), NormalizeOptional(request.CoverUrl), request.BookTypeId);
             return Ok(book);
         }
         catch (CorruptedDataException ex)

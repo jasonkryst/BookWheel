@@ -129,7 +129,11 @@
         removeHint: 'Remove from active list',
         removeAria: 'Remove book: {title}',
         scannedBadgeTitle: 'Added via barcode scan',
-        scannedBadgeLabel: 'Added via barcode scan'
+        scannedBadgeLabel: 'Added via barcode scan',
+        typeLabel: 'Book type',
+        typePhysical: 'Physical',
+        typeDigital: 'Digital',
+        typeNookOnly: 'Nook Only'
       },
       users: {
         manageUsersBtn: 'Manage users',
@@ -346,7 +350,11 @@
         removeHint: 'Eliminar de la lista activa',
         removeAria: 'Eliminar libro: {title}',
         scannedBadgeTitle: 'Añadido mediante escaneo de código de barras',
-        scannedBadgeLabel: 'Añadido mediante escaneo de código de barras'
+        scannedBadgeLabel: 'Añadido mediante escaneo de código de barras',
+        typeLabel: 'Tipo de libro',
+        typePhysical: 'Físico',
+        typeDigital: 'Digital',
+        typeNookOnly: 'Solo Nook'
       },
       users: {
         manageUsersBtn: 'Gestionar usuarios',
@@ -563,7 +571,11 @@
         removeHint: 'Usuń z listy aktywnych',
         removeAria: 'Usuń książkę: {title}',
         scannedBadgeTitle: 'Dodano przez skanowanie kodu kreskowego',
-        scannedBadgeLabel: 'Dodano przez skanowanie kodu kreskowego'
+        scannedBadgeLabel: 'Dodano przez skanowanie kodu kreskowego',
+        typeLabel: 'Typ książki',
+        typePhysical: 'Fizyczna',
+        typeDigital: 'Cyfrowa',
+        typeNookOnly: 'Tylko Nook'
       },
       users: {
         manageUsersBtn: 'Zarządzaj użytkownikami',

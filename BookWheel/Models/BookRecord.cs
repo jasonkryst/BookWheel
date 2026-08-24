@@ -9,4 +9,5 @@ public sealed class BookRecord
     public string? CoverUrl { get; set; }
     public DateTimeOffset? DeletedAtUtc { get; set; }
     public bool AddedByScanner { get; set; }
+    public int BookTypeId { get; set; }
 }

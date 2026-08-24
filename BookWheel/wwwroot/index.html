@@ -85,6 +85,12 @@
               <input id="bookTitle" maxlength="200" placeholder="Book title" aria-describedby="bookMessage" required data-i18n-placeholder="books.titlePlaceholder" />
               <label for="bookIsbn" class="sr-only" data-i18n="books.isbnLabel">ISBN</label>
               <input id="bookIsbn" maxlength="20" placeholder="ISBN (optional)" aria-describedby="bookMessage" data-i18n-placeholder="books.isbnPlaceholder" />
+              <label for="bookType" class="sr-only" data-i18n="books.typeLabel">Book type</label>
+              <select id="bookType">
+                <option value="1" data-i18n="books.typePhysical">Physical</option>
+                <option value="2" data-i18n="books.typeDigital">Digital</option>
+                <option value="3" data-i18n="books.typeNookOnly">Nook Only</option>
+              </select>
             </div>
             <div class="book-add-actions">
               <button type="button" id="bookScanBtn" class="secondary icon-btn" title="Scan ISBN barcode" aria-label="Scan ISBN barcode" data-i18n-title="scanner.scanBtnTitle" data-i18n-aria-label="scanner.scanBtnLabel">
@@ -249,6 +255,14 @@
       <label>
         <span data-i18n="books.isbnLabel">ISBN</span>
         <input id="editBookIsbn" maxlength="20" data-i18n-placeholder="books.isbnPlaceholder" />
+      </label>
+      <label>
+        <span data-i18n="books.typeLabel">Book type</span>
+        <select id="editBookType">
+          <option value="1" data-i18n="books.typePhysical">Physical</option>
+          <option value="2" data-i18n="books.typeDigital">Digital</option>
+          <option value="3" data-i18n="books.typeNookOnly">Nook Only</option>
+        </select>
       </label>
       <div class="actions modal-actions">
         <button type="button" id="editScanBtn" class="secondary icon-btn" title="Scan ISBN barcode" aria-label="Scan ISBN barcode" data-i18n-title="scanner.scanBtnTitle" data-i18n-aria-label="scanner.scanBtnLabel">

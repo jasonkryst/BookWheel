@@ -18,4 +18,7 @@ public sealed class UpdateBookRequest
     public string? CoverUrl { get; set; }
 
     public bool AddedByScanner { get; set; }
+
+    [Range(1, int.MaxValue)]
+    public int BookTypeId { get; set; } = 1;
 }

@@ -11,6 +11,7 @@ public sealed class BookWheelDbContext : DbContext
 
     public DbSet<UserEntity> Users => Set<UserEntity>();
     public DbSet<BookEntity> Books => Set<BookEntity>();
+    public DbSet<BookTypeEntity> BookTypes => Set<BookTypeEntity>();
     public DbSet<PasswordResetTokenEntity> PasswordResetTokens => Set<PasswordResetTokenEntity>();
     public DbSet<SpinSelectionEntity> SpinSelections => Set<SpinSelectionEntity>();
 
@@ -36,7 +37,20 @@ public sealed class BookWheelDbContext : DbContext
             entity.Property(b => b.Author).HasMaxLength(300);
             entity.Property(b => b.CoverUrl).HasMaxLength(2048);
             entity.HasIndex(b => b.UserId);
+            entity.HasIndex(b => b.BookTypeId);
             entity.HasQueryFilter(b => b.DeletedAtUtc == null);
+        });
+
+        modelBuilder.Entity<BookTypeEntity>(entity =>
+        {
+            entity.ToTable("book_types");
+            entity.HasKey(t => t.Id);
+            entity.Property(t => t.Name).HasMaxLength(50).IsRequired();
+            entity.HasIndex(t => t.Name).IsUnique();
+            entity.HasData(
+                new BookTypeEntity { Id = 1, Name = "Physical" },
+                new BookTypeEntity { Id = 2, Name = "Digital" },
+                new BookTypeEntity { Id = 3, Name = "Nook Only" });
         });
 
         modelBuilder.Entity<SpinSelectionEntity>(entity =>
