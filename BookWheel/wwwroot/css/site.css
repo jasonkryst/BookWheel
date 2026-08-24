@@ -269,7 +269,7 @@ button:disabled {
   font-size: 1.35rem;
   font-weight: 800;
   color: color-mix(in srgb, var(--text) 70%, var(--accent));
-  text-shadow: 0 0 18px rgba(56, 189, 248, 0.45);
+  text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 45%, transparent);
   letter-spacing: 0.02em;
 }
 
@@ -284,12 +284,12 @@ button:disabled {
   padding: 6px 12px;
   border-radius: 12px;
   background: color-mix(in srgb, var(--accent) 22%, transparent);
-  border: 1px solid rgba(56, 189, 248, 0.35);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .selected-book-cover {
-  width: 64px;
-  height: 92px;
+  width: 96px;
+  height: 138px;
 }
 
 .selected-book-details {
@@ -470,6 +470,7 @@ button:disabled {
 .lookup-picker-row {
   width: 100%;
   background: transparent;
+  color: var(--text);
   border: 1px solid rgba(148, 163, 184, 0.16);
   cursor: pointer;
   text-align: left;
@@ -906,7 +907,7 @@ button:disabled {
 }
 
 .toast-info {
-  border-color: rgba(56, 189, 248, 0.6);
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
 }
 
 .toast-exit {

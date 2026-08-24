@@ -56,7 +56,7 @@ public sealed class OpenLibraryBookMetadataLookupService : IBookMetadataLookupSe
     {
         try
         {
-            var requestUri = $"search.json?title={Uri.EscapeDataString(title)}&limit={maxResults}";
+            var requestUri = $"search.json?q={Uri.EscapeDataString(title)}&limit={maxResults}";
             using var response = await _httpClient.GetAsync(requestUri, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
