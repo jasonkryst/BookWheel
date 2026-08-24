@@ -71,7 +71,7 @@ public sealed class PostgresBookRepository : IBookRepository
         await using var context = await _contextFactory.CreateDbContextAsync();
         var entity = await context.Books.FirstOrDefaultAsync(b => b.UserId == userId && b.Id == id)
             ?? throw new InvalidOperationException("Book not found.");
-        context.Books.Remove(entity);
+        entity.DeletedAtUtc = DateTimeOffset.UtcNow;
         await context.SaveChangesAsync();
         return ToRecord(entity);
     }
@@ -79,7 +79,7 @@ public sealed class PostgresBookRepository : IBookRepository
     public async Task<int> RemoveUserDataAsync(Guid userId)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        var books = await context.Books.Where(b => b.UserId == userId).ToListAsync();
+        var books = await context.Books.IgnoreQueryFilters().Where(b => b.UserId == userId).ToListAsync();
         if (books.Count == 0)
         {
             return 0;

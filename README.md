@@ -27,6 +27,8 @@ This solution is split into separate application and test projects:
 - Light/dark mode icon toggle with saved browser preference
 - Theme toggle frontend test coverage
 - Spin selection does not remove the selected book
+- Removing a book soft-deletes it (excluded from the active list, spins, and total book count) rather than permanently erasing it; removing an entire user account still purges that user's books outright, including any already soft-deleted (GH #61)
+- Every spin selection is recorded to a spin-history log (user, book, and timestamp), retrievable via `GET /api/books/spin-history` (GH #61)
 - "Last selected" message displayed below the wheel
 - Active books list with pagination after 10 books
 - Book count plus page status summary in the books panel
@@ -420,9 +422,14 @@ Book endpoints (authentication required):
 - `PUT /api/books/{id}`
 - `DELETE /api/books/{id}`
 - `POST /api/books/spin`
+- `GET /api/books/spin-history` — returns the authenticated user's own spin selections, newest first
 - `GET /api/books/lookup?isbn={isbn}` or `GET /api/books/lookup?title={title}` — queries the Open Library API for a book's title, author, ISBN, and cover URL; returns `404` when nothing matches and `400` when neither `isbn` nor `title` is supplied or the ISBN fails checksum validation
 
 `POST /api/books` and `PUT /api/books/{id}` accept optional `isbn`, `author`, and `coverUrl` fields alongside the required `title`. A supplied `isbn` is validated (ISBN-10 or ISBN-13, hyphens/spaces ignored) and rejected with `400` if it fails checksum validation.
+
+`DELETE /api/books/{id}` soft-deletes the book (sets a `DeletedAtUtc` timestamp) instead of removing the row. Soft-deleted books are excluded from `GET /api/books`, spin selection, and the `totalBookCount` metric, and re-deleting or updating an already-deleted book returns `404`. There is no restore endpoint. A full user-account removal (`DELETE /api/users/{id}`) still hard-deletes all of that user's books, including any already soft-deleted, along with their spin history.
+
+`POST /api/books/spin` records a row (user, book, timestamp) in the spin-history log every time it selects a book, readable back via `GET /api/books/spin-history`. Spin-history entries still show the book's title even if that book is later soft-deleted.
 
 ## Testing
 
@@ -451,6 +458,8 @@ Current integration tests cover:
 - Book list isolation across different users
 - Spin behavior preserving active book count
 - Book update and remove flow
+- Book soft delete: excluded from the active list, spin selection, and total book count after removal; re-deleting or updating an already-removed book returns `404`; a full user-account removal still hard-purges all of that user's books, including any already soft-deleted
+- Spin-history recording and retrieval: each spin persists a user/book/timestamp entry, the read endpoint requires authentication, returns entries newest-first, keeps a book's title even after that book is later soft-deleted, and is isolated per user
 - ISBN validation (valid/invalid ISBN-10 and ISBN-13, with and without separators), ISBN/author/cover persistence on add and edit, and the `/api/books/lookup` endpoint's success, not-found, and validation-error responses
 - Security regression checks for encrypted credential storage, failed-login audit logging, and rate limiting
 - Proxy-aware rate-limit behavior using forwarded client IP headers
