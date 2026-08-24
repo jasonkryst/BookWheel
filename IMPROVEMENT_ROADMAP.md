@@ -83,7 +83,7 @@ The core idea of the app is strong, but the book list can become more useful wit
 2. Allow sorting by title, recently added, or recently selected.
 3. Add optional weights so some books are more or less likely to be selected.
 4. Add exclude-from-next-spin or temporary skip behavior.
-5. Track spin history so users can review past selections.
+5. [Done] Track spin history (user, book, and timestamp) so past selections are persisted and retrievable (GH #61).
 6. Add import/export for the book list using JSON or CSV.
 7. [Done] Tag books with ISBN and auto-fill author/cover art via an Open Library lookup (GH #57).
 
@@ -119,6 +119,7 @@ The current file-based approach is simple, but it will eventually become limitin
 4. [Done] Move book, credential, and password-reset-token storage from flat JSON files to PostgreSQL for stronger consistency and easier querying.
 5. [Done] Add health checks for storage, logging, and app readiness.
 6. [Done] Abstract storage CRUD operations behind repository interfaces so the JSON-file backend can be swapped for SQL/NoSQL without touching business logic (#14).
+7. [Done] Soft delete for books so accidental removal doesn't destroy data outright (GH #61).
 
 Expected outcome:
 
@@ -173,7 +174,7 @@ Expected outcome:
 - [Done] Better feedback states
 - [Done] Accessibility improvements
 - Search, filter, and sorting
-- Spin history
+- [Done] Spin history
 
 ### Phase 3: Data and Platform
 

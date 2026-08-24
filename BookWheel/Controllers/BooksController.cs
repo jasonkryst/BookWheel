@@ -13,6 +13,7 @@ public sealed class BooksController : ControllerBase
     private readonly AuthService _authService;
     private readonly AppMetricsService _metricsService;
     private readonly IBookRepository _store;
+    private readonly ISpinHistoryRepository _spinHistory;
     private readonly ApiMessageLocalizer _errors;
     private readonly IBookMetadataLookupService _metadataLookup;
     private readonly IOptionsSnapshot<BookMetadataOptions> _metadataOptions;
@@ -21,6 +22,7 @@ public sealed class BooksController : ControllerBase
         AuthService authService,
         AppMetricsService metricsService,
         IBookRepository store,
+        ISpinHistoryRepository spinHistory,
         ApiMessageLocalizer errors,
         IBookMetadataLookupService metadataLookup,
         IOptionsSnapshot<BookMetadataOptions> metadataOptions)
@@ -28,6 +30,7 @@ public sealed class BooksController : ControllerBase
         _authService = authService;
         _metricsService = metricsService;
         _store = store;
+        _spinHistory = spinHistory;
         _errors = errors;
         _metadataLookup = metadataLookup;
         _metadataOptions = metadataOptions;
@@ -177,6 +180,7 @@ public sealed class BooksController : ControllerBase
         try
         {
             var selected = await _store.SelectRandomAsync(user.UserId);
+            await _spinHistory.RecordAsync(user.UserId, selected.Id, DateTimeOffset.UtcNow);
             _metricsService.IncrementSpinCount();
             var books = await _store.GetAllAsync(user.UserId);
             return Ok(new
@@ -193,6 +197,19 @@ public sealed class BooksController : ControllerBase
         {
             return BadRequest(new { message = _errors.Localize(ex.Message) });
         }
+    }
+
+    [HttpGet("spin-history")]
+    public async Task<IActionResult> GetSpinHistory()
+    {
+        var user = _authService.GetAuthenticatedUser(HttpContext);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        var history = await _spinHistory.GetForUserAsync(user.UserId);
+        return Ok(new { history });
     }
 
     [HttpDelete("{id:guid}")]

@@ -51,6 +51,9 @@ builder.Services.AddSingleton<JsonPasswordResetTokenRepository>();
 builder.Services.AddSingleton<PostgresBookRepository>();
 builder.Services.AddSingleton<IBookRepository>(sp => sp.GetRequiredService<PostgresBookRepository>());
 
+builder.Services.AddSingleton<PostgresSpinHistoryRepository>();
+builder.Services.AddSingleton<ISpinHistoryRepository>(sp => sp.GetRequiredService<PostgresSpinHistoryRepository>());
+
 builder.Services.AddSingleton<PostgresCredentialRepository>();
 builder.Services.AddSingleton<ICredentialRepository>(sp => sp.GetRequiredService<PostgresCredentialRepository>());
 

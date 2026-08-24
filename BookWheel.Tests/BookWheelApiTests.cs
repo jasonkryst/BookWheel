@@ -657,6 +657,197 @@ public sealed class BookWheelApiTests
     }
 
     [Fact]
+    public async Task Removing_A_Book_Twice_Returns_NotFound()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        await LoginAsync(client);
+        var bookId = await AddBookAsync(client, "Removed Twice");
+
+        var firstRemove = await client.DeleteAsync($"/api/books/{bookId}");
+        Assert.Equal(HttpStatusCode.OK, firstRemove.StatusCode);
+
+        var secondRemove = await client.DeleteAsync($"/api/books/{bookId}");
+        Assert.Equal(HttpStatusCode.NotFound, secondRemove.StatusCode);
+    }
+
+    [Fact]
+    public async Task Updating_A_Removed_Book_Returns_NotFound()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        await LoginAsync(client);
+        var bookId = await AddBookAsync(client, "Removed Book");
+        await client.DeleteAsync($"/api/books/{bookId}");
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/books/{bookId}", new { title = "New Title" });
+
+        Assert.Equal(HttpStatusCode.NotFound, updateResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Removed_Book_Is_Never_Selected_By_Spin()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        await LoginAsync(client);
+        var keptBookId = await AddBookAsync(client, "Kept Book");
+        var removedBookId = await AddBookAsync(client, "Removed Book");
+        await client.DeleteAsync($"/api/books/{removedBookId}");
+
+        for (var i = 0; i < 10; i++)
+        {
+            var spinResponse = await client.PostAsync("/api/books/spin", content: null);
+            Assert.Equal(HttpStatusCode.OK, spinResponse.StatusCode);
+
+            using var spinDoc = await ReadJsonAsync(spinResponse);
+            var selectedId = spinDoc.RootElement.GetProperty("selected").GetProperty("id").GetGuid();
+            Assert.Equal(keptBookId, selectedId);
+        }
+    }
+
+    [Fact]
+    public async Task Spin_History_Endpoint_Requires_Authentication()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/books/spin-history");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Spin_History_Endpoint_Is_Empty_Before_Any_Spins()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        await LoginAsync(client);
+
+        var response = await client.GetAsync("/api/books/spin-history");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var doc = await ReadJsonAsync(response);
+        Assert.Empty(doc.RootElement.GetProperty("history").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Spin_Records_A_Spin_History_Entry_With_Book_And_Timestamp()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        await LoginAsync(client);
+        var bookId = await AddBookAsync(client, "Spun Book");
+
+        var beforeSpin = DateTimeOffset.UtcNow;
+        var spinResponse = await client.PostAsync("/api/books/spin", content: null);
+        Assert.Equal(HttpStatusCode.OK, spinResponse.StatusCode);
+        var afterSpin = DateTimeOffset.UtcNow;
+
+        var historyResponse = await client.GetAsync("/api/books/spin-history");
+        Assert.Equal(HttpStatusCode.OK, historyResponse.StatusCode);
+
+        using var doc = await ReadJsonAsync(historyResponse);
+        var entry = Assert.Single(doc.RootElement.GetProperty("history").EnumerateArray());
+        Assert.Equal(bookId, entry.GetProperty("bookId").GetGuid());
+        Assert.Equal("Spun Book", entry.GetProperty("title").GetString());
+        var recordedAt = entry.GetProperty("selectedAtUtc").GetDateTimeOffset();
+        Assert.InRange(recordedAt, beforeSpin.AddSeconds(-1), afterSpin.AddSeconds(1));
+    }
+
+    [Fact]
+    public async Task Multiple_Spins_Are_Recorded_Newest_First()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        await LoginAsync(client);
+        await AddBookAsync(client, "Book A");
+        await AddBookAsync(client, "Book B");
+
+        await client.PostAsync("/api/books/spin", content: null);
+        await client.PostAsync("/api/books/spin", content: null);
+        await client.PostAsync("/api/books/spin", content: null);
+
+        var historyResponse = await client.GetAsync("/api/books/spin-history");
+        using var doc = await ReadJsonAsync(historyResponse);
+        var entries = doc.RootElement.GetProperty("history").EnumerateArray().ToList();
+
+        Assert.Equal(3, entries.Count);
+        var timestamps = entries.Select(e => e.GetProperty("selectedAtUtc").GetDateTimeOffset()).ToList();
+        var sortedDescending = timestamps.OrderByDescending(t => t).ToList();
+        Assert.Equal(sortedDescending, timestamps);
+    }
+
+    [Fact]
+    public async Task Spin_History_Is_Isolated_Per_User()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        await LoginAsync(client);
+        await AddBookAsync(client, "Admin Book");
+        await client.PostAsync("/api/books/spin", content: null);
+
+        var (_, readerSetupLink) = await CreateUserAsync(client, "reader-history");
+        await SetPasswordFromSetupLinkAsync(client, readerSetupLink, "reader-pass-1");
+
+        await client.PostAsync("/api/auth/logout", content: null);
+        await LoginAsync(client, "reader-history", "reader-pass-1");
+
+        var readerHistoryResponse = await client.GetAsync("/api/books/spin-history");
+        using var readerDoc = await ReadJsonAsync(readerHistoryResponse);
+        Assert.Empty(readerDoc.RootElement.GetProperty("history").EnumerateArray());
+    }
+
+    [Fact]
     public async Task Add_Book_With_Whitespace_Title_Returns_BadRequest()
     {
         using var factory = new BookWheelWebAppFactory();

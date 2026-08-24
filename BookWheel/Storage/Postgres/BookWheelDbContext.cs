@@ -12,6 +12,7 @@ public sealed class BookWheelDbContext : DbContext
     public DbSet<UserEntity> Users => Set<UserEntity>();
     public DbSet<BookEntity> Books => Set<BookEntity>();
     public DbSet<PasswordResetTokenEntity> PasswordResetTokens => Set<PasswordResetTokenEntity>();
+    public DbSet<SpinSelectionEntity> SpinSelections => Set<SpinSelectionEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -35,6 +36,15 @@ public sealed class BookWheelDbContext : DbContext
             entity.Property(b => b.Author).HasMaxLength(300);
             entity.Property(b => b.CoverUrl).HasMaxLength(2048);
             entity.HasIndex(b => b.UserId);
+            entity.HasQueryFilter(b => b.DeletedAtUtc == null);
+        });
+
+        modelBuilder.Entity<SpinSelectionEntity>(entity =>
+        {
+            entity.ToTable("spin_selections");
+            entity.HasKey(s => s.Id);
+            entity.HasIndex(s => s.UserId);
+            entity.HasIndex(s => s.BookId);
         });
 
         modelBuilder.Entity<PasswordResetTokenEntity>(entity =>

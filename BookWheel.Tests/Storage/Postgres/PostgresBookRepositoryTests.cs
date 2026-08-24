@@ -173,4 +173,100 @@ public sealed class PostgresBookRepositoryTests : IAsyncLifetime
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => _repository.SelectRandomAsync(userId));
     }
+
+    [Fact]
+    public async Task RemoveAsync_SoftDeletes_Row_Instead_Of_Hard_Deleting()
+    {
+        var userId = Guid.NewGuid();
+        var book = await _repository.AddAsync(userId, "Soft Deleted Book");
+
+        await _repository.RemoveAsync(userId, book.Id);
+
+        await using var context = _fixture.CreateContext();
+        var entity = await context.Books.IgnoreQueryFilters().FirstOrDefaultAsync(b => b.Id == book.Id);
+        Assert.NotNull(entity);
+        Assert.NotNull(entity!.DeletedAtUtc);
+    }
+
+    [Fact]
+    public async Task RemoveAsync_On_Already_Deleted_Book_Throws()
+    {
+        var userId = Guid.NewGuid();
+        var book = await _repository.AddAsync(userId, "Deleted Twice");
+        await _repository.RemoveAsync(userId, book.Id);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _repository.RemoveAsync(userId, book.Id));
+    }
+
+    [Fact]
+    public async Task GetAllAsync_Excludes_SoftDeleted_Books()
+    {
+        var userId = Guid.NewGuid();
+        var kept = await _repository.AddAsync(userId, "Kept Book");
+        var removed = await _repository.AddAsync(userId, "Removed Book");
+        await _repository.RemoveAsync(userId, removed.Id);
+
+        var books = await _repository.GetAllAsync(userId);
+
+        var remaining = Assert.Single(books);
+        Assert.Equal(kept.Id, remaining.Id);
+    }
+
+    [Fact]
+    public async Task SelectRandomAsync_Never_Selects_A_SoftDeleted_Book()
+    {
+        var userId = Guid.NewGuid();
+        var kept = await _repository.AddAsync(userId, "Kept Book");
+        var removed = await _repository.AddAsync(userId, "Removed Book");
+        await _repository.RemoveAsync(userId, removed.Id);
+
+        for (var i = 0; i < 20; i++)
+        {
+            var selected = await _repository.SelectRandomAsync(userId);
+            Assert.Equal(kept.Id, selected.Id);
+        }
+    }
+
+    [Fact]
+    public async Task UpdateAsync_On_SoftDeleted_Book_Throws()
+    {
+        var userId = Guid.NewGuid();
+        var book = await _repository.AddAsync(userId, "Deleted Book");
+        await _repository.RemoveAsync(userId, book.Id);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _repository.UpdateAsync(userId, book.Id, "New Title"));
+    }
+
+    [Fact]
+    public async Task GetTotalBookCountAsync_Excludes_SoftDeleted_Books()
+    {
+        var userId = Guid.NewGuid();
+        await _repository.AddAsync(userId, "Kept Book");
+        var removed = await _repository.AddAsync(userId, "Removed Book");
+        await _repository.RemoveAsync(userId, removed.Id);
+
+        var total = await _repository.GetTotalBookCountAsync();
+
+        Assert.Equal(1, total);
+    }
+
+    [Fact]
+    public async Task RemoveUserDataAsync_HardDeletes_Including_Previously_SoftDeleted_Books()
+    {
+        var userId = Guid.NewGuid();
+        var active = await _repository.AddAsync(userId, "Active Book");
+        var softDeleted = await _repository.AddAsync(userId, "Already Removed Book");
+        await _repository.RemoveAsync(userId, softDeleted.Id);
+
+        var removedCount = await _repository.RemoveUserDataAsync(userId);
+
+        Assert.Equal(2, removedCount);
+        await using var context = _fixture.CreateContext();
+        var remaining = await context.Books.IgnoreQueryFilters()
+            .Where(b => b.Id == active.Id || b.Id == softDeleted.Id)
+            .ToListAsync();
+        Assert.Empty(remaining);
+    }
 }
