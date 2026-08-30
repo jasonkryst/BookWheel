@@ -362,24 +362,42 @@
       <h2 id="statsDialogTitle" data-i18n="stats.dialogTitle">Wheel Stats</h2>
       <p id="statsLoadingMsg" aria-live="polite" data-i18n="stats.loading">Loading…</p>
       <div id="statsContent" class="hidden">
-        <div id="statsSummaryRow" class="stats-summary-row"></div>
-        <canvas id="statsChartCanvas" class="stats-canvas" width="820" height="260" aria-label="Spin frequency bar chart" role="img"></canvas>
-        <div class="stats-table-wrapper">
-          <table id="statsTable" class="stats-table">
-            <thead>
-              <tr>
-                <th data-i18n="stats.tableRank">#</th>
-                <th data-i18n="stats.tableBook">Book</th>
-                <th data-i18n="stats.tableSpins">Spins</th>
-                <th data-i18n="stats.tablePct">%</th>
-              </tr>
-            </thead>
-            <tbody id="statsTableBody"></tbody>
-          </table>
+        <div class="tab-row" role="tablist" data-i18n-aria-label="stats.tabsLabel">
+          <button type="button" id="statsSummaryTabBtn" class="secondary tab-btn active" role="tab" tabindex="0" aria-controls="statsSummaryPanel" aria-selected="true" data-i18n="stats.summaryTab">Summary</button>
+          <button type="button" id="statsBookListsTabBtn" class="secondary tab-btn" role="tab" tabindex="-1" aria-controls="statsBookListsPanel" aria-selected="false" data-i18n="stats.bookListsTab">Book Lists</button>
         </div>
-        <section id="statsAdminSection" class="hidden stats-admin-section">
-          <h3 data-i18n="stats.adminHeading">All Users (Admin)</h3>
-          <div id="statsAdminContent" class="stats-admin-content"></div>
+        <section id="statsSummaryPanel" class="tab-panel stats-summary-panel" role="tabpanel" aria-labelledby="statsSummaryTabBtn" tabindex="0">
+          <div id="statsSummaryRow" class="stats-summary-row"></div>
+          <canvas id="statsChartCanvas" class="stats-canvas" width="820" height="260" aria-label="Spin frequency bar chart" role="img"></canvas>
+          <div class="stats-table-wrapper">
+            <table id="statsTable" class="stats-table">
+              <thead>
+                <tr>
+                  <th data-i18n="stats.tableRank">#</th>
+                  <th data-i18n="stats.tableBook">Book</th>
+                  <th data-i18n="stats.tableSpins">Spins</th>
+                  <th data-i18n="stats.tablePct">%</th>
+                </tr>
+              </thead>
+              <tbody id="statsTableBody"></tbody>
+            </table>
+          </div>
+          <section id="statsAdminSection" class="hidden stats-admin-section">
+            <h3 data-i18n="stats.adminHeading">All Users (Admin)</h3>
+            <div id="statsAdminContent" class="stats-admin-content"></div>
+          </section>
+        </section>
+        <section id="statsBookListsPanel" class="tab-panel hidden stats-book-lists-panel" role="tabpanel" aria-labelledby="statsBookListsTabBtn" tabindex="0" aria-hidden="true">
+          <div id="statsUniqueSpunSection">
+            <h3 class="stats-list-heading" data-i18n="stats.uniqueSpunHeading">Unique Books Spun</h3>
+            <ul id="statsUniqueSpunList" class="stats-book-list"></ul>
+            <p id="statsUniqueSpunEmpty" class="stats-list-empty hidden" data-i18n="stats.uniqueSpunEmpty">No books have been spun yet.</p>
+          </div>
+          <div id="statsNeverSpunSection">
+            <h3 class="stats-list-heading" data-i18n="stats.neverSpunHeading">Never Spun</h3>
+            <ul id="statsNeverSpunList" class="stats-book-list"></ul>
+            <p id="statsNeverSpunEmpty" class="stats-list-empty hidden" data-i18n="stats.neverSpunEmpty">All books have been spun at least once!</p>
+          </div>
         </section>
       </div>
       <p id="statsEmptyMsg" class="message hidden" data-i18n="stats.noData">No spin history yet. Spin the wheel to start tracking stats!</p>

@@ -1029,6 +1029,71 @@ button:disabled {
   flex-wrap: wrap;
 }
 
+.stats-summary-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.stats-book-lists-panel {
+  display: grid;
+  gap: 20px;
+}
+
+.stats-list-heading {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.stats-book-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 8px;
+}
+
+.stats-book-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  font-size: 0.88rem;
+}
+
+.stats-book-list-item:last-child {
+  border-bottom: none;
+}
+
+.stats-book-list-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats-book-list-count {
+  flex-shrink: 0;
+  margin-left: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+
+.stats-list-empty {
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-style: italic;
+  padding: 8px 0;
+}
+
 .transfer-modal {
   width: min(900px, calc(100% - 24px));
   max-height: calc(100vh - 24px);
