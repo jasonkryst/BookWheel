@@ -61,7 +61,7 @@ public sealed class PostgresSpinStatsRepositoryTests : IAsyncLifetime
         var titles = stats.NeverSpunBooks.Select(b => b.Title).ToList();
         Assert.Contains("Alpha", titles);
         Assert.Contains("Beta", titles);
-        Assert.Equal([bookA.Id, bookB.Id].OrderBy(id => id), stats.NeverSpunBooks.Select(b => b.BookId).OrderBy(id => id));
+        Assert.Equal(new[] { bookA.Id, bookB.Id }.OrderBy(id => id), stats.NeverSpunBooks.Select(b => b.BookId).OrderBy(id => id));
     }
 
     [Fact]
