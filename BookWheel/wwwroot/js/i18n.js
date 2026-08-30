@@ -223,6 +223,26 @@
         detectedToast: 'Barcode detected.',
         notSupportedError: 'Barcode scanning is not supported on this device or browser.',
         cameraAccessError: 'Camera access was denied or is unavailable.'
+      },
+      stats: {
+        openBtnLabel: 'Stats',
+        dialogTitle: 'Wheel Stats',
+        loading: 'Loading…',
+        noData: 'No spin history yet. Spin the wheel to start tracking stats!',
+        loadError: 'Could not load stats. Please try again.',
+        totalSpins: 'Total Spins',
+        uniqueBooks: 'Unique Books Spun',
+        neverSpun: 'Never Spun',
+        longestOnWheel: 'Longest on Wheel',
+        shortestOnWheel: 'Shortest on Wheel',
+        tableRank: '#',
+        tableBook: 'Book',
+        tableSpins: 'Spins',
+        tablePct: '%',
+        adminHeading: 'All Users (Admin)',
+        adminTotalSpins: 'Total Spins (All)',
+        adminActiveUsers: 'Users',
+        adminTopUsers: 'Top Users by Spins'
       }
     },
     es: {
@@ -444,6 +464,26 @@
         detectedToast: 'Código de barras detectado.',
         notSupportedError: 'El escaneo de códigos de barras no está disponible en este dispositivo o navegador.',
         cameraAccessError: 'El acceso a la cámara fue denegado o no está disponible.'
+      },
+      stats: {
+        openBtnLabel: 'Estadísticas',
+        dialogTitle: 'Estadísticas de la rueda',
+        loading: 'Cargando…',
+        noData: 'Aún no hay historial de giros. ¡Gira la rueda para comenzar!',
+        loadError: 'No se pudieron cargar las estadísticas. Inténtalo de nuevo.',
+        totalSpins: 'Total de giros',
+        uniqueBooks: 'Libros únicos girados',
+        neverSpun: 'Nunca girados',
+        longestOnWheel: 'Más tiempo en la rueda',
+        shortestOnWheel: 'Menos tiempo en la rueda',
+        tableRank: '#',
+        tableBook: 'Libro',
+        tableSpins: 'Giros',
+        tablePct: '%',
+        adminHeading: 'Todos los usuarios (Admin)',
+        adminTotalSpins: 'Total de giros (todos)',
+        adminActiveUsers: 'Usuarios',
+        adminTopUsers: 'Usuarios con más giros'
       }
     },
     pl: {
@@ -665,6 +705,26 @@
         detectedToast: 'Wykryto kod kreskowy.',
         notSupportedError: 'Skanowanie kodów kreskowych nie jest obsługiwane na tym urządzeniu ani w tej przeglądarce.',
         cameraAccessError: 'Dostęp do kamery został zablokowany lub jest niedostępny.'
+      },
+      stats: {
+        openBtnLabel: 'Statystyki',
+        dialogTitle: 'Statystyki koła',
+        loading: 'Ładowanie…',
+        noData: 'Brak historii losowań. Zakręć kołem, aby zacząć!',
+        loadError: 'Nie udało się załadować statystyk. Spróbuj ponownie.',
+        totalSpins: 'Łącznie losowań',
+        uniqueBooks: 'Unikalnych książek',
+        neverSpun: 'Nigdy nie losowane',
+        longestOnWheel: 'Najdłużej na kole',
+        shortestOnWheel: 'Najkrócej na kole',
+        tableRank: '#',
+        tableBook: 'Książka',
+        tableSpins: 'Losowania',
+        tablePct: '%',
+        adminHeading: 'Wszyscy użytkownicy (Admin)',
+        adminTotalSpins: 'Łącznie losowań (wszyscy)',
+        adminActiveUsers: 'Użytkownicy',
+        adminTopUsers: 'Najaktywniejsze konta'
       }
     }
   };

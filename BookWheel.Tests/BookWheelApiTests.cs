@@ -1626,6 +1626,222 @@ public sealed class BookWheelApiTests
         Assert.Equal(HttpStatusCode.Locked, loginResponse.StatusCode);
     }
 
+    // ── Stats: positive cases ────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Stats_Unauthenticated_Returns_Unauthorized()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/stats");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Stats_For_User_With_No_History_Returns_Zero_Totals()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+
+        var response = await client.GetAsync("/api/stats");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var doc = await ReadJsonAsync(response);
+        Assert.Equal(0, doc.RootElement.GetProperty("totalSpins").GetInt32());
+        Assert.Equal(0, doc.RootElement.GetProperty("uniqueBooksSpun").GetInt32());
+        Assert.Equal(0, doc.RootElement.GetProperty("neverSpunCount").GetInt32());
+        Assert.Equal(0, doc.RootElement.GetProperty("topBooks").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task Stats_After_Spins_Returns_Correct_Counts()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        var bookIdA = await AddBookAsync(client, "Book A");
+        var bookIdB = await AddBookAsync(client, "Book B");
+
+        // Spin the wheel 3 times
+        for (var i = 0; i < 3; i++)
+        {
+            var spinResponse = await client.PostAsync("/api/books/spin", null);
+            Assert.Equal(HttpStatusCode.OK, spinResponse.StatusCode);
+        }
+
+        var statsResponse = await client.GetAsync("/api/stats");
+        Assert.Equal(HttpStatusCode.OK, statsResponse.StatusCode);
+
+        using var doc = await ReadJsonAsync(statsResponse);
+        Assert.Equal(3, doc.RootElement.GetProperty("totalSpins").GetInt32());
+        Assert.True(doc.RootElement.GetProperty("uniqueBooksSpun").GetInt32() >= 1);
+        Assert.True(doc.RootElement.GetProperty("topBooks").GetArrayLength() >= 1);
+        Assert.NotNull(doc.RootElement.GetProperty("longestOnWheel").GetRawText());
+        Assert.NotNull(doc.RootElement.GetProperty("shortestOnWheel").GetRawText());
+
+        // Top books ordered by spin count descending
+        var topBooks = doc.RootElement.GetProperty("topBooks").EnumerateArray().ToList();
+        for (var i = 0; i + 1 < topBooks.Count; i++)
+        {
+            Assert.True(
+                topBooks[i].GetProperty("spinCount").GetInt32() >= topBooks[i + 1].GetProperty("spinCount").GetInt32()
+            );
+        }
+    }
+
+    [Fact]
+    public async Task Stats_NeverSpunCount_Reflects_Unselected_Books()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await AddBookAsync(client, "Book Alpha");
+        await AddBookAsync(client, "Book Beta");
+
+        // No spins — both books should appear as never-spun
+        var response = await client.GetAsync("/api/stats");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var doc = await ReadJsonAsync(response);
+        Assert.Equal(0, doc.RootElement.GetProperty("totalSpins").GetInt32());
+        Assert.Equal(2, doc.RootElement.GetProperty("neverSpunCount").GetInt32());
+    }
+
+    [Fact]
+    public async Task Stats_After_Book_Deleted_Preserves_Spin_Count()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        var bookId = await AddBookAsync(client, "Ephemeral Book");
+
+        var spinResponse = await client.PostAsync("/api/books/spin", null);
+        Assert.Equal(HttpStatusCode.OK, spinResponse.StatusCode);
+
+        // Delete the book
+        await client.DeleteAsync($"/api/books/{bookId}");
+
+        var statsResponse = await client.GetAsync("/api/stats");
+        Assert.Equal(HttpStatusCode.OK, statsResponse.StatusCode);
+
+        using var doc = await ReadJsonAsync(statsResponse);
+        // Spin count must still be 1 even though the book is gone
+        Assert.Equal(1, doc.RootElement.GetProperty("totalSpins").GetInt32());
+        var topBooks = doc.RootElement.GetProperty("topBooks").EnumerateArray().ToList();
+        Assert.Single(topBooks);
+        Assert.Equal(1, topBooks[0].GetProperty("spinCount").GetInt32());
+    }
+
+    [Fact]
+    public async Task Admin_Can_Access_Aggregate_Stats()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+
+        var response = await client.GetAsync("/api/stats/aggregate");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var doc = await ReadJsonAsync(response);
+        Assert.True(doc.RootElement.TryGetProperty("totalSpinsAllUsers", out _));
+        Assert.True(doc.RootElement.TryGetProperty("activeUserCount", out _));
+        Assert.True(doc.RootElement.TryGetProperty("topUsers", out _));
+    }
+
+    [Fact]
+    public async Task Aggregate_Stats_Reflect_Multi_User_Totals()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await AddBookAsync(client, "Admin Book");
+        await client.PostAsync("/api/books/spin", null);
+
+        var (_, readerSetupLink) = await CreateUserAsync(client, "reader-one");
+        await SetPasswordFromSetupLinkAsync(client, readerSetupLink, "reader-pass-1");
+
+        await client.PostAsync("/api/auth/logout", content: null);
+        await LoginAsync(client, "reader-one", "reader-pass-1");
+        await AddBookAsync(client, "Reader Book");
+        await client.PostAsync("/api/books/spin", null);
+        await client.PostAsync("/api/books/spin", null);
+
+        // Re-login as admin to access aggregate
+        await client.PostAsync("/api/auth/logout", content: null);
+        await LoginAsync(client);
+
+        var response = await client.GetAsync("/api/stats/aggregate");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var doc = await ReadJsonAsync(response);
+        Assert.Equal(3, doc.RootElement.GetProperty("totalSpinsAllUsers").GetInt32());
+        Assert.Equal(2, doc.RootElement.GetProperty("activeUserCount").GetInt32());
+    }
+
+    // ── Stats: negative cases ────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Aggregate_Stats_Unauthenticated_Returns_Unauthorized()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/stats/aggregate");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Non_Admin_Cannot_Access_Aggregate_Stats()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+
+        var (_, readerSetupLink) = await CreateUserAsync(client, "reader-one");
+        await SetPasswordFromSetupLinkAsync(client, readerSetupLink, "reader-pass-1");
+
+        await client.PostAsync("/api/auth/logout", content: null);
+        await LoginAsync(client, "reader-one", "reader-pass-1");
+
+        var response = await client.GetAsync("/api/stats/aggregate");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Stats_TopBooks_Percentage_Sums_To_One_Hundred()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await AddBookAsync(client, "Book One");
+
+        for (var i = 0; i < 5; i++)
+        {
+            await client.PostAsync("/api/books/spin", null);
+        }
+
+        var response = await client.GetAsync("/api/stats");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var doc = await ReadJsonAsync(response);
+        var topBooks = doc.RootElement.GetProperty("topBooks").EnumerateArray().ToList();
+        Assert.Single(topBooks);
+        Assert.Equal(100.0, topBooks[0].GetProperty("percentage").GetDouble());
+    }
+
     private static async Task LoginAsync(HttpClient client, string username = "test-admin", string password = "test-password")
     {
         var response = await client.PostAsJsonAsync("/api/auth/login", new
