@@ -121,8 +121,10 @@ public sealed class PostgresSpinStatsRepositoryTests : IAsyncLifetime
 
         var stats = await _statsRepository.GetForUserAsync(userId);
 
+        // Soft-delete keeps the row in the DB; IgnoreQueryFilters() in the join still finds it,
+        // so the title is preserved rather than falling back to "(deleted)".
         var entry = Assert.Single(stats.TopBooks);
-        Assert.Equal("(deleted)", entry.Title);
+        Assert.Equal("Later Removed", entry.Title);
         Assert.Equal(1, entry.SpinCount);
     }
 
