@@ -8,6 +8,7 @@ public sealed class SpinStatsRecord
     public WheelDurationRecord? LongestOnWheel { get; set; }
     public WheelDurationRecord? ShortestOnWheel { get; set; }
     public IReadOnlyList<BookSpinCountRecord> TopBooks { get; set; } = [];
+    public IReadOnlyList<NeverSpunBookRecord> NeverSpunBooks { get; set; } = [];
 }
 
 public sealed class WheelDurationRecord
@@ -23,4 +24,10 @@ public sealed class BookSpinCountRecord
     public string Title { get; set; } = string.Empty;
     public int SpinCount { get; set; }
     public double Percentage { get; set; }
+}
+
+public sealed class NeverSpunBookRecord
+{
+    public Guid BookId { get; set; }
+    public string Title { get; set; } = string.Empty;
 }

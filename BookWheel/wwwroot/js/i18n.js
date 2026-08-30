@@ -242,7 +242,14 @@
         adminHeading: 'All Users (Admin)',
         adminTotalSpins: 'Total Spins (All)',
         adminActiveUsers: 'Users',
-        adminTopUsers: 'Top Users by Spins'
+        adminTopUsers: 'Top Users by Spins',
+        tabsLabel: 'Stats sections',
+        summaryTab: 'Summary',
+        bookListsTab: 'Book Lists',
+        uniqueSpunHeading: 'Unique Books Spun',
+        uniqueSpunEmpty: 'No books have been spun yet.',
+        neverSpunHeading: 'Never Spun',
+        neverSpunEmpty: 'All books have been spun at least once!'
       }
     },
     es: {
@@ -483,7 +490,14 @@
         adminHeading: 'Todos los usuarios (Admin)',
         adminTotalSpins: 'Total de giros (todos)',
         adminActiveUsers: 'Usuarios',
-        adminTopUsers: 'Usuarios con más giros'
+        adminTopUsers: 'Usuarios con más giros',
+        tabsLabel: 'Secciones de estadísticas',
+        summaryTab: 'Resumen',
+        bookListsTab: 'Listas de libros',
+        uniqueSpunHeading: 'Libros únicos girados',
+        uniqueSpunEmpty: 'Aún no se ha girado ningún libro.',
+        neverSpunHeading: 'Nunca girados',
+        neverSpunEmpty: '¡Todos los libros han sido girados al menos una vez!'
       }
     },
     pl: {
@@ -724,7 +738,14 @@
         adminHeading: 'Wszyscy użytkownicy (Admin)',
         adminTotalSpins: 'Łącznie losowań (wszyscy)',
         adminActiveUsers: 'Użytkownicy',
-        adminTopUsers: 'Najaktywniejsze konta'
+        adminTopUsers: 'Najaktywniejsze konta',
+        tabsLabel: 'Sekcje statystyk',
+        summaryTab: 'Podsumowanie',
+        bookListsTab: 'Listy książek',
+        uniqueSpunHeading: 'Unikalnych książek wylosowanych',
+        uniqueSpunEmpty: 'Żadna książka nie została jeszcze wylosowana.',
+        neverSpunHeading: 'Nigdy nie losowane',
+        neverSpunEmpty: 'Wszystkie książki zostały wylosowane co najmniej raz!'
       }
     }
   };

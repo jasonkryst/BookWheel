@@ -42,6 +42,11 @@ public sealed class PostgresSpinStatsRepository : ISpinStatsRepository
 
         var neverSpunSet = neverSpunIds.ToHashSet();
         var neverSpunCount = activeBooks.Count(b => !neverSpunSet.Contains(b.Id));
+        var neverSpunBooks = activeBooks
+            .Where(b => !neverSpunSet.Contains(b.Id))
+            .Select(b => new NeverSpunBookRecord { BookId = b.Id, Title = b.Title })
+            .OrderBy(b => b.Title)
+            .ToList();
 
         WheelDurationRecord? longestOnWheel = null;
         WheelDurationRecord? shortestOnWheel = null;
@@ -89,7 +94,8 @@ public sealed class PostgresSpinStatsRepository : ISpinStatsRepository
             NeverSpunCount = neverSpunCount,
             LongestOnWheel = longestOnWheel,
             ShortestOnWheel = shortestOnWheel,
-            TopBooks = topBooks
+            TopBooks = topBooks,
+            NeverSpunBooks = neverSpunBooks
         };
     }
 

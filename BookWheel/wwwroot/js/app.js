@@ -2258,6 +2258,14 @@ const statsChartCanvas = document.getElementById('statsChartCanvas');
 const statsTableBody = document.getElementById('statsTableBody');
 const statsAdminSection = document.getElementById('statsAdminSection');
 const statsAdminContent = document.getElementById('statsAdminContent');
+const statsSummaryTabBtn = document.getElementById('statsSummaryTabBtn');
+const statsBookListsTabBtn = document.getElementById('statsBookListsTabBtn');
+const statsSummaryPanel = document.getElementById('statsSummaryPanel');
+const statsBookListsPanel = document.getElementById('statsBookListsPanel');
+const statsUniqueSpunList = document.getElementById('statsUniqueSpunList');
+const statsUniqueSpunEmpty = document.getElementById('statsUniqueSpunEmpty');
+const statsNeverSpunList = document.getElementById('statsNeverSpunList');
+const statsNeverSpunEmpty = document.getElementById('statsNeverSpunEmpty');
 
 function makeSummaryCard(value, labelKey) {
   const { t } = window.BookWheelI18n;
@@ -2273,6 +2281,48 @@ function makeSummaryCard(value, labelKey) {
   card.appendChild(label);
   return card;
 }
+
+function setStatsTab(tabName) {
+  const showSummary = tabName === 'summary';
+  statsSummaryPanel.classList.toggle('hidden', !showSummary);
+  statsBookListsPanel.classList.toggle('hidden', showSummary);
+  statsSummaryPanel.setAttribute('aria-hidden', showSummary ? 'false' : 'true');
+  statsBookListsPanel.setAttribute('aria-hidden', showSummary ? 'true' : 'false');
+  statsSummaryTabBtn.classList.toggle('active', showSummary);
+  statsBookListsTabBtn.classList.toggle('active', !showSummary);
+  statsSummaryTabBtn.setAttribute('aria-selected', showSummary ? 'true' : 'false');
+  statsBookListsTabBtn.setAttribute('aria-selected', showSummary ? 'false' : 'true');
+  statsSummaryTabBtn.tabIndex = showSummary ? 0 : -1;
+  statsBookListsTabBtn.tabIndex = showSummary ? -1 : 0;
+}
+
+function moveStatsTabFocus(direction) {
+  const tabs = [statsSummaryTabBtn, statsBookListsTabBtn];
+  const currentIndex = tabs.findIndex(tab => tab === document.activeElement);
+  const nextIndex = currentIndex < 0
+    ? 0
+    : (currentIndex + direction + tabs.length) % tabs.length;
+  const nextTab = tabs[nextIndex];
+  setStatsTab(nextTab === statsSummaryTabBtn ? 'summary' : 'booklists');
+  nextTab.focus();
+}
+
+statsSummaryTabBtn.addEventListener('click', () => setStatsTab('summary'));
+statsBookListsTabBtn.addEventListener('click', () => setStatsTab('booklists'));
+
+statsSummaryTabBtn.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight') { e.preventDefault(); moveStatsTabFocus(1); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); moveStatsTabFocus(-1); }
+  if (e.key === 'Home') { e.preventDefault(); setStatsTab('summary'); statsSummaryTabBtn.focus(); }
+  if (e.key === 'End') { e.preventDefault(); setStatsTab('booklists'); statsBookListsTabBtn.focus(); }
+});
+
+statsBookListsTabBtn.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight') { e.preventDefault(); moveStatsTabFocus(1); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); moveStatsTabFocus(-1); }
+  if (e.key === 'Home') { e.preventDefault(); setStatsTab('summary'); statsSummaryTabBtn.focus(); }
+  if (e.key === 'End') { e.preventDefault(); setStatsTab('booklists'); statsBookListsTabBtn.focus(); }
+});
 
 function drawStatsChart(topBooks) {
   const ctxChart = statsChartCanvas.getContext('2d');
@@ -2332,6 +2382,9 @@ async function fetchAndRenderStats() {
   statsSummaryRow.innerHTML = '';
   statsTableBody.innerHTML = '';
   statsAdminContent.innerHTML = '';
+  statsUniqueSpunList.innerHTML = '';
+  statsNeverSpunList.innerHTML = '';
+  setStatsTab('summary');
 
   try {
     const statsRes = await fetch('/api/stats', { credentials: 'include' });
@@ -2376,6 +2429,42 @@ async function fetchAndRenderStats() {
       statsTableBody.appendChild(tr);
     });
 
+    // Book Lists tab — unique spun
+    if (stats.topBooks.length) {
+      statsUniqueSpunEmpty.classList.add('hidden');
+      stats.topBooks.forEach(book => {
+        const li = document.createElement('li');
+        li.className = 'stats-book-list-item';
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'stats-book-list-title';
+        titleSpan.textContent = book.title;
+        const countSpan = document.createElement('span');
+        countSpan.className = 'stats-book-list-count';
+        countSpan.textContent = String(book.spinCount);
+        li.appendChild(titleSpan);
+        li.appendChild(countSpan);
+        statsUniqueSpunList.appendChild(li);
+      });
+    } else {
+      statsUniqueSpunEmpty.classList.remove('hidden');
+    }
+
+    // Book Lists tab — never spun
+    if (stats.neverSpunBooks?.length) {
+      statsNeverSpunEmpty.classList.add('hidden');
+      stats.neverSpunBooks.forEach(book => {
+        const li = document.createElement('li');
+        li.className = 'stats-book-list-item';
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'stats-book-list-title';
+        titleSpan.textContent = book.title;
+        li.appendChild(titleSpan);
+        statsNeverSpunList.appendChild(li);
+      });
+    } else {
+      statsNeverSpunEmpty.classList.remove('hidden');
+    }
+
     // Admin aggregate (only attempt if user is admin)
     if (currentUser?.isAdmin) {
       try {
@@ -2417,6 +2506,7 @@ async function fetchAndRenderStats() {
 }
 
 function openStatsDialog() {
+  setStatsTab('summary');
   openDialog(statsDialog, closeStatsBtn);
   fetchAndRenderStats();
 }
