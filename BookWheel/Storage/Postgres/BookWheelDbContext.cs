@@ -38,6 +38,7 @@ public sealed class BookWheelDbContext : DbContext
             entity.Property(b => b.CoverUrl).HasMaxLength(2048);
             entity.HasIndex(b => b.UserId);
             entity.HasIndex(b => b.BookTypeId);
+            entity.Property(b => b.CreatedAtUtc).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
             entity.HasQueryFilter(b => b.DeletedAtUtc == null);
         });
 

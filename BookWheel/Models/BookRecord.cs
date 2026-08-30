@@ -10,4 +10,5 @@ public sealed class BookRecord
     public DateTimeOffset? DeletedAtUtc { get; set; }
     public bool AddedByScanner { get; set; }
     public int BookTypeId { get; set; }
+    public DateTimeOffset CreatedAtUtc { get; set; }
 }

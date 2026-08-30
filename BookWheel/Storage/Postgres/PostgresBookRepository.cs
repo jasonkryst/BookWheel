@@ -119,6 +119,7 @@ public sealed class PostgresBookRepository : IBookRepository
         CoverUrl = entity.CoverUrl,
         DeletedAtUtc = entity.DeletedAtUtc,
         AddedByScanner = entity.AddedByScanner,
-        BookTypeId = entity.BookTypeId
+        BookTypeId = entity.BookTypeId,
+        CreatedAtUtc = entity.CreatedAtUtc
     };
 }
