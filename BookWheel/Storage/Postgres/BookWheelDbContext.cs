@@ -39,6 +39,8 @@ public sealed class BookWheelDbContext : DbContext
             entity.HasIndex(b => b.UserId);
             entity.HasIndex(b => b.BookTypeId);
             entity.Property(b => b.CreatedAtUtc).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+            entity.HasIndex(b => b.CreatedByUserId);
+            entity.HasIndex(b => b.LastUpdatedByUserId);
             entity.HasQueryFilter(b => b.DeletedAtUtc == null);
         });
 

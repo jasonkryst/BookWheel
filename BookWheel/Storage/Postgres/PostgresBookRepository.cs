@@ -34,7 +34,7 @@ public sealed class PostgresBookRepository : IBookRepository
         return entities.Select(ToRecord).ToList();
     }
 
-    public async Task<BookRecord> AddAsync(Guid userId, string title, string? isbn = null, string? author = null, string? coverUrl = null, bool addedByScanner = false, int bookTypeId = 1)
+    public async Task<BookRecord> AddAsync(Guid userId, string title, string? isbn = null, string? author = null, string? coverUrl = null, bool addedByScanner = false, int bookTypeId = 1, Guid? createdByUserId = null)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
         var entity = new BookEntity
@@ -46,14 +46,15 @@ public sealed class PostgresBookRepository : IBookRepository
             Author = author,
             CoverUrl = coverUrl,
             AddedByScanner = addedByScanner,
-            BookTypeId = bookTypeId
+            BookTypeId = bookTypeId,
+            CreatedByUserId = createdByUserId ?? userId
         };
         context.Books.Add(entity);
         await context.SaveChangesAsync();
         return ToRecord(entity);
     }
 
-    public async Task<BookRecord> UpdateAsync(Guid userId, Guid id, string title, string? isbn = null, string? author = null, string? coverUrl = null, int bookTypeId = 1)
+    public async Task<BookRecord> UpdateAsync(Guid userId, Guid id, string title, string? isbn = null, string? author = null, string? coverUrl = null, int bookTypeId = 1, Guid? updatedByUserId = null)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
         var entity = await context.Books.FirstOrDefaultAsync(b => b.UserId == userId && b.Id == id)
@@ -63,6 +64,8 @@ public sealed class PostgresBookRepository : IBookRepository
         entity.Author = author;
         entity.CoverUrl = coverUrl;
         entity.BookTypeId = bookTypeId;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        entity.LastUpdatedByUserId = updatedByUserId ?? userId;
         await context.SaveChangesAsync();
         return ToRecord(entity);
     }
@@ -120,6 +123,9 @@ public sealed class PostgresBookRepository : IBookRepository
         DeletedAtUtc = entity.DeletedAtUtc,
         AddedByScanner = entity.AddedByScanner,
         BookTypeId = entity.BookTypeId,
-        CreatedAtUtc = entity.CreatedAtUtc
+        CreatedAtUtc = entity.CreatedAtUtc,
+        CreatedByUserId = entity.CreatedByUserId,
+        UpdatedAtUtc = entity.UpdatedAtUtc,
+        LastUpdatedByUserId = entity.LastUpdatedByUserId
     };
 }

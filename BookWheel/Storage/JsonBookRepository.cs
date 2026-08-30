@@ -161,7 +161,7 @@ public sealed class JsonBookRepository : IBookRepository
         return await GetAllAsync(userId);
     }
 
-    public async Task<BookRecord> AddAsync(Guid userId, string title, string? isbn = null, string? author = null, string? coverUrl = null, bool addedByScanner = false, int bookTypeId = 1)
+    public async Task<BookRecord> AddAsync(Guid userId, string title, string? isbn = null, string? author = null, string? coverUrl = null, bool addedByScanner = false, int bookTypeId = 1, Guid? createdByUserId = null)
     {
         await _gate.WaitAsync();
         try
@@ -176,7 +176,9 @@ public sealed class JsonBookRepository : IBookRepository
                 Author = author,
                 CoverUrl = coverUrl,
                 AddedByScanner = addedByScanner,
-                BookTypeId = bookTypeId
+                BookTypeId = bookTypeId,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                CreatedByUserId = createdByUserId ?? userId
             };
 
             books.Add(record);
@@ -189,7 +191,7 @@ public sealed class JsonBookRepository : IBookRepository
         }
     }
 
-    public async Task<BookRecord> UpdateAsync(Guid userId, Guid id, string title, string? isbn = null, string? author = null, string? coverUrl = null, int bookTypeId = 1)
+    public async Task<BookRecord> UpdateAsync(Guid userId, Guid id, string title, string? isbn = null, string? author = null, string? coverUrl = null, int bookTypeId = 1, Guid? updatedByUserId = null)
     {
         await _gate.WaitAsync();
         try
@@ -202,6 +204,8 @@ public sealed class JsonBookRepository : IBookRepository
             book.Author = author;
             book.CoverUrl = coverUrl;
             book.BookTypeId = bookTypeId;
+            book.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            book.LastUpdatedByUserId = updatedByUserId ?? userId;
             await WriteStoreUnsafeAsync(booksByUser);
             return book;
         }
