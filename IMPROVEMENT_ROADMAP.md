@@ -90,6 +90,7 @@ The core idea of the app is strong, but the book list can become more useful wit
 5. [Done] Track spin history (user, book, and timestamp) so past selections are persisted and retrievable (GH #61).
 6. Add import/export for the book list using JSON or CSV.
 7. [Done] Tag books with ISBN and auto-fill author/cover art via an Open Library lookup (GH #57).
+8. [Done] Add per-user spin analytics (total spins, unique books spun, never-spun count, wheel duration stats, top-books chart) and an admin aggregate view across all users, with a "Book Lists" tab showing the full unique-spun and never-spun lists (GH #75).
 
 Expected outcome:
 
@@ -197,9 +198,9 @@ Expected outcome:
 
 If only three improvements are chosen next, these should provide the best immediate value:
 
-1. Add search/filter and spin history to improve day-to-day usability.
-2. Add user self-service password change from authenticated profile settings.
-3. Consider ASP.NET Core Identity or an external OIDC provider now that the data layer runs on PostgreSQL, if broader/enterprise usage is expected.
+1. Add search/filter support for active books to improve day-to-day usability (Priority 3, item 1).
+2. Add user self-service password change from authenticated profile settings (Priority 4, item 1).
+3. Consider ASP.NET Core Identity or an external OIDC provider now that the data layer runs on PostgreSQL, if broader/enterprise usage is expected (Priority 4, item 3).
 
 ## Success Metrics
 

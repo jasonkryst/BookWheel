@@ -57,6 +57,7 @@ This solution is split into separate application and test projects:
 - Mobile and tablet layouts keep the wheel and Settings dialog within the viewport without horizontal scrolling or browser zoom, including the Import tab's native file picker
 - Barcode scanner for ISBN lookup: tap the camera (📷) button next to the ISBN field on the add-book row or the edit dialog to scan a book's barcode with the device camera; on detection the ISBN field is populated and the Open Library lookup fires automatically; the scanner supports camera flipping (front/rear) and shows a framing reticle; requires Chrome, Edge, or Android Chrome (uses the native Barcode Detection API — browsers that do not support it show a clear message instead of an error); books added via the scanner store an `AddedByScanner` flag in the database and display a 📷 badge in the book list for easy identification (GH #69)
 - Book type classification: each book has a type — Physical 📖, Digital 📱, or Nook Only 🔖 — selected from a dropdown when adding or editing; the type is backed by a `book_types` reference table in the database with a foreign-key index from `books`, seeded with the three initial types for future extensibility; the selected type icon appears in the book list alongside the title; type is included in the JSON export and respected on import (GH #73)
+- Spin Wheel Stats 📊: a Stats button in the header opens a modal showing per-user spin history analytics — total spins, unique books spun, never-spun count, longest and shortest time a book has been on the wheel (derived from a new `CreatedAtUtc` column on books), and a canvas bar chart plus ranked table of top-selected books by spin count; administrators additionally see a cross-user aggregate view with total spins across all users, user count, and top users by spin count (GH #75); a "Book Lists" tab shows the full list of unique-spun books (sorted by spin count) and all never-spun active books (sorted alphabetically)
 
 ## Internationalization
 
@@ -128,7 +129,7 @@ dotnet build BookWheel.slnx
 
 `BookWheel/BookWheel.csproj`'s `InformationalVersion` is the single source of truth for the app version. The footer and `/api/version` read it from the built assembly's `AssemblyInformationalVersion` attribute at runtime; everything else derives from or is validated against this value:
 
-- Local default: `2.5.0` (set in `BookWheel/BookWheel.csproj`)
+- Local default: `2.10.0` (set in `BookWheel/BookWheel.csproj`)
 - CI builds (`.github/workflows/ci.yml`): read the csproj's `InformationalVersion`, strip any suffix, and append `-ci.<run>+<sha>` via `/p:InformationalVersion=...`
 - Docker builds (`Dockerfile`): accept an optional `ARG APP_VERSION`; when unset, the build falls through to the csproj default rather than a second hardcoded value
 - Release builds (`.github/workflows/docker-release.yml`): derive the version from the GitHub Release tag, but the workflow **fails** if that version doesn't match the csproj's `InformationalVersion`, so a release can't ship without bumping the csproj first
@@ -136,13 +137,13 @@ dotnet build BookWheel.slnx
 Examples:
 
 ```bash
-dotnet build BookWheel.slnx /p:InformationalVersion=2.5.0
-docker build --build-arg APP_VERSION=2.5.0 -t jasonkryst/bookwheel:2.5.0 .
+dotnet build BookWheel.slnx /p:InformationalVersion=2.10.0
+docker build --build-arg APP_VERSION=2.10.0 -t jasonkryst/bookwheel:2.10.0 .
 ```
 
 ## Automated Docker Publish on Version Release
 
-GitHub Actions publishes Docker images to Docker Hub and GHCR when a GitHub Release is published (for example, tagged `v2.5.0`).
+GitHub Actions publishes Docker images to Docker Hub and GHCR when a GitHub Release is published (for example, tagged `v2.10.0`).
 
 Workflow file:
 
@@ -150,9 +151,9 @@ Workflow file:
 
 Published tags:
 
-- `jasonkryst/bookwheel:<version-without-v>` (for example `2.5.0`)
+- `jasonkryst/bookwheel:<version-without-v>` (for example `2.10.0`)
 - `jasonkryst/bookwheel:latest` (only for non-prerelease versions)
-- `ghcr.io/jasonkryst/bookwheel:<version-without-v>` (for example `2.5.0`)
+- `ghcr.io/jasonkryst/bookwheel:<version-without-v>` (for example `2.10.0`)
 - `ghcr.io/jasonkryst/bookwheel:latest` (only for non-prerelease versions)
 
 Required repository secrets:
@@ -428,6 +429,11 @@ Book endpoints (authentication required):
 - `GET /api/books/spin-history` — returns the authenticated user's own spin selections, newest first
 - `GET /api/books/lookup?isbn={isbn}` or `GET /api/books/lookup?title={title}` — queries the Open Library API for a book's title, author, ISBN, and cover URL; returns `404` when nothing matches and `400` when neither `isbn` nor `title` is supplied or the ISBN fails checksum validation
 
+Stats endpoints (authentication required):
+
+- `GET /api/stats` — returns per-user spin analytics: total spins, unique books spun, never-spun count, longest/shortest time a book has been on the wheel (derived from `CreatedAtUtc`), a ranked top-books list with spin counts and percentages, and the full list of never-spun active books
+- `GET /api/stats/aggregate` — administrator only; returns cross-user totals: total spins across all users, active user count, and top users by spin count
+
 `POST /api/books` and `PUT /api/books/{id}` accept optional `isbn`, `author`, and `coverUrl` fields alongside the required `title`. A supplied `isbn` is validated (ISBN-10 or ISBN-13, hyphens/spaces ignored) and rejected with `400` if it fails checksum validation.
 
 `DELETE /api/books/{id}` soft-deletes the book (sets a `DeletedAtUtc` timestamp) instead of removing the row. Soft-deleted books are excluded from `GET /api/books`, spin selection, and the `totalBookCount` metric, and re-deleting or updating an already-deleted book returns `404`. There is no restore endpoint. A full user-account removal (`DELETE /api/users/{id}`) still hard-deletes all of that user's books, including any already soft-deleted, along with their spin history.
@@ -475,6 +481,8 @@ Current integration tests cover:
 - Persistent log file creation and structured audit logging checks
 - CI dependency-audit gate (`scripts/check-vulnerable-packages.sh`): passes clean `dotnet list --vulnerable` output through unchanged and exits 0, and exits 1 when the report contains a vulnerable-packages finding
 - PWA manifest, icon, and service-worker behavior, including that `/api/*` requests are never intercepted or cached by the service worker
+- Spin Wheel Stats endpoint access control: `GET /api/stats` requires authentication (401 for unauthenticated callers); `GET /api/stats/aggregate` additionally requires admin (403 for non-admin authenticated users)
+- Stats data correctness: total-spin count, unique-books-spun count, and never-spun count after add/spin/delete sequences; top-books list is ordered by spin count descending; percentage values sum to 100; soft-deleted books preserve their spin history contribution but are excluded from the never-spun list; multi-user aggregate totals and top-user ranking reflect cross-user spin activity (GH #75)
 
 Frontend-focused tests also verify that the HTML, JavaScript, and CSS expose the account setup mode, selected-book UI (including the cover/author shown alongside the "Last selected" title, GH #62), pagination summary, delete confirmation flow, logout form reset behavior, icon-based dark/light/high-contrast theme toggle behavior, the consolidated Settings dialog's tab structure and visibility rules, file-based import/export behavior, and the ISBN lookup controls (input, Lookup button, cover/author preview) on both the add-book row and the edit dialog. Additional checks confirm the spin-result highlight, ambiguous-match toast, and lookup-picker rows derive their color from the active theme's CSS variables rather than a fixed dark-mode color (GH #63).
 
@@ -522,6 +530,7 @@ Open the gear-icon Settings button and select the Import/Export tab.
 - CI also runs secret scanning via gitleaks and workflow linting via actionlint to prevent accidental token/credential commits and malformed workflow changes.
 - Trivy container scanning runs on every CI build, applying a hard failure gate for fixable CRITICAL/HIGH vulnerabilities and uploading a full SARIF report (all severities, including unfixed) to the GitHub Security tab.
 - CodeQL static analysis (`.github/workflows/codeql.yml`) scans .NET source code for security vulnerabilities on every push and PR to `main`, and on a weekly Monday schedule. Results appear alongside Trivy findings in the GitHub Security → Code Scanning tab.
+- Dependabot (`.github/dependabot.yml`) scans NuGet packages and GitHub Actions versions weekly, opening up to 5 PRs per ecosystem when updates are available.
 - CI enforces a per-ref concurrency group (newer pushes cancel in-progress runs for the same branch/PR) and per-job timeouts, and Docker layer builds are cached via GitHub Actions cache (`type=gha`).
 - Frontend behavior is implemented in `BookWheel/wwwroot/js/app.js`.
 - The wheel UI and styles are in `BookWheel/wwwroot/index.html` and `BookWheel/wwwroot/css/site.css`.
@@ -558,7 +567,7 @@ Startup diagnostics:
 
 ## Release Checklist
 
-1. Update the version stamp in `BookWheel/BookWheel.csproj` (`InformationalVersion`) — the release workflow fails if the GitHub Release tag doesn't match it.
+1. Update the version stamp in `BookWheel/BookWheel.csproj` (`InformationalVersion`) to match the intended release tag (e.g. `2.10.0`) — the release workflow fails if the GitHub Release tag doesn't match it.
 2. Run full tests: `dotnet test BookWheel.slnx`.
 3. Run security-focused regression filter from CI workflow.
 4. Run vulnerability scans (same gate CI's `dependency-audit` job uses — `dotnet list --vulnerable` alone always exits 0, so the script is what actually fails the build):

@@ -2245,6 +2245,284 @@ if (langSelect) {
   });
 }
 
+// ─── Stats dialog ───────────────────────────────────────────────────────────
+
+const statsBtnLoggedIn = document.getElementById('statsBtnLoggedIn');
+const statsDialog = document.getElementById('statsDialog');
+const closeStatsBtn = document.getElementById('closeStatsBtn');
+const statsLoadingMsg = document.getElementById('statsLoadingMsg');
+const statsContent = document.getElementById('statsContent');
+const statsEmptyMsg = document.getElementById('statsEmptyMsg');
+const statsSummaryRow = document.getElementById('statsSummaryRow');
+const statsChartCanvas = document.getElementById('statsChartCanvas');
+const statsTableBody = document.getElementById('statsTableBody');
+const statsAdminSection = document.getElementById('statsAdminSection');
+const statsAdminContent = document.getElementById('statsAdminContent');
+const statsSummaryTabBtn = document.getElementById('statsSummaryTabBtn');
+const statsBookListsTabBtn = document.getElementById('statsBookListsTabBtn');
+const statsSummaryPanel = document.getElementById('statsSummaryPanel');
+const statsBookListsPanel = document.getElementById('statsBookListsPanel');
+const statsUniqueSpunList = document.getElementById('statsUniqueSpunList');
+const statsUniqueSpunEmpty = document.getElementById('statsUniqueSpunEmpty');
+const statsNeverSpunList = document.getElementById('statsNeverSpunList');
+const statsNeverSpunEmpty = document.getElementById('statsNeverSpunEmpty');
+
+function makeSummaryCard(value, labelKey) {
+  const { t } = window.BookWheelI18n;
+  const card = document.createElement('div');
+  card.className = 'stats-summary-card';
+  const val = document.createElement('div');
+  val.className = 'stat-value';
+  val.textContent = value;
+  const label = document.createElement('div');
+  label.className = 'stat-label';
+  label.textContent = t(labelKey);
+  card.appendChild(val);
+  card.appendChild(label);
+  return card;
+}
+
+function setStatsTab(tabName) {
+  const showSummary = tabName === 'summary';
+  statsSummaryPanel.classList.toggle('hidden', !showSummary);
+  statsBookListsPanel.classList.toggle('hidden', showSummary);
+  statsSummaryPanel.setAttribute('aria-hidden', showSummary ? 'false' : 'true');
+  statsBookListsPanel.setAttribute('aria-hidden', showSummary ? 'true' : 'false');
+  statsSummaryTabBtn.classList.toggle('active', showSummary);
+  statsBookListsTabBtn.classList.toggle('active', !showSummary);
+  statsSummaryTabBtn.setAttribute('aria-selected', showSummary ? 'true' : 'false');
+  statsBookListsTabBtn.setAttribute('aria-selected', showSummary ? 'false' : 'true');
+  statsSummaryTabBtn.tabIndex = showSummary ? 0 : -1;
+  statsBookListsTabBtn.tabIndex = showSummary ? -1 : 0;
+}
+
+function moveStatsTabFocus(direction) {
+  const tabs = [statsSummaryTabBtn, statsBookListsTabBtn];
+  const currentIndex = tabs.findIndex(tab => tab === document.activeElement);
+  const nextIndex = currentIndex < 0
+    ? 0
+    : (currentIndex + direction + tabs.length) % tabs.length;
+  const nextTab = tabs[nextIndex];
+  setStatsTab(nextTab === statsSummaryTabBtn ? 'summary' : 'booklists');
+  nextTab.focus();
+}
+
+statsSummaryTabBtn.addEventListener('click', () => setStatsTab('summary'));
+statsBookListsTabBtn.addEventListener('click', () => setStatsTab('booklists'));
+
+statsSummaryTabBtn.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight') { e.preventDefault(); moveStatsTabFocus(1); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); moveStatsTabFocus(-1); }
+  if (e.key === 'Home') { e.preventDefault(); setStatsTab('summary'); statsSummaryTabBtn.focus(); }
+  if (e.key === 'End') { e.preventDefault(); setStatsTab('booklists'); statsBookListsTabBtn.focus(); }
+});
+
+statsBookListsTabBtn.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight') { e.preventDefault(); moveStatsTabFocus(1); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); moveStatsTabFocus(-1); }
+  if (e.key === 'Home') { e.preventDefault(); setStatsTab('summary'); statsSummaryTabBtn.focus(); }
+  if (e.key === 'End') { e.preventDefault(); setStatsTab('booklists'); statsBookListsTabBtn.focus(); }
+});
+
+function drawStatsChart(topBooks) {
+  const ctxChart = statsChartCanvas.getContext('2d');
+  const W = statsChartCanvas.width;
+  const H = statsChartCanvas.height;
+  ctxChart.clearRect(0, 0, W, H);
+
+  if (!topBooks.length) return;
+
+  const styles = getComputedStyle(document.documentElement);
+  const sliceColors = [1, 2, 3, 4, 5, 6].map(n =>
+    styles.getPropertyValue(`--wheel-slice-${n}`).trim()
+  );
+  const textColor = styles.getPropertyValue('--text').trim() || '#e2e8f0';
+  const mutedColor = styles.getPropertyValue('--muted').trim() || '#94a3b8';
+
+  const maxDisplay = Math.min(topBooks.length, 15);
+  const books = topBooks.slice(0, maxDisplay);
+  const maxCount = Math.max(...books.map(b => b.spinCount), 1);
+  const paddingLeft = 36;
+  const paddingBottom = 48;
+  const paddingTop = 20;
+  const chartW = W - paddingLeft - 12;
+  const chartH = H - paddingBottom - paddingTop;
+  const barW = chartW / books.length;
+
+  books.forEach((book, i) => {
+    const barH = (book.spinCount / maxCount) * chartH;
+    const x = paddingLeft + i * barW + barW * 0.1;
+    const w = barW * 0.8;
+    const y = paddingTop + chartH - barH;
+
+    ctxChart.fillStyle = sliceColors[i % sliceColors.length];
+    ctxChart.fillRect(x, y, w, barH);
+
+    ctxChart.fillStyle = textColor;
+    ctxChart.font = 'bold 12px Arial';
+    ctxChart.textAlign = 'center';
+    ctxChart.textBaseline = 'bottom';
+    ctxChart.fillText(book.spinCount, x + w / 2, y - 2);
+
+    ctxChart.fillStyle = mutedColor;
+    ctxChart.font = '11px Arial';
+    ctxChart.textBaseline = 'top';
+    const label = book.title.length > 10 ? book.title.slice(0, 10) + '…' : book.title;
+    ctxChart.fillText(label, x + w / 2, paddingTop + chartH + 4);
+  });
+}
+
+async function fetchAndRenderStats() {
+  const { t } = window.BookWheelI18n;
+
+  statsLoadingMsg.classList.remove('hidden');
+  statsContent.classList.add('hidden');
+  statsEmptyMsg.classList.add('hidden');
+  statsAdminSection.classList.add('hidden');
+  statsSummaryRow.innerHTML = '';
+  statsTableBody.innerHTML = '';
+  statsAdminContent.innerHTML = '';
+  statsUniqueSpunList.innerHTML = '';
+  statsNeverSpunList.innerHTML = '';
+  setStatsTab('summary');
+
+  try {
+    const statsRes = await fetch('/api/stats', { credentials: 'include' });
+    if (!statsRes.ok) throw new Error();
+    const stats = await statsRes.json();
+
+    statsLoadingMsg.classList.add('hidden');
+
+    if (stats.totalSpins === 0) {
+      statsEmptyMsg.classList.remove('hidden');
+      return;
+    }
+
+    statsContent.classList.remove('hidden');
+
+    // Summary cards
+    statsSummaryRow.appendChild(makeSummaryCard(stats.totalSpins, 'stats.totalSpins'));
+    statsSummaryRow.appendChild(makeSummaryCard(stats.uniqueBooksSpun, 'stats.uniqueBooks'));
+    statsSummaryRow.appendChild(makeSummaryCard(stats.neverSpunCount, 'stats.neverSpun'));
+
+    if (stats.longestOnWheel) {
+      const dayLabel = `${stats.longestOnWheel.daysOnWheel}d — ${stats.longestOnWheel.title}`;
+      statsSummaryRow.appendChild(makeSummaryCard(dayLabel, 'stats.longestOnWheel'));
+    }
+
+    if (stats.shortestOnWheel) {
+      const dayLabel = `${stats.shortestOnWheel.daysOnWheel}d — ${stats.shortestOnWheel.title}`;
+      statsSummaryRow.appendChild(makeSummaryCard(dayLabel, 'stats.shortestOnWheel'));
+    }
+
+    // Chart
+    drawStatsChart(stats.topBooks);
+
+    // Table
+    stats.topBooks.forEach((book, index) => {
+      const tr = document.createElement('tr');
+      [String(index + 1), book.title, String(book.spinCount), `${book.percentage}%`].forEach(text => {
+        const td = document.createElement('td');
+        td.textContent = text;
+        tr.appendChild(td);
+      });
+      statsTableBody.appendChild(tr);
+    });
+
+    // Book Lists tab — unique spun
+    if (stats.topBooks.length) {
+      statsUniqueSpunEmpty.classList.add('hidden');
+      stats.topBooks.forEach(book => {
+        const li = document.createElement('li');
+        li.className = 'stats-book-list-item';
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'stats-book-list-title';
+        titleSpan.textContent = book.title;
+        const countSpan = document.createElement('span');
+        countSpan.className = 'stats-book-list-count';
+        countSpan.textContent = String(book.spinCount);
+        li.appendChild(titleSpan);
+        li.appendChild(countSpan);
+        statsUniqueSpunList.appendChild(li);
+      });
+    } else {
+      statsUniqueSpunEmpty.classList.remove('hidden');
+    }
+
+    // Book Lists tab — never spun
+    if (stats.neverSpunBooks?.length) {
+      statsNeverSpunEmpty.classList.add('hidden');
+      stats.neverSpunBooks.forEach(book => {
+        const li = document.createElement('li');
+        li.className = 'stats-book-list-item';
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'stats-book-list-title';
+        titleSpan.textContent = book.title;
+        li.appendChild(titleSpan);
+        statsNeverSpunList.appendChild(li);
+      });
+    } else {
+      statsNeverSpunEmpty.classList.remove('hidden');
+    }
+
+    // Admin aggregate (only attempt if user is admin)
+    if (currentUser?.isAdmin) {
+      try {
+        const aggRes = await fetch('/api/stats/aggregate', { credentials: 'include' });
+        if (aggRes.ok) {
+          const agg = await aggRes.json();
+          statsAdminSection.classList.remove('hidden');
+
+          statsAdminContent.appendChild(makeSummaryCard(agg.totalSpinsAllUsers, 'stats.adminTotalSpins'));
+          statsAdminContent.appendChild(makeSummaryCard(agg.activeUserCount, 'stats.adminActiveUsers'));
+
+          if (agg.topUsers?.length) {
+            const listWrap = document.createElement('div');
+            listWrap.className = 'stats-summary-card';
+            listWrap.style.flexBasis = '100%';
+            const listTitle = document.createElement('div');
+            listTitle.className = 'stat-label';
+            listTitle.textContent = t('stats.adminTopUsers');
+            listWrap.appendChild(listTitle);
+
+            agg.topUsers.forEach((u, i) => {
+              const row = document.createElement('div');
+              row.textContent = `${i + 1}. ${u.username} — ${u.spinCount}`;
+              row.style.fontSize = '0.85rem';
+              listWrap.appendChild(row);
+            });
+            statsAdminContent.appendChild(listWrap);
+          }
+        }
+      } catch {
+        // Admin aggregate failure is non-fatal; main stats still visible.
+      }
+    }
+  } catch {
+    statsLoadingMsg.classList.add('hidden');
+    statsEmptyMsg.classList.remove('hidden');
+    statsEmptyMsg.textContent = t('stats.loadError');
+  }
+}
+
+function openStatsDialog() {
+  setStatsTab('summary');
+  openDialog(statsDialog, closeStatsBtn);
+  fetchAndRenderStats();
+}
+
+function closeStatsDialog() {
+  closeDialog(statsDialog);
+}
+
+if (statsBtnLoggedIn) {
+  statsBtnLoggedIn.addEventListener('click', openStatsDialog);
+}
+
+if (closeStatsBtn) {
+  closeStatsBtn.addEventListener('click', closeStatsDialog);
+}
+
 window.addEventListener('bookwheel:locale-changed', () => {
   syncLangSelect();
   applyTheme(document.documentElement.getAttribute('data-theme') || DARK_THEME);

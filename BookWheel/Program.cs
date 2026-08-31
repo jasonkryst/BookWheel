@@ -54,6 +54,9 @@ builder.Services.AddSingleton<IBookRepository>(sp => sp.GetRequiredService<Postg
 builder.Services.AddSingleton<PostgresSpinHistoryRepository>();
 builder.Services.AddSingleton<ISpinHistoryRepository>(sp => sp.GetRequiredService<PostgresSpinHistoryRepository>());
 
+builder.Services.AddSingleton<PostgresSpinStatsRepository>();
+builder.Services.AddSingleton<ISpinStatsRepository>(sp => sp.GetRequiredService<PostgresSpinStatsRepository>());
+
 builder.Services.AddSingleton<PostgresCredentialRepository>();
 builder.Services.AddSingleton<ICredentialRepository>(sp => sp.GetRequiredService<PostgresCredentialRepository>());
 

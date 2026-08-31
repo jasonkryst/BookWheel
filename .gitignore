@@ -25,6 +25,9 @@ coverage/
 # VS Code workspace state
 .history/
 
+# Claude Code tooling (worktrees, session state, settings)
+.claude/
+
 # NuGet / MSBuild
 packages/
 artifacts/
