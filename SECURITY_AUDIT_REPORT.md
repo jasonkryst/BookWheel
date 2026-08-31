@@ -1,31 +1,29 @@
 # Security Audit Report - Book Wheel
 
-Date: 2026-08-19
-Auditor: Claude (Sonnet 5), via Claude Code
-Scope: Application project in BookWheel and solution-level dependency review, focused on the PostgreSQL storage-layer migration (#55) shipped since the prior audit (2026-06-01) and a full re-verification of previously reported findings
+Date: 2026-08-31
+Auditor: Claude (Sonnet 4.6), via Claude Code
+Scope: Application project in BookWheel and solution-level dependency review, focused on the Spin Wheel Stats feature (GH #75) — including new stat endpoints, book audit fields, and two new EF Core migrations — shipped since the prior audit (2026-08-19) and a full re-verification of previously reported findings
 
 ## Executive Summary
 
-This audit refreshes the 2026-06-01 report against the current codebase, which has since migrated book, credential, and password-reset-token storage from encrypted JSON files to PostgreSQL via EF Core (see `docs/superpowers/plans/2026-08-18-postgresql-migration.md`). All scans and tests below were re-run fresh for this audit rather than reused from prior results.
+This audit refreshes the 2026-08-19 report against the current codebase, which has since added a Spin Wheel Stats feature (`GET /api/stats`, `GET /api/stats/aggregate`), two new EF Core migrations adding `CreatedAtUtc` and audit columns (`CreatedByUserId`, `UpdatedAtUtc`, `LastUpdatedByUserId`) to the `books` table, and a new `PostgresSpinStatsRepository`. All scans and tests below were re-run fresh for this audit rather than reused from prior results.
 
 Overall posture: Low risk
 
 - Critical findings: 0
-- High findings: 0 (1 found and remediated during this audit cycle — see below)
+- High findings: 0
 - Medium findings: 0
-- Low findings: 2 (1 new, 1 carried-forward finding closed — see "Previously Reported Findings" below)
+- Low findings: 2 (both carried forward from prior audit — no new findings)
 
 Security-relevant changes verified in this revision:
 
-- Books, credentials, and password-reset tokens now persist in PostgreSQL instead of encrypted JSON files; controllers and `AuthService` are unchanged (repository interfaces were not modified)
-- Passwords remain hashed with ASP.NET Core's `PasswordHasher<string>` — same algorithm and call signature as the JSON-backed implementation, so no regression in password storage strength
-- Usernames moved from an `IDataProtector`-encrypted JSON blob to a plain PostgreSQL `citext` column, enforced unique and case-insensitive at the database level (`HasIndex(u => u.Username).IsUnique()`), a deliberate tradeoff documented in the migration plan — production deployments are expected to rely on TLS-in-transit and disk/volume encryption instead of application-level username encryption
-- Password reset tokens are stored as a hash only (`TokenHash`, unique-indexed); the raw token is never persisted
-- All PostgreSQL data access goes through EF Core LINQ query composition — no raw/interpolated SQL (`FromSqlRaw`, `ExecuteSqlRaw`, string-built queries) was found anywhere in `BookWheel/`, so the migration does not introduce a SQL-injection surface
-- `PasswordHash` is never referenced outside the storage layer and migration service — confirmed not exposed through any controller or API response DTO
-- The PostgreSQL connection string is read once from configuration and is never logged or included in exception messages
-- The one-shot `--migrate-to-postgres` CLI tool refuses to run if PostgreSQL already contains user data (verified in code: `if (await context.Users.AnyAsync()) throw ...`), and its stdout JSON report contains only counts/timestamps, never credential material
-- `docker-compose.yml`'s bundled Postgres service uses a documented local-dev-only default password, overridable via `.env`
+- `GET /api/stats` requires authentication (returns 401 for unauthenticated callers — verified by regression test `Stats_Unauthenticated_Returns_Unauthorized`)
+- `GET /api/stats/aggregate` requires both authentication and the `isAdmin` flag; non-admin callers receive 403 — verified by regression tests `Non_Admin_Cannot_Access_Aggregate_Stats` and `Aggregate_Stats_Unauthenticated_Returns_Unauthorized`
+- All stats data access goes through EF Core LINQ — no raw/interpolated SQL (`FromSqlRaw`, `ExecuteSqlRaw`, string-built queries) found in `PostgresSpinStatsRepository.cs`; the migration does not widen the SQL-injection surface
+- `PostgresSpinStatsRepository.GetAggregateAsync()` cross-joins `SpinSelections` with `Users` to derive top-user spin counts but does not expose any credential fields (password hash, reset tokens) — only `UserId` and `Username` appear in the aggregate response
+- `Username` is a non-sensitive identifier already visible throughout user-management responses; no new credential-class data is introduced in the stats payload
+- The two new migrations (`AddBookCreatedAt`, `AddBookAuditFields`) add nullable/defaulted columns to `books` — no schema change to credential or token tables; EF Core snapshot updated accordingly
+- `CreatedByUserId`, `UpdatedAtUtc`, and `LastUpdatedByUserId` audit columns are stored server-side via the repository layer; they are not accepted from request bodies and cannot be spoofed by a caller
 
 ## Fresh Scan Results (run for this audit)
 
@@ -43,16 +41,14 @@ scripts/check-vulnerable-packages.sh BookWheel/BookWheel.csproj BookWheel.Tests/
      alone always exits 0)
 ```
 
-**Finding identified and remediated during this audit cycle (High, resolved):** the scan above is clean only as of this revision. At the start of this audit, `BookWheel.Tests.csproj` failed the scan: `Testcontainers.PostgreSql` 3.10.0 (added by the Postgres migration) pulls in `SSH.NET` 2023.0.0 transitively, flagged High severity by [GHSA-q939-rpr3-3284](https://github.com/advisories/GHSA-q939-rpr3-3284). This was also the cause of the CI `dependency-audit` job failing on `main` since PR #55 merged. Fixed by pinning `SSH.NET` directly to 2026.0.0 in `BookWheel.Tests.csproj` (PR #56). Verified: (a) the scan above is now clean, (b) the version jump doesn't break `Testcontainers` functionality — full test suite passes including all Postgres-container-backed tests.
-
 Full test suite:
 
 ```
 dotnet test BookWheel.slnx --verbosity normal
-  -> Total tests: 145, Passed: 145
+  -> Total tests: 281, Passed: 281
 ```
 
-Targeted security regression tests:
+Targeted security regression tests (same filter as prior audit, all pass):
 
 ```
 dotnet test BookWheel.Tests/BookWheel.Tests.csproj --filter \
@@ -65,18 +61,33 @@ dotnet test BookWheel.Tests/BookWheel.Tests.csproj --filter \
    FullyQualifiedName~Disabled_User_Cannot_Log_In|\
    FullyQualifiedName~Request_Correlation_Header_Is_Propagated"
   -> Total tests: 8, Passed: 8
-
-dotnet test BookWheel.Tests/BookWheel.Tests.csproj --filter \
-  "FullyQualifiedName~PostgresCredentialRepositoryTests|FullyQualifiedName~PostgresPasswordResetTokenRepositoryTests"
-  -> Total tests: 17, Passed: 17
 ```
 
-The second filter directly exercises the new PostgreSQL storage layer's security-relevant behavior against a real `Testcontainers`-provisioned database: case-insensitive unique-username enforcement, duplicate-username rejection, last-admin-demotion guard, first-account deletion protection, and password-reset token lifecycle.
+New stats-specific security regression tests (all pass):
+
+```
+dotnet test BookWheel.Tests/BookWheel.Tests.csproj --filter "FullyQualifiedName~Stats"
+  -> Total tests: 20, Passed: 20
+
+Includes:
+  Stats_Unauthenticated_Returns_Unauthorized
+  Non_Admin_Cannot_Access_Aggregate_Stats
+  Aggregate_Stats_Unauthenticated_Returns_Unauthorized
+  Admin_Can_Access_Aggregate_Stats
+  Aggregate_Stats_Reflect_Multi_User_Totals
+  Stats_For_User_With_No_History_Returns_Zero_Totals
+  Stats_After_Spins_Returns_Correct_Counts
+  Stats_NeverSpunCount_Reflects_Unselected_Books
+  Stats_After_Book_Deleted_Preserves_Spin_Count
+  Stats_TopBooks_Percentage_Sums_To_One_Hundred
+  (+ 10 additional data-correctness cases)
+```
 
 ## Methodology
 
-- Manual review of the new PostgreSQL storage layer (`BookWheel/Storage/Postgres/`), migration service, and `Program.cs` wiring — authentication, session handling, authorization gates, data persistence, and startup configuration
-- Grep-based static checks for raw/interpolated SQL, connection-string logging, and password-hash exposure through API-facing code
+- Manual review of the new stats endpoints (`StatsController`), `PostgresSpinStatsRepository`, new EF Core migrations, and `Program.cs` wiring
+- Grep-based static checks for raw/interpolated SQL and credential-field exposure through the new stats API response DTOs
+- Review of authorization gates on `GET /api/stats` (auth required) and `GET /api/stats/aggregate` (auth + admin required)
 - Fresh NuGet vulnerability scan for direct and transitive packages (not reused from any prior run)
 - Fresh full-solution test run plus targeted security regression tests, all re-executed for this audit
 
@@ -105,36 +116,38 @@ Evidence:
 
 Risk:
 
-- In a deployment where the app and PostgreSQL are not on the same trusted network segment, credentials and query data (including plaintext-visible usernames, now that they're no longer `IDataProtector`-encrypted at the application layer) could traverse the network unencrypted without an operator noticing, since the connection would still succeed.
+- In a deployment where the app and PostgreSQL are not on the same trusted network segment, credentials and query data (including plaintext-visible usernames) could traverse the network unencrypted without an operator noticing, since the connection would still succeed.
 
 Recommendations:
 
 1. Set `SSL Mode=Require` (or `VerifyFull` with a configured trusted CA) explicitly in production connection strings.
-2. Document this alongside the existing "TLS-in-transit to Postgres" guidance in the migration plan and README, since that guidance currently describes an expectation rather than an enforced configuration.
+2. Document this alongside the existing "TLS-in-transit to Postgres" guidance in the README, since that guidance currently describes an expectation rather than an enforced configuration.
 
 ## Previously Reported Findings — Status
 
+### Automatic EF Core migrations at startup require DDL privileges (Low, reported 2026-08-19) — **Open**
+
+No change. Still tracked in `IMPROVEMENT_ROADMAP.md` Priority 1 item 8.
+
+### PostgreSQL connection string does not pin an SSL/TLS mode (Low, reported 2026-08-19) — **Open**
+
+No change. Still tracked in `IMPROVEMENT_ROADMAP.md` Priority 1 item 7.
+
 ### Data Protection key storage not explicitly configured (Low, reported 2026-06-01) — **Closed**
 
-Verified in `Program.cs`: production startup now resolves `DataProtection:KeyDirectory` from configuration, falling back to a documented default (`App_Data/DataProtection-Keys`) when unset outside Development/Testing, and persists keys via `PersistKeysToFileSystem`. This matches the "[Done]" status already recorded in `IMPROVEMENT_ROADMAP.md` Priority 1, item 5. No further action needed.
+Previously closed in the 2026-08-19 audit. No regression introduced by GH #75.
 
 ## Positive Observations
 
-- The Postgres migration preserved all prior security properties: encrypted-at-rest credential storage requirement is now met via disk/volume + TLS expectations rather than application-level encryption, password hashing algorithm is unchanged, and reset tokens remain hash-only.
-- Repository interfaces (`IBookRepository`, `ICredentialRepository`, `IPasswordResetTokenRepository`) were not modified, so controllers and `AuthService` — and their existing security tests — did not need to change to support the new backend.
-- Case-insensitive username uniqueness is now enforced at the database level (`citext` + unique index) rather than only in application code, closing a class of race-condition duplicate-account bugs the file-based version could theoretically have had.
-- The one-shot migration tool's refuse-if-data-exists guard and transactional copy prevent silent data duplication or partial migrations.
-- No SQL injection surface was introduced — 100% EF Core LINQ, no raw SQL found in the new storage layer.
-- Non-admin users remain denied access to user-management and metrics endpoints (re-verified).
-- Login lockout/backoff, forwarded-header-aware rate limiting, and request correlation logging all continue to function correctly against the new storage backend (re-verified).
-- Auth cookies remain `HttpOnly` and `SameSite=Strict`; HTTPS redirection and HSTS remain enabled outside testing.
-- The dependency-audit gate did its job this cycle — it caught a real High-severity transitive vulnerability introduced by a new package, which is exactly the failure mode it exists to prevent.
+- The stats feature follows the same auth-gate pattern as existing secured endpoints: unauthenticated → 401, non-admin on admin route → 403, verified by dedicated regression tests.
+- The admin aggregate endpoint exposes only `username` and spin counts — no password hashes, reset tokens, or session material reach the response DTO.
+- All data access in `PostgresSpinStatsRepository` is EF Core LINQ, consistent with the rest of the storage layer; no new SQL-injection surface was introduced.
+- The two new migrations are additive-only: nullable and defaulted columns on `books`, with no changes to user or token tables.
+- Audit columns (`CreatedByUserId`, `UpdatedAtUtc`, `LastUpdatedByUserId`) are populated server-side only and cannot be influenced by request bodies.
+- All 281 tests pass, including 20 new stats-specific tests and 8 targeted security regression tests.
+- Dependency scan remains clean for both `BookWheel.csproj` and `BookWheel.Tests.csproj`.
 
 ## Prioritized Remediation Plan
-
-### Immediate (0-2 days)
-
-1. Merge PR #56 (SSH.NET pin) so the CI `dependency-audit` gate is green on `main` again.
 
 ### Short Term (1-2 weeks)
 
@@ -144,7 +157,7 @@ Verified in `Program.cs`: production startup now resolves `DataProtection:KeyDir
 ### Mid Term (2-6 weeks)
 
 1. Evaluate ASP.NET Core Identity or an external OIDC provider now that the data layer is production-grade (already tracked in `IMPROVEMENT_ROADMAP.md`).
-2. Revisit whether `App_Data/books.json` and `App_Data/user.cred` — left on disk as a historical backup by the migration tool — should have a documented retention/deletion policy, since they contain the same sensitive data the Postgres migration was meant to modernize custody of.
+2. Revisit whether `App_Data/books.json` and `App_Data/user.cred` — left on disk as a historical backup by the migration tool — should have a documented retention/deletion policy.
 
 ## Audit Limitations
 
@@ -155,4 +168,4 @@ Verified in `Program.cs`: production startup now resolves `DataProtection:KeyDir
 
 ## Conclusion
 
-The PostgreSQL migration was executed without regressing any previously verified security control, and the dependency-audit gate caught a real vulnerability the migration introduced (now remediated in PR #56). Remaining risk is limited to two Low-severity, easily addressed configuration hardening items: explicit TLS enforcement on the database connection, and clarifying the DDL-privilege footprint of automatic startup migrations. With those addressed, the solution remains well-positioned for reliable production operation.
+The Spin Wheel Stats feature (GH #75) was implemented without introducing any new security findings. The two remaining Low-severity items are unchanged from the prior audit and relate to production deployment configuration rather than the application code itself. The overall posture remains Low risk.

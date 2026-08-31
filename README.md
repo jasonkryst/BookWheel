@@ -429,6 +429,11 @@ Book endpoints (authentication required):
 - `GET /api/books/spin-history` — returns the authenticated user's own spin selections, newest first
 - `GET /api/books/lookup?isbn={isbn}` or `GET /api/books/lookup?title={title}` — queries the Open Library API for a book's title, author, ISBN, and cover URL; returns `404` when nothing matches and `400` when neither `isbn` nor `title` is supplied or the ISBN fails checksum validation
 
+Stats endpoints (authentication required):
+
+- `GET /api/stats` — returns per-user spin analytics: total spins, unique books spun, never-spun count, longest/shortest time a book has been on the wheel (derived from `CreatedAtUtc`), a ranked top-books list with spin counts and percentages, and the full list of never-spun active books
+- `GET /api/stats/aggregate` — administrator only; returns cross-user totals: total spins across all users, active user count, and top users by spin count
+
 `POST /api/books` and `PUT /api/books/{id}` accept optional `isbn`, `author`, and `coverUrl` fields alongside the required `title`. A supplied `isbn` is validated (ISBN-10 or ISBN-13, hyphens/spaces ignored) and rejected with `400` if it fails checksum validation.
 
 `DELETE /api/books/{id}` soft-deletes the book (sets a `DeletedAtUtc` timestamp) instead of removing the row. Soft-deleted books are excluded from `GET /api/books`, spin selection, and the `totalBookCount` metric, and re-deleting or updating an already-deleted book returns `404`. There is no restore endpoint. A full user-account removal (`DELETE /api/users/{id}`) still hard-deletes all of that user's books, including any already soft-deleted, along with their spin history.
@@ -476,6 +481,8 @@ Current integration tests cover:
 - Persistent log file creation and structured audit logging checks
 - CI dependency-audit gate (`scripts/check-vulnerable-packages.sh`): passes clean `dotnet list --vulnerable` output through unchanged and exits 0, and exits 1 when the report contains a vulnerable-packages finding
 - PWA manifest, icon, and service-worker behavior, including that `/api/*` requests are never intercepted or cached by the service worker
+- Spin Wheel Stats endpoint access control: `GET /api/stats` requires authentication (401 for unauthenticated callers); `GET /api/stats/aggregate` additionally requires admin (403 for non-admin authenticated users)
+- Stats data correctness: total-spin count, unique-books-spun count, and never-spun count after add/spin/delete sequences; top-books list is ordered by spin count descending; percentage values sum to 100; soft-deleted books preserve their spin history contribution but are excluded from the never-spun list; multi-user aggregate totals and top-user ranking reflect cross-user spin activity (GH #75)
 
 Frontend-focused tests also verify that the HTML, JavaScript, and CSS expose the account setup mode, selected-book UI (including the cover/author shown alongside the "Last selected" title, GH #62), pagination summary, delete confirmation flow, logout form reset behavior, icon-based dark/light/high-contrast theme toggle behavior, the consolidated Settings dialog's tab structure and visibility rules, file-based import/export behavior, and the ISBN lookup controls (input, Lookup button, cover/author preview) on both the add-book row and the edit dialog. Additional checks confirm the spin-result highlight, ambiguous-match toast, and lookup-picker rows derive their color from the active theme's CSS variables rather than a fixed dark-mode color (GH #63).
 
