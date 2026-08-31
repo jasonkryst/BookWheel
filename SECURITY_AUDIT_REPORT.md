@@ -1,5 +1,35 @@
 # Security Audit Report - Book Wheel
 
+## Addendum — 2026-08-31: CI Security Scanning (Trivy + CodeQL)
+
+Date: 2026-08-31
+Auditor: Claude (Sonnet 4.6), via Claude Code
+Scope: CI workflow additions — Trivy container scanning and CodeQL source-code SAST — introduced in version 2.11.0
+
+### Summary
+
+Two automated security scanning layers are now active in CI:
+
+**Trivy container scanning** (`.github/workflows/ci.yml`, `trivy` job):
+- Builds the Docker image on every CI run and scans it with [Trivy](https://github.com/aquasecurity/trivy).
+- Hard failure gate: exits non-zero if any fixable CRITICAL or HIGH severity findings are present. CI does not pass if this gate fails.
+- Full SARIF report (all severities, including unfixed/informational) is generated and uploaded to the GitHub Security → Code Scanning tab on every push to `main` and on PRs from the same repository.
+- Pinned to `aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25` (v0.36.0).
+
+**CodeQL source-code analysis** (`.github/workflows/codeql.yml`):
+- Runs GitHub's native [CodeQL](https://codeql.github.com/) on the .NET/C# source code.
+- Triggers: every push to `main`, every PR targeting `main`, and on a weekly Monday 08:00 UTC schedule for catching newly published CVEs against unchanged code.
+- Query suite: `security-extended` (the default `security-and-quality` set plus extended security queries — broader coverage than the default).
+- Results feed into the same GitHub Security → Code Scanning tab as Trivy, giving a unified view of container-layer and source-code findings.
+- Pinned to `github/codeql-action@d1ba80a13dd99fba24a470575428917156a28b43` (v4).
+
+No new application-code findings. Both tools add detection coverage without modifying runtime behavior.
+
+---
+
+## Prior Audit — 2026-08-19
+Auditor: Claude (Sonnet 5), via Claude Code
+Scope: Application project in BookWheel and solution-level dependency review, focused on the PostgreSQL storage-layer migration (#55) shipped since the prior audit (2026-06-01) and a full re-verification of previously reported findings
 Date: 2026-08-31
 Auditor: Claude (Sonnet 4.6), via Claude Code
 Scope: Application project in BookWheel and solution-level dependency review, focused on the Spin Wheel Stats feature (GH #75) — including new stat endpoints, book audit fields, and two new EF Core migrations — shipped since the prior audit (2026-08-19) and a full re-verification of previously reported findings

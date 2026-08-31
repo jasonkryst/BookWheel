@@ -33,6 +33,8 @@ This document outlines practical ways to improve Book Wheel across product exper
 - Backup and restore guidance is documented for `App_Data`
 - Automated integration coverage includes API, frontend, security regressions, proxy-aware throttling, health checks, and smoke tests
 - CI automation now runs build, tests, vulnerability scans, security filters, smoke filters, and Docker readiness checks
+- Trivy container scanning gates CI on fixable CRITICAL/HIGH vulnerabilities and uploads SARIF results to the GitHub Security tab
+- CodeQL static analysis scans .NET source code for security vulnerabilities on every push/PR and weekly
 
 ## Improvement Priorities
 
@@ -46,8 +48,10 @@ These items provide the highest operational value and align with the latest secu
 4. [Done] Add username-aware throttling or short lockout/backoff for repeated failed logins.
 5. [Done] Configure explicit Data Protection key storage for production environments.
 6. [Done] Add CI secret scanning to prevent accidental credential or token commits.
-7. Pin an explicit `SSL Mode` (e.g. `Require` or `VerifyFull`) on the production PostgreSQL connection string; Npgsql's default (`Prefer`) does not guarantee encryption-in-transit (`SECURITY_AUDIT_REPORT.md`, 2026-08-19).
-8. Decide on a least-privilege strategy for the runtime PostgreSQL role: automatic startup migrations currently require the app's own connection to hold DDL privileges, not just DML (`SECURITY_AUDIT_REPORT.md`, 2026-08-19).
+7. [Done] Add Trivy container scanning with a hard failure gate for fixable CRITICAL/HIGH findings and SARIF upload to GitHub Security tab.
+8. [Done] Add CodeQL static analysis for .NET source-code SAST, feeding results to the GitHub Security → Code Scanning tab alongside Trivy.
+9. Pin an explicit `SSL Mode` (e.g. `Require` or `VerifyFull`) on the production PostgreSQL connection string; Npgsql's default (`Prefer`) does not guarantee encryption-in-transit (`SECURITY_AUDIT_REPORT.md`, 2026-08-19).
+10. Decide on a least-privilege strategy for the runtime PostgreSQL role: automatic startup migrations currently require the app's own connection to hold DDL privileges, not just DML (`SECURITY_AUDIT_REPORT.md`, 2026-08-19).
 
 Expected outcome:
 
