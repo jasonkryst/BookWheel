@@ -520,6 +520,8 @@ Open the gear-icon Settings button and select the Import/Export tab.
 - The test host also verifies that log entries are written to persistent JSONL files in the temp `App_Data/logs` folder.
 - CI runs build, full tests, vulnerability scans, security-focused regressions, smoke tests, and Docker startup verification.
 - CI also runs secret scanning via gitleaks and workflow linting via actionlint to prevent accidental token/credential commits and malformed workflow changes.
+- Trivy container scanning runs on every CI build, applying a hard failure gate for fixable CRITICAL/HIGH vulnerabilities and uploading a full SARIF report (all severities, including unfixed) to the GitHub Security tab.
+- CodeQL static analysis (`.github/workflows/codeql.yml`) scans .NET source code for security vulnerabilities on every push and PR to `main`, and on a weekly Monday schedule. Results appear alongside Trivy findings in the GitHub Security → Code Scanning tab.
 - CI enforces a per-ref concurrency group (newer pushes cancel in-progress runs for the same branch/PR) and per-job timeouts, and Docker layer builds are cached via GitHub Actions cache (`type=gha`).
 - Frontend behavior is implemented in `BookWheel/wwwroot/js/app.js`.
 - The wheel UI and styles are in `BookWheel/wwwroot/index.html` and `BookWheel/wwwroot/css/site.css`.
@@ -561,10 +563,11 @@ Startup diagnostics:
 3. Run security-focused regression filter from CI workflow.
 4. Run vulnerability scans (same gate CI's `dependency-audit` job uses — `dotnet list --vulnerable` alone always exits 0, so the script is what actually fails the build):
    - `scripts/check-vulnerable-packages.sh BookWheel/BookWheel.csproj BookWheel.Tests/BookWheel.Tests.csproj`
-5. Build container image with explicit tag and version build arg.
-6. Start container and verify readiness endpoint (`/health/ready`) and basic login flow.
-7. Verify persistent volumes for `/app/App_Data` and Data Protection keys.
-8. Confirm observability configuration for request correlation and log shipping in production settings.
+5. Verify CI's `trivy` job and `codeql` workflow both passed — check the GitHub Security → Code Scanning tab for any new findings before tagging.
+6. Build container image with explicit tag and version build arg.
+7. Start container and verify readiness endpoint (`/health/ready`) and basic login flow.
+8. Verify persistent volumes for `/app/App_Data` and Data Protection keys.
+9. Confirm observability configuration for request correlation and log shipping in production settings.
 
 ## Troubleshooting
 
