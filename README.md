@@ -129,7 +129,7 @@ dotnet build BookWheel.slnx
 
 `BookWheel/BookWheel.csproj`'s `InformationalVersion` is the single source of truth for the app version. The footer and `/api/version` read it from the built assembly's `AssemblyInformationalVersion` attribute at runtime; everything else derives from or is validated against this value:
 
-- Local default: `2.10.0` (set in `BookWheel/BookWheel.csproj`)
+- Local default: `2.12.0` (set in `BookWheel/BookWheel.csproj`)
 - CI builds (`.github/workflows/ci.yml`): read the csproj's `InformationalVersion`, strip any suffix, and append `-ci.<run>+<sha>` via `/p:InformationalVersion=...`
 - Docker builds (`Dockerfile`): accept an optional `ARG APP_VERSION`; when unset, the build falls through to the csproj default rather than a second hardcoded value
 - Release builds (`.github/workflows/docker-release.yml`): derive the version from the GitHub Release tag, but the workflow **fails** if that version doesn't match the csproj's `InformationalVersion`, so a release can't ship without bumping the csproj first
@@ -137,13 +137,13 @@ dotnet build BookWheel.slnx
 Examples:
 
 ```bash
-dotnet build BookWheel.slnx /p:InformationalVersion=2.10.0
-docker build --build-arg APP_VERSION=2.10.0 -t jasonkryst/bookwheel:2.10.0 .
+dotnet build BookWheel.slnx /p:InformationalVersion=2.12.0
+docker build --build-arg APP_VERSION=2.12.0 -t jasonkryst/bookwheel:2.12.0 .
 ```
 
 ## Automated Docker Publish on Version Release
 
-GitHub Actions publishes Docker images to Docker Hub and GHCR when a GitHub Release is published (for example, tagged `v2.10.0`).
+GitHub Actions publishes Docker images to Docker Hub and GHCR when a GitHub Release is published (for example, tagged `v2.12.0`).
 
 Workflow file:
 
@@ -151,9 +151,9 @@ Workflow file:
 
 Published tags:
 
-- `jasonkryst/bookwheel:<version-without-v>` (for example `2.10.0`)
+- `jasonkryst/bookwheel:<version-without-v>` (for example `2.12.0`)
 - `jasonkryst/bookwheel:latest` (only for non-prerelease versions)
-- `ghcr.io/jasonkryst/bookwheel:<version-without-v>` (for example `2.10.0`)
+- `ghcr.io/jasonkryst/bookwheel:<version-without-v>` (for example `2.12.0`)
 - `ghcr.io/jasonkryst/bookwheel:latest` (only for non-prerelease versions)
 
 Required repository secrets:
@@ -531,6 +531,7 @@ Open the gear-icon Settings button and select the Import/Export tab.
 - Trivy container scanning runs on every CI build, applying a hard failure gate for fixable CRITICAL/HIGH vulnerabilities and uploading a full SARIF report (all severities, including unfixed) to the GitHub Security tab.
 - CodeQL static analysis (`.github/workflows/codeql.yml`) scans .NET source code for security vulnerabilities on every push and PR to `main`, and on a weekly Monday schedule. Results appear alongside Trivy findings in the GitHub Security → Code Scanning tab.
 - Dependabot (`.github/dependabot.yml`) scans NuGet packages and GitHub Actions versions weekly, opening up to 5 PRs per ecosystem when updates are available.
+- EF Core packages (`Npgsql.EntityFrameworkCore.PostgreSQL`, `Microsoft.EntityFrameworkCore.Design`) are on the 9.x line; `Microsoft.EntityFrameworkCore`/`Microsoft.EntityFrameworkCore.Relational` are pinned explicitly in `BookWheel.csproj` to keep both in lockstep, since the Npgsql provider and the Design tooling can otherwise resolve to different patch versions and fail to build (`CS1705`).
 - CI enforces a per-ref concurrency group (newer pushes cancel in-progress runs for the same branch/PR) and per-job timeouts, and Docker layer builds are cached via GitHub Actions cache (`type=gha`).
 - Frontend behavior is implemented in `BookWheel/wwwroot/js/app.js`.
 - The wheel UI and styles are in `BookWheel/wwwroot/index.html` and `BookWheel/wwwroot/css/site.css`.
@@ -567,7 +568,7 @@ Startup diagnostics:
 
 ## Release Checklist
 
-1. Update the version stamp in `BookWheel/BookWheel.csproj` (`InformationalVersion`) to match the intended release tag (e.g. `2.10.0`) — the release workflow fails if the GitHub Release tag doesn't match it.
+1. Update the version stamp in `BookWheel/BookWheel.csproj` (`InformationalVersion`) to match the intended release tag (e.g. `2.12.0`) — the release workflow fails if the GitHub Release tag doesn't match it.
 2. Run full tests: `dotnet test BookWheel.slnx`.
 3. Run security-focused regression filter from CI workflow.
 4. Run vulnerability scans (same gate CI's `dependency-audit` job uses — `dotnet list --vulnerable` alone always exits 0, so the script is what actually fails the build):
