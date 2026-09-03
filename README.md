@@ -129,7 +129,7 @@ dotnet build BookWheel.slnx
 
 `BookWheel/BookWheel.csproj`'s `InformationalVersion` is the single source of truth for the app version. The footer and `/api/version` read it from the built assembly's `AssemblyInformationalVersion` attribute at runtime; everything else derives from or is validated against this value:
 
-- Local default: `2.12.0` (set in `BookWheel/BookWheel.csproj`)
+- Local default: `2.13.0` (set in `BookWheel/BookWheel.csproj`)
 - CI builds (`.github/workflows/ci.yml`): read the csproj's `InformationalVersion`, strip any suffix, and append `-ci.<run>+<sha>` via `/p:InformationalVersion=...`
 - Docker builds (`Dockerfile`): accept an optional `ARG APP_VERSION`; when unset, the build falls through to the csproj default rather than a second hardcoded value
 - Release builds (`.github/workflows/docker-release.yml`): derive the version from the GitHub Release tag, but the workflow **fails** if that version doesn't match the csproj's `InformationalVersion`, so a release can't ship without bumping the csproj first
@@ -137,13 +137,13 @@ dotnet build BookWheel.slnx
 Examples:
 
 ```bash
-dotnet build BookWheel.slnx /p:InformationalVersion=2.12.0
-docker build --build-arg APP_VERSION=2.12.0 -t jasonkryst/bookwheel:2.12.0 .
+dotnet build BookWheel.slnx /p:InformationalVersion=2.13.0
+docker build --build-arg APP_VERSION=2.13.0 -t jasonkryst/bookwheel:2.13.0 .
 ```
 
 ## Automated Docker Publish on Version Release
 
-GitHub Actions publishes Docker images to Docker Hub and GHCR when a GitHub Release is published (for example, tagged `v2.12.0`).
+GitHub Actions publishes Docker images to Docker Hub and GHCR when a GitHub Release is published (for example, tagged `v2.13.0`).
 
 Workflow file:
 
@@ -151,9 +151,9 @@ Workflow file:
 
 Published tags:
 
-- `jasonkryst/bookwheel:<version-without-v>` (for example `2.12.0`)
+- `jasonkryst/bookwheel:<version-without-v>` (for example `2.13.0`)
 - `jasonkryst/bookwheel:latest` (only for non-prerelease versions)
-- `ghcr.io/jasonkryst/bookwheel:<version-without-v>` (for example `2.12.0`)
+- `ghcr.io/jasonkryst/bookwheel:<version-without-v>` (for example `2.13.0`)
 - `ghcr.io/jasonkryst/bookwheel:latest` (only for non-prerelease versions)
 
 Required repository secrets:
@@ -198,10 +198,10 @@ From the solution root:
 
 ```bash
 docker build -t bookwheel:latest .
-docker run --rm -p 8080:8080 --name bookwheel bookwheel:latest
+docker run --rm -p 32700:8080 --name bookwheel bookwheel:latest
 ```
 
-Open `http://localhost:8080`.
+Open `http://localhost:32700`.
 
 ### Run with Docker Compose
 
@@ -568,7 +568,7 @@ Startup diagnostics:
 
 ## Release Checklist
 
-1. Update the version stamp in `BookWheel/BookWheel.csproj` (`InformationalVersion`) to match the intended release tag (e.g. `2.12.0`) — the release workflow fails if the GitHub Release tag doesn't match it.
+1. Update the version stamp in `BookWheel/BookWheel.csproj` (`InformationalVersion`) to match the intended release tag (e.g. `2.13.0`) — the release workflow fails if the GitHub Release tag doesn't match it.
 2. Run full tests: `dotnet test BookWheel.slnx`.
 3. Run security-focused regression filter from CI workflow.
 4. Run vulnerability scans (same gate CI's `dependency-audit` job uses — `dotnet list --vulnerable` alone always exits 0, so the script is what actually fails the build):
@@ -588,4 +588,4 @@ Startup diagnostics:
 - If you need to reset the account, delete `BookWheel/App_Data/user.cred` and create a new account on next launch.
 - If you need to inspect logs, open the current day file under `BookWheel/App_Data/logs/`.
 - If the container starts but auth sessions break after restarts, verify Data Protection keys are persisted (compose handles this via `bookwheel_dp_keys`).
-- If port `8080` is busy, change the host side mapping in `docker-compose.yml` (for example, `8081:8080`).
+- If port `32700` is busy, change the host side mapping in `docker-compose.yml` (for example, `32701:8080`).
