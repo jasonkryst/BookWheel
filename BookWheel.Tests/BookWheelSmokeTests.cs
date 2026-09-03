@@ -60,6 +60,7 @@ public sealed class BookWheelSmokeTests
         Assert.Contains("bookwheel_app_data", compose, StringComparison.Ordinal);
         Assert.Contains("/app/App_Data", compose, StringComparison.Ordinal);
         Assert.Contains("/home/app/.aspnet/DataProtection-Keys", compose, StringComparison.Ordinal);
+        Assert.Contains("\"32700:8080\"", compose, StringComparison.Ordinal);
 
         Assert.Contains("VOLUME", dockerfile, StringComparison.Ordinal);
         Assert.Contains("/app/App_Data", dockerfile, StringComparison.Ordinal);
