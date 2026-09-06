@@ -7,6 +7,7 @@ using BookWheel.Storage.Postgres;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Localization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
@@ -74,7 +75,31 @@ builder.Services.AddSingleton<IPasswordResetTokenRepository>(sp => sp.GetRequire
 
 builder.Services.AddSingleton<DataMigrationService>();
 builder.Services.AddSingleton<PostgresMigrationService>();
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+	.ConfigureApiBehaviorOptions(options =>
+	{
+		options.InvalidModelStateResponseFactory = context =>
+		{
+			var localizer = context.HttpContext.RequestServices.GetRequiredService<ApiMessageLocalizer>();
+			var problemDetails = new ValidationProblemDetails(context.ModelState)
+			{
+				Status = StatusCodes.Status400BadRequest,
+				Instance = context.HttpContext.Request.Path
+			};
+
+			foreach (var key in problemDetails.Errors.Keys.ToList())
+			{
+				problemDetails.Errors[key] = problemDetails.Errors[key]
+					.Select(localizer.Localize)
+					.ToArray();
+			}
+
+			return new BadRequestObjectResult(problemDetails)
+			{
+				ContentTypes = { "application/json" }
+			};
+		};
+	});
 builder.Services.AddHttpClient("central-log-shipper");
 builder.Services.AddHttpClient<IBookMetadataLookupService, OpenLibraryBookMetadataLookupService>(client =>
 {

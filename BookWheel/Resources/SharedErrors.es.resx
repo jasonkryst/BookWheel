@@ -87,4 +87,31 @@
   <data name="BookMetadataNotFoundByTitle" xml:space="preserve">
     <value>No se encontraron datos del libro para ese título.</value>
   </data>
+  <data name="BookTitleLength" xml:space="preserve">
+    <value>El título del libro debe tener entre 1 y 200 caracteres.</value>
+  </data>
+  <data name="IsbnLength" xml:space="preserve">
+    <value>El ISBN debe tener 20 caracteres o menos.</value>
+  </data>
+  <data name="AuthorLength" xml:space="preserve">
+    <value>El autor debe tener 300 caracteres o menos.</value>
+  </data>
+  <data name="CoverUrlLength" xml:space="preserve">
+    <value>La URL de la portada debe tener 2048 caracteres o menos.</value>
+  </data>
+  <data name="InvalidBookType" xml:space="preserve">
+    <value>El tipo de libro debe ser un tipo válido.</value>
+  </data>
+  <data name="UsernameLength" xml:space="preserve">
+    <value>El nombre de usuario debe tener entre 1 y 64 caracteres.</value>
+  </data>
+  <data name="PasswordRequired" xml:space="preserve">
+    <value>La contraseña es obligatoria.</value>
+  </data>
+  <data name="PasswordLength" xml:space="preserve">
+    <value>La contraseña debe tener al menos 8 caracteres.</value>
+  </data>
+  <data name="ResetTokenRequired" xml:space="preserve">
+    <value>Se requiere un token de restablecimiento.</value>
+  </data>
 </root>

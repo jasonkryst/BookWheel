@@ -87,4 +87,31 @@
   <data name="BookMetadataNotFoundByTitle" xml:space="preserve">
     <value>No book metadata found for that title.</value>
   </data>
+  <data name="BookTitleLength" xml:space="preserve">
+    <value>Book title must be between 1 and 200 characters.</value>
+  </data>
+  <data name="IsbnLength" xml:space="preserve">
+    <value>ISBN must be 20 characters or fewer.</value>
+  </data>
+  <data name="AuthorLength" xml:space="preserve">
+    <value>Author must be 300 characters or fewer.</value>
+  </data>
+  <data name="CoverUrlLength" xml:space="preserve">
+    <value>Cover URL must be 2048 characters or fewer.</value>
+  </data>
+  <data name="InvalidBookType" xml:space="preserve">
+    <value>Book type must be a valid type.</value>
+  </data>
+  <data name="UsernameLength" xml:space="preserve">
+    <value>Username must be between 1 and 64 characters.</value>
+  </data>
+  <data name="PasswordRequired" xml:space="preserve">
+    <value>Password is required.</value>
+  </data>
+  <data name="PasswordLength" xml:space="preserve">
+    <value>Password must be at least 8 characters.</value>
+  </data>
+  <data name="ResetTokenRequired" xml:space="preserve">
+    <value>A reset token is required.</value>
+  </data>
 </root>

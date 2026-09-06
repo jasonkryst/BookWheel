@@ -124,6 +124,66 @@ public sealed class BookWheelApiTests
     }
 
     [Fact]
+    public async Task AddBook_WithMissingTitle_ReturnsSpanishValidationMessage_WhenAcceptLanguageIsSpanish()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/books")
+        {
+            Content = JsonContent.Create(new { title = "" })
+        };
+        request.Headers.Add("Accept-Language", "es");
+
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        using var doc = await ReadJsonAsync(response);
+        var titleErrors = doc.RootElement.GetProperty("errors").GetProperty("Title")
+            .EnumerateArray()
+            .Select(e => e.GetString())
+            .ToList();
+
+        Assert.Contains("El título del libro es obligatorio.", titleErrors);
+        Assert.DoesNotContain(titleErrors, msg => msg != null && msg.Contains("required", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task AddBook_WithOverlongIsbn_ReturnsLocalizedLengthMessage()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        var response = await client.PostAsJsonAsync("/api/books", new
+        {
+            title = "Valid Title",
+            isbn = new string('9', 21)
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        using var doc = await ReadJsonAsync(response);
+        var isbnErrors = doc.RootElement.GetProperty("errors").GetProperty("Isbn")
+            .EnumerateArray()
+            .Select(e => e.GetString())
+            .ToList();
+
+        Assert.Contains("ISBN must be 20 characters or fewer.", isbnErrors);
+    }
+
+    [Fact]
     public async Task Setup_Creates_Account_And_Logs_The_User_In()
     {
         using var factory = new BookWheelWebAppFactory();
@@ -1308,7 +1368,7 @@ public sealed class BookWheelApiTests
         using var doc = await ReadJsonAsync(response);
         var errors = doc.RootElement.GetProperty("errors");
         var titleErrors = errors.GetProperty("Title").EnumerateArray().Select(x => x.GetString()).ToList();
-        Assert.Contains(titleErrors, message => string.Equals(message, "The Title field is required.", StringComparison.Ordinal));
+        Assert.Contains(titleErrors, message => string.Equals(message, "Book title is required.", StringComparison.Ordinal));
     }
 
     [Fact]

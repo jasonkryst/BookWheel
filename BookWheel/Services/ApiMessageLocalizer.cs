@@ -31,6 +31,15 @@ public sealed class ApiMessageLocalizer(IStringLocalizer<SharedErrors> localizer
 		["Provide an ISBN or a title to look up."] = "IsbnOrTitleRequired",
 		["No book metadata found for that ISBN."] = "BookMetadataNotFoundByIsbn",
 		["No book metadata found for that title."] = "BookMetadataNotFoundByTitle",
+		["Book title must be between 1 and 200 characters."] = "BookTitleLength",
+		["ISBN must be 20 characters or fewer."] = "IsbnLength",
+		["Author must be 300 characters or fewer."] = "AuthorLength",
+		["Cover URL must be 2048 characters or fewer."] = "CoverUrlLength",
+		["Book type must be a valid type."] = "InvalidBookType",
+		["Username must be between 1 and 64 characters."] = "UsernameLength",
+		["Password is required."] = "PasswordRequired",
+		["Password must be at least 8 characters."] = "PasswordLength",
+		["A reset token is required."] = "ResetTokenRequired",
 	};
 
 	public static IReadOnlyDictionary<string, string> KnownMessageKeys => KeysByEnglishMessage;
