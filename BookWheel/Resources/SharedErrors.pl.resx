@@ -87,4 +87,31 @@
   <data name="BookMetadataNotFoundByTitle" xml:space="preserve">
     <value>Nie znaleziono danych książki dla tego tytułu.</value>
   </data>
+  <data name="BookTitleLength" xml:space="preserve">
+    <value>Tytuł książki musi mieć od 1 do 200 znaków.</value>
+  </data>
+  <data name="IsbnLength" xml:space="preserve">
+    <value>ISBN musi mieć maksymalnie 20 znaków.</value>
+  </data>
+  <data name="AuthorLength" xml:space="preserve">
+    <value>Autor musi mieć maksymalnie 300 znaków.</value>
+  </data>
+  <data name="CoverUrlLength" xml:space="preserve">
+    <value>Adres URL okładki musi mieć maksymalnie 2048 znaków.</value>
+  </data>
+  <data name="InvalidBookType" xml:space="preserve">
+    <value>Typ książki musi być prawidłowym typem.</value>
+  </data>
+  <data name="UsernameLength" xml:space="preserve">
+    <value>Nazwa użytkownika musi mieć od 1 do 64 znaków.</value>
+  </data>
+  <data name="PasswordRequired" xml:space="preserve">
+    <value>Hasło jest wymagane.</value>
+  </data>
+  <data name="PasswordLength" xml:space="preserve">
+    <value>Hasło musi mieć co najmniej 8 znaków.</value>
+  </data>
+  <data name="ResetTokenRequired" xml:space="preserve">
+    <value>Wymagany jest token resetowania.</value>
+  </data>
 </root>
