@@ -34,6 +34,14 @@ if (string.IsNullOrWhiteSpace(connectionString))
 		"ConnectionStrings:BookWheel is not configured. Set it in appsettings.json, an environment variable (ConnectionStrings__BookWheel), or a deployment secret.");
 }
 
+var migrationConnectionString = builder.Configuration.GetConnectionString("BookWheelMigrations");
+if (string.IsNullOrWhiteSpace(migrationConnectionString))
+{
+	// No least-privilege split configured — migrations and runtime queries share
+	// the same role, matching pre-2.15.0 behavior exactly.
+	migrationConnectionString = connectionString;
+}
+
 builder.Services.AddPooledDbContextFactory<BookWheelDbContext>(options => options.UseNpgsql(connectionString));
 
 builder.Services.Configure<SecurityOptions>(builder.Configuration.GetSection(SecurityOptions.SectionName));
@@ -137,10 +145,10 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
-using (var migrationScope = app.Services.CreateScope())
+var migrationOptionsBuilder = new DbContextOptionsBuilder<BookWheelDbContext>();
+migrationOptionsBuilder.UseNpgsql(migrationConnectionString);
+await using (var startupDbContext = new BookWheelDbContext(migrationOptionsBuilder.Options))
 {
-	var dbContextFactory = migrationScope.ServiceProvider.GetRequiredService<IDbContextFactory<BookWheelDbContext>>();
-	await using var startupDbContext = await dbContextFactory.CreateDbContextAsync();
 	await startupDbContext.Database.MigrateAsync();
 }
 

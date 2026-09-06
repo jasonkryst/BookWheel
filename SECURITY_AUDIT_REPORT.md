@@ -170,9 +170,9 @@ Recommendations:
 
 ### Previously Reported Findings — Status
 
-#### Automatic EF Core migrations at startup require DDL privileges (Low, reported 2026-08-19) — **Open**
+#### Automatic EF Core migrations at startup require DDL privileges (Low, reported 2026-08-19) — **Closed (2026-09-06)**
 
-No change. Still tracked in `IMPROVEMENT_ROADMAP.md` Priority 1, item 10.
+Closed via a least-privilege role split: a new `bookwheel_migrator` role (schema owner, non-superuser) is used only for the one-time startup migration via `ConnectionStrings:BookWheelMigrations`, and a new `bookwheel_app` role (DML only) is used for all runtime request handling via `ConnectionStrings:BookWheel`. The Postgres bootstrap role is no longer used by the application at all. Note this closes a materially larger issue than originally described — `docs/audits/database.md` (2026-09-04, Finding #12) found the live runtime role was a full PostgreSQL superuser, not merely DDL-capable. Ships as the default for fresh deployments of `docker-compose.yml`; existing deployments have a documented manual upgrade path (`README.md`, "Data Storage" → "Least-privilege database roles").
 
 #### PostgreSQL connection string does not pin an SSL/TLS mode (Low, reported 2026-08-19) — **Open**
 
