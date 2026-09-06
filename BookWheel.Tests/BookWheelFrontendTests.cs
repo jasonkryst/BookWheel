@@ -961,4 +961,30 @@ public sealed class BookWheelFrontendTests
         // low-weight indicator beside the book title.
         Assert.Contains(".book-scanner-badge", css, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task Home_Page_Should_Include_Analytics_Opt_Out_Checkbox()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var html = await client.GetStringAsync("/");
+
+        Assert.Contains("id=\"analyticsConsentCheckbox\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-i18n=\"settings.analyticsLabel\"", html, StringComparison.Ordinal);
+        Assert.Contains("window.__BOOKWHEEL_GA_ID__", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Script_Should_Implement_Analytics_Opt_Out_Logic()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var script = await client.GetStringAsync("/js/app.js?v=test");
+
+        Assert.Contains("ANALYTICS_CONSENT_STORAGE_KEY", script, StringComparison.Ordinal);
+        Assert.Contains("applyAnalyticsConsent", script, StringComparison.Ordinal);
+        Assert.Contains("ga-disable-", script, StringComparison.Ordinal);
+    }
 }
