@@ -239,6 +239,10 @@
             <option value="pl">Polski</option>
           </select>
         </label>
+        <label class="checkbox-row settings-row">
+          <input id="analyticsConsentCheckbox" type="checkbox" checked />
+          <span data-i18n="settings.analyticsLabel">Allow anonymous usage analytics</span>
+        </label>
       </section>
 
       <div class="actions modal-actions">
@@ -417,6 +421,9 @@
   <script src="js/app.js?v=__ASSET_VERSION__"></script>
 
   <!-- Google tag (gtag.js) -->
+  <script>
+    window.__BOOKWHEEL_GA_ID__ = "__GOOGLE_ANALYTICS_ID__";
+  </script>
   <script async src="https://www.googletagmanager.com/gtag/js?id=__GOOGLE_ANALYTICS_ID__"></script>
   <script>
     window.dataLayer = window.dataLayer || [];

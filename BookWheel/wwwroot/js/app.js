@@ -102,6 +102,7 @@ const settingsPreferencesTabBtn = document.getElementById('settingsPreferencesTa
 const settingsManageUsersPanel = document.getElementById('settingsManageUsersPanel');
 const settingsImportExportPanel = document.getElementById('settingsImportExportPanel');
 const settingsPreferencesPanel = document.getElementById('settingsPreferencesPanel');
+const analyticsConsentCheckbox = document.getElementById('analyticsConsentCheckbox');
 const appVersionEl = document.getElementById('appVersion');
 const toastRegion = document.getElementById('toastRegion');
 const scannerDialog = document.getElementById('scannerDialog');
@@ -133,6 +134,7 @@ const HIGH_CONTRAST_THEME = 'high-contrast';
 const THEME_CYCLE = [DARK_THEME, LIGHT_THEME, HIGH_CONTRAST_THEME];
 const THEME_ICONS = { [DARK_THEME]: '☾', [LIGHT_THEME]: '☀', [HIGH_CONTRAST_THEME]: '◐' };
 const THEME_LABEL_KEYS = { [DARK_THEME]: 'theme.dark', [LIGHT_THEME]: 'theme.light', [HIGH_CONTRAST_THEME]: 'theme.highContrast' };
+const ANALYTICS_CONSENT_STORAGE_KEY = 'bookwheel-analytics-consent';
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const dialogFocusReturnMap = new WeakMap();
 const BARCODE_SCANNER_SUPPORTED = typeof BarcodeDetector !== 'undefined';
@@ -338,6 +340,29 @@ function applyTheme(theme) {
   }
 
   drawWheel();
+}
+
+function isAnalyticsOptedOut() {
+  return localStorage.getItem(ANALYTICS_CONSENT_STORAGE_KEY) === 'false';
+}
+
+function applyAnalyticsConsent() {
+  const gaId = window.__BOOKWHEEL_GA_ID__;
+  if (!gaId) {
+    return;
+  }
+
+  const optedOut = isAnalyticsOptedOut();
+  window[`ga-disable-${gaId}`] = optedOut;
+
+  if (analyticsConsentCheckbox) {
+    analyticsConsentCheckbox.checked = !optedOut;
+  }
+}
+
+function setAnalyticsConsent(optedIn) {
+  localStorage.setItem(ANALYTICS_CONSENT_STORAGE_KEY, optedIn ? 'true' : 'false');
+  applyAnalyticsConsent();
 }
 
 function toggleTheme() {
@@ -2245,6 +2270,12 @@ if (langSelect) {
   });
 }
 
+if (analyticsConsentCheckbox) {
+  analyticsConsentCheckbox.addEventListener('change', () => {
+    setAnalyticsConsent(analyticsConsentCheckbox.checked);
+  });
+}
+
 // ─── Stats dialog ───────────────────────────────────────────────────────────
 
 const statsBtnLoggedIn = document.getElementById('statsBtnLoggedIn');
@@ -2584,6 +2615,7 @@ syncLangSelect();
   }
 
   applyTheme(getPreferredTheme());
+  applyAnalyticsConsent();
   await loadAppVersion();
 
   try {

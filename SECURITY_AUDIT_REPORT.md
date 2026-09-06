@@ -93,6 +93,8 @@ Recommendations:
 3. Document the setting prominently in `README.md`'s configuration section, including what data is sent and to whom.
 4. If analytics ships enabled by default in any form going forward, add a visible privacy notice/consent mechanism, and ensure it does not fire on the pre-login screen without consent.
 
+**Status (2026-09-06):** Addressed via an opt-out mechanism rather than removal — see `README.md`'s new "Analytics" section. The default ID is retained (tracking remains on by default for the maintainer's own deployment), but end users can now disable it via a Settings → Preferences checkbox, which sets Google's documented `ga-disable-<id>` flag immediately. Downstream forkers are now explicitly told in the README to override or blank the ID for their own deployment.
+
 #### 3) Low (NEW) - No baseline HTTP security headers on any response
 
 Evidence — live `curl -i` against the running instance:
