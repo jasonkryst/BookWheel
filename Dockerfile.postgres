@@ -1,3 +1,4 @@
 FROM postgres:16-alpine
 
 COPY scripts/postgres/init-least-privilege-roles.sh /docker-entrypoint-initdb.d/init-least-privilege-roles.sh
+RUN chmod 0755 /docker-entrypoint-initdb.d/init-least-privilege-roles.sh
