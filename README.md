@@ -316,7 +316,30 @@ Important:
 
 Book, credential, and password-reset-token data is stored in PostgreSQL, configured via the `ConnectionStrings:BookWheel` setting (or the `ConnectionStrings__BookWheel` environment variable in containerized deployments). EF Core migrations run automatically at startup.
 
-`docker-compose.yml`'s bundled `postgres` service uses a local-dev-only default password (`bookwheel`). Override it for anything beyond local dev by creating a `.env` file next to `docker-compose.yml` with `POSTGRES_PASSWORD=<your-password>` before running `docker compose up`.
+`docker-compose.yml`'s bundled `postgres` service uses local-dev-only default passwords (`bookwheel`, `bookwheel_migrator`, `bookwheel_app` — see "Least-privilege database roles" below). Override them for anything beyond local dev by creating a `.env` file next to `docker-compose.yml` with `POSTGRES_PASSWORD=<your-password>`, `POSTGRES_MIGRATOR_PASSWORD=<your-password>`, and `POSTGRES_APP_PASSWORD=<your-password>` before running `docker compose up`.
+
+**Least-privilege database roles:** fresh deployments of the bundled `docker-compose.yml` automatically provision two non-superuser Postgres roles: `bookwheel_migrator` (schema owner, used only for the one-time startup migration via `ConnectionStrings:BookWheelMigrations`) and `bookwheel_app` (`SELECT`/`INSERT`/`UPDATE`/`DELETE` only, used for all runtime request handling via `ConnectionStrings:BookWheel`). The Postgres bootstrap role (`POSTGRES_USER=bookwheel`) is never used by the application itself once these are provisioned — Postgres requires the bootstrap role to always keep its superuser attribute, so rather than trying to strip it, the app simply doesn't connect as it.
+
+This is provisioned by `scripts/postgres/init-least-privilege-roles.sh`, which Postgres only runs automatically against a **fresh, empty** data volume. If you're upgrading an existing deployment's volume:
+
+```bash
+docker exec -i bookwheel-postgres bash < scripts/postgres/init-least-privilege-roles.sh
+```
+
+Then transfer ownership of the existing tables to the new migrator role (the automatic script can't do this for you — `REASSIGN OWNED` can't be used here because the bootstrap role also owns the database itself):
+
+```bash
+docker exec bookwheel-postgres psql -U bookwheel -d bookwheel -c '
+  ALTER TABLE "__EFMigrationsHistory" OWNER TO bookwheel_migrator;
+  ALTER TABLE book_types OWNER TO bookwheel_migrator;
+  ALTER TABLE books OWNER TO bookwheel_migrator;
+  ALTER TABLE password_reset_tokens OWNER TO bookwheel_migrator;
+  ALTER TABLE spin_selections OWNER TO bookwheel_migrator;
+  ALTER TABLE users OWNER TO bookwheel_migrator;
+'
+```
+
+Finally, point `ConnectionStrings__BookWheel` at the new `bookwheel_app` role and `ConnectionStrings__BookWheelMigrations` at the new `bookwheel_migrator` role, then restart the app. If `ConnectionStrings:BookWheelMigrations` is left unset, the app falls back to using `ConnectionStrings:BookWheel` for both migrations and runtime queries — today's original single-role behavior — so this upgrade is entirely opt-in.
 
 Log data is stored in:
 

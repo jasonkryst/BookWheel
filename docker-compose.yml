@@ -10,8 +10,15 @@ services:
       # Local-dev default only. Override via a .env file (POSTGRES_PASSWORD=...) for anything
       # beyond local dev — see README's "Data Storage" section.
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bookwheel}
+      # Local-dev defaults only, same override guidance as POSTGRES_PASSWORD. These are the
+      # passwords for two non-superuser roles the app actually connects as — the bootstrap
+      # POSTGRES_USER/POSTGRES_PASSWORD role above is never used by the app itself once
+      # these are provisioned (see scripts/postgres/init-least-privilege-roles.sh).
+      POSTGRES_MIGRATOR_PASSWORD: ${POSTGRES_MIGRATOR_PASSWORD:-bookwheel_migrator}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-bookwheel_app}
     volumes:
       - bookwheel_pg_data:/var/lib/postgresql/data
+      - ./scripts/postgres/init-least-privilege-roles.sh:/docker-entrypoint-initdb.d/init-least-privilege-roles.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U bookwheel -d bookwheel"]
       interval: 5s
@@ -30,7 +37,11 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__BookWheel: "Host=postgres;Database=bookwheel;Username=bookwheel;Password=${POSTGRES_PASSWORD:-bookwheel}"
+      # Least-privilege runtime role (DML only) — see scripts/postgres/init-least-privilege-roles.sh.
+      ConnectionStrings__BookWheel: "Host=postgres;Database=bookwheel;Username=bookwheel_app;Password=${POSTGRES_APP_PASSWORD:-bookwheel_app}"
+      # Schema-owning role (not the Postgres bootstrap superuser), used only for the
+      # one-time startup migration.
+      ConnectionStrings__BookWheelMigrations: "Host=postgres;Database=bookwheel;Username=bookwheel_migrator;Password=${POSTGRES_MIGRATOR_PASSWORD:-bookwheel_migrator}"
     volumes:
       - bookwheel_app_data:/app/App_Data
       - bookwheel_dp_keys:/home/app/.aspnet/DataProtection-Keys
