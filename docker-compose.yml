@@ -2,7 +2,10 @@ version: "3.9"
 
 services:
   postgres:
-    image: postgres:16-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+    image: bookwheel-postgres:latest
     container_name: bookwheel-postgres
     environment:
       POSTGRES_DB: bookwheel
@@ -18,7 +21,6 @@ services:
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-bookwheel_app}
     volumes:
       - bookwheel_pg_data:/var/lib/postgresql/data
-      - ./scripts/postgres/init-least-privilege-roles.sh:/docker-entrypoint-initdb.d/init-least-privilege-roles.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U bookwheel -d bookwheel"]
       interval: 5s
