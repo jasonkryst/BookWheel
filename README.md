@@ -198,6 +198,7 @@ By default, the app serves static files and API endpoints from the same host.
 This repository now includes:
 
 - `Dockerfile` for building and running the app container
+- `Dockerfile.postgres` for the bundled PostgreSQL service and its role initializer
 - `.dockerignore` for leaner and safer build contexts
 - `docker-compose.yml` for local container orchestration with persistent volumes
 - Non-root container runtime with writable app data and Data Protection key paths
@@ -226,6 +227,10 @@ To run detached:
 ```bash
 docker-compose up -d --build
 ```
+
+The Compose build context must include the repository files. This is especially important for
+Portainer: deploy from the repository's Git source rather than pasting only the Compose file
+into the Web Editor, so it can build both the app and bundled PostgreSQL images.
 
 To stop and remove containers:
 
