@@ -48,6 +48,17 @@ public sealed class BookWheelSmokeTests
     }
 
     [Fact]
+    public async Task Startup_Migrates_Successfully_When_BookWheelMigrations_ConnectionString_Is_Unset()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var readyResponse = await client.GetAsync("/health/ready");
+
+        Assert.Equal(HttpStatusCode.OK, readyResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task Docker_Artifacts_Define_Persistent_Data_And_Runtime_Probe_Configuration()
     {
         var solutionRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
