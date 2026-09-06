@@ -59,6 +59,49 @@ public sealed class BookWheelSmokeTests
     }
 
     [Fact]
+    public async Task Static_Assets_Are_Served_With_Long_Lived_Immutable_Cache_Headers()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js?v=test");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var cacheControl = response.Headers.CacheControl?.ToString() ?? string.Empty;
+        Assert.Contains("max-age=31536000", cacheControl, StringComparison.Ordinal);
+        Assert.Contains("immutable", cacheControl, StringComparison.Ordinal);
+        Assert.DoesNotContain("no-store", cacheControl, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Index_Html_Still_Uses_No_Store_Cache_Headers()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var cacheControl = response.Headers.CacheControl?.ToString() ?? string.Empty;
+        Assert.Contains("no-store", cacheControl, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Static_Js_Response_Is_Compressed_When_Client_Accepts_Gzip()
+    {
+        using var factory = new BookWheelWebAppFactory();
+        using var client = factory.CreateClient();
+
+        var request = new HttpRequestMessage(HttpMethod.Get, "/js/app.js?v=test");
+        request.Headers.AcceptEncoding.Add(new System.Net.Http.Headers.StringWithQualityHeaderValue("gzip"));
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("gzip", response.Content.Headers.ContentEncoding.FirstOrDefault());
+    }
+
+    [Fact]
     public async Task Docker_Artifacts_Define_Persistent_Data_And_Runtime_Probe_Configuration()
     {
         var solutionRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
