@@ -7,6 +7,7 @@ using BookWheel.Storage.Postgres;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Localization;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
 using System.Text.Json;
@@ -143,6 +144,20 @@ builder.Services.AddRateLimiter(options =>
 	});
 });
 
+builder.Services.AddResponseCompression(options =>
+{
+	// This app has no reflected user-controlled secrets in compressible responses
+	// (the BREACH-attack scenario response compression normally disables for HTTPS
+	// by default) — it's a fixed-shape SPA shell plus JSON APIs scoped to the
+	// authenticated caller's own data. Safe to enable for HTTPS here.
+	options.EnableForHttps = true;
+	options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[]
+	{
+		"application/javascript",
+		"application/manifest+json"
+	});
+});
+
 var app = builder.Build();
 
 var migrationOptionsBuilder = new DbContextOptionsBuilder<BookWheelDbContext>();
@@ -248,6 +263,7 @@ if (observabilityOptions.EnableRequestCorrelationLogging)
 
 app.UseForwardedHeaders();
 app.UseRateLimiter();
+app.UseResponseCompression();
 
 var supportedCultures = new[] { "en", "es", "pl" }.Select(c => new CultureInfo(c)).ToList();
 app.UseRequestLocalization(new RequestLocalizationOptions
@@ -298,9 +314,10 @@ app.UseStaticFiles(new StaticFileOptions
 	ContentTypeProvider = staticFileContentTypeProvider,
 	OnPrepareResponse = context =>
 	{
-		context.Context.Response.Headers.CacheControl = "no-cache, no-store, must-revalidate";
-		context.Context.Response.Headers.Pragma = "no-cache";
-		context.Context.Response.Headers.Expires = "0";
+		// These assets are always requested with a ?v=<version> cache-busting query
+		// string (see index.html/sw.js), so it's safe to cache them indefinitely —
+		// a new deploy changes the URL, not the file's cached bytes.
+		context.Context.Response.Headers.CacheControl = "public, max-age=31536000, immutable";
 	}
 });
 app.MapGet("/api/version", () =>

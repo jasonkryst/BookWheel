@@ -35,10 +35,14 @@ On the backend, query patterns are reasonable at BookWheel's current scale (18 b
   | **Total** | **159,964** | **33,813** | **78.9%** (126KB saved per full load) |
 - This is a single-line fix (`builder.Services.AddResponseCompression(...)` + `app.UseResponseCompression()`) with essentially no downside for a text-heavy app like this.
 
+**Status (2026-09-06): Fixed.** `Program.cs` now calls `AddResponseCompression`/`UseResponseCompression` with `EnableForHttps = true` and an explicit MIME-type list covering `application/javascript`/`application/manifest+json` in addition to the framework defaults. Live-verified with a new regression test (`Static_Js_Response_Is_Compressed_When_Client_Accepts_Gzip`).
+
 **F2. Static assets and `index.html` are served with identical `no-store` cache headers, defeating the app's own cache-busting scheme.**
 `Program.cs` sets `Cache-Control: no-store, no-cache, must-revalidate` (plus `Pragma: no-cache`, `Expires: 0`) in three places: on the hand-written `index.html`/`sw.js` responses (lines ~260, ~274 — correct, index.html must always revalidate so users pick up new asset versions), and again inside `UseStaticFiles`'s `OnPrepareResponse` callback (~line 293), which applies to **every** file served from `wwwroot` — `js/app.js`, `js/i18n.js`, `css/site.css`, icons, the manifest. Confirmed via response headers on all three JS/CSS files and via the DevTools performance trace's own "Use efficient cache lifetimes" insight.
 - `index.html` itself references these assets with a cache-busting query string — `css/site.css?v=2.13.0`, `js/i18n.js?v=2.13.0`, `js/app.js?v=2.13.0` — which exists specifically so that versioned URLs *can* be cached with a long `max-age` and `immutable`, because a new deploy changes the URL and therefore the cache key. Right now every one of those requests instead gets `no-store`, meaning **the browser HTTP cache never stores them at all**, and even the weaker fallback of a 304-via-ETag revalidation (an `ETag` header is present) is defeated by `no-store` taking precedence. Every navigation — not just every deploy — re-downloads all three files in full.
 - Fix: give `UseStaticFiles` its own `OnPrepareResponse` logic that sets `Cache-Control: public, max-age=31536000, immutable` for anything under `/js/`, `/css/`, `/icons/` (all of which are versioned via `?v=`), and reserve the current `no-store` treatment for `index.html`/`sw.js` only (which is already handled by separate `MapGet` handlers, not `UseStaticFiles`, so this is a clean split).
+
+**Status (2026-09-06): Fixed.** `UseStaticFiles`'s `OnPrepareResponse` now sets exactly `Cache-Control: public, max-age=31536000, immutable` and nothing else; `index.html`/`sw.js` are untouched (still `no-store` via their own `MapGet` handlers). Live-verified with two new regression tests (`Static_Assets_Are_Served_With_Long_Lived_Immutable_Cache_Headers`, `Index_Html_Still_Uses_No_Store_Cache_Headers`).
 
 #### Medium severity
 
