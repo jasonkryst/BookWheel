@@ -12,6 +12,10 @@ This solution is split into separate application and test projects:
 - `BookWheel.Tests/` contains integration tests
 - `BookWheel.slnx` ties both projects together
 
+## License
+
+[MIT](LICENSE) — see the `LICENSE` file for the full text.
+
 ## Features
 
 - First-run account creation plus cookie-based login/logout

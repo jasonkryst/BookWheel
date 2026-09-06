@@ -52,6 +52,8 @@ These items provide the highest operational value and align with the latest secu
 8. [Done] Add CodeQL static analysis for .NET source-code SAST, feeding results to the GitHub Security → Code Scanning tab alongside Trivy.
 9. Pin an explicit `SSL Mode` (e.g. `Require` or `VerifyFull`) on the production PostgreSQL connection string; Npgsql's default (`Prefer`) does not guarantee encryption-in-transit (`SECURITY_AUDIT_REPORT.md`, 2026-08-19).
 10. [Done] Split the runtime PostgreSQL role into a least-privilege `bookwheel_app` role (DML only) and a separate `bookwheel_migrator` role (schema owner, used only for startup migrations); the Postgres bootstrap role is no longer used by the app at all. The prior wording of this item understated the actual risk: the live runtime role was a full PostgreSQL **superuser**, not merely DDL-capable (`docs/audits/database.md`, 2026-09-04, Finding #12) — this is now fixed for fresh deployments, with a documented manual upgrade path for existing ones.
+11. [Done] SHA-pin all GitHub Actions in `docker-release.yml` — previously the only unpinned workflow despite holding `packages: write` and real Docker Hub/GHCR publish credentials (`docs/audits/other-areas.md`, 2026-09-04, §1).
+12. [Done] Add a `LICENSE` file — the project previously had no license anywhere in the repo despite publishing Docker images publicly, leaving redistribution rights ambiguous (`docs/audits/other-areas.md`, 2026-09-04, §7).
 
 Expected outcome:
 
