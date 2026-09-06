@@ -82,7 +82,7 @@ Spanish and Polish translations were authored by the assistant as a first pass a
 
 ## Analytics
 
-BookWheel includes an optional Google Analytics (gtag.js) integration, configured via `Analytics:GoogleAnalyticsId` in `appsettings.json` (or the `Analytics__GoogleAnalyticsId` environment variable). The shipped default points at the upstream maintainer's own analytics property — **if you fork or self-host this project, set it to your own GA4 property ID, or blank it out (`""`) to disable analytics entirely.**
+BookWheel includes an optional Google Analytics (gtag.js) integration, configured through the `Analytics__GoogleAnalyticsId` environment variable. The bundled Compose stack maps `GOOGLE_ANALYTICS_ID` to that setting and defaults it to the upstream maintainer's own analytics property — **if you fork or self-host this project, set `GOOGLE_ANALYTICS_ID` to your own GA4 property ID, or blank it out (`""`) to disable analytics entirely.**
 
 When a non-empty ID is configured, the script loads on every page (including the pre-login screen) and tracking is **on by default**. Users can opt out at any time via the "Allow anonymous usage analytics" checkbox in Settings → Preferences; the choice is stored in the browser's `localStorage` (`bookwheel-analytics-consent`) and takes effect immediately via Google's documented `window['ga-disable-<id>']` flag, without needing a page reload.
 

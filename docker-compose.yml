@@ -39,6 +39,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
+      Analytics__GoogleAnalyticsId: ${GOOGLE_ANALYTICS_ID:-G-JQXW826H1F}
       # Least-privilege runtime role (DML only) — see scripts/postgres/init-least-privilege-roles.sh.
       ConnectionStrings__BookWheel: "Host=postgres;Database=bookwheel;Username=bookwheel_app;Password=${POSTGRES_APP_PASSWORD:-bookwheel_app}"
       # Schema-owning role (not the Postgres bootstrap superuser), used only for the
