@@ -33,7 +33,8 @@ public sealed class FakeBookMetadataLookupService : IBookMetadataLookupService
                 Title = KnownIsbnTitle,
                 Author = KnownIsbnAuthor,
                 Isbn = KnownIsbn,
-                CoverUrl = KnownIsbnCoverUrl
+                CoverUrl = KnownIsbnCoverUrl,
+                ProviderId = 1
             });
         }
 
@@ -46,7 +47,7 @@ public sealed class FakeBookMetadataLookupService : IBookMetadataLookupService
         {
             IReadOnlyList<BookMetadataResult> singleMatch =
             [
-                new BookMetadataResult { Title = KnownTitle, Author = KnownTitleAuthor, Isbn = KnownTitleIsbn, CoverUrl = KnownTitleCoverUrl }
+                new BookMetadataResult { Title = KnownTitle, Author = KnownTitleAuthor, Isbn = KnownTitleIsbn, CoverUrl = KnownTitleCoverUrl, ProviderId = 1 }
             ];
             return Task.FromResult(singleMatch);
         }
@@ -55,9 +56,9 @@ public sealed class FakeBookMetadataLookupService : IBookMetadataLookupService
         {
             IReadOnlyList<BookMetadataResult> candidates =
             [
-                new BookMetadataResult { Title = AmbiguousTitle, Author = AmbiguousTitleFirstAuthor, Isbn = "9780553293357", CoverUrl = "https://covers.openlibrary.org/b/id/11111-L.jpg" },
-                new BookMetadataResult { Title = AmbiguousTitle, Author = AmbiguousTitleSecondAuthor, Isbn = "9780000000002", CoverUrl = "https://covers.openlibrary.org/b/id/22222-L.jpg" },
-                new BookMetadataResult { Title = AmbiguousTitle, Author = AmbiguousTitleThirdAuthor, Isbn = "9780000000003", CoverUrl = null }
+                new BookMetadataResult { Title = AmbiguousTitle, Author = AmbiguousTitleFirstAuthor, Isbn = "9780553293357", CoverUrl = "https://covers.openlibrary.org/b/id/11111-L.jpg", ProviderId = 1 },
+                new BookMetadataResult { Title = AmbiguousTitle, Author = AmbiguousTitleSecondAuthor, Isbn = "9780000000002", CoverUrl = "https://covers.openlibrary.org/b/id/22222-L.jpg", ProviderId = 1 },
+                new BookMetadataResult { Title = AmbiguousTitle, Author = AmbiguousTitleThirdAuthor, Isbn = "9780000000003", CoverUrl = null, ProviderId = 1 }
             ];
             return Task.FromResult<IReadOnlyList<BookMetadataResult>>(candidates.Take(maxResults).ToList());
         }

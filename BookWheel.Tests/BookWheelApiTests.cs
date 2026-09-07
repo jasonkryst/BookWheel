@@ -1392,7 +1392,6 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         Assert.Equal("https://covers.openlibrary.org/b/id/12345-L.jpg", doc.RootElement.GetProperty("coverUrl").GetString());
     }
 
-    // bookInfoProviderId round-trip — passes once BooksController threads it through (GH #70).
     [Fact]
     public async Task Add_Book_Persists_Null_BookInfoProviderId_When_Not_Supplied()
     {
@@ -1511,6 +1510,58 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         Assert.Equal(FakeBookMetadataLookupService.KnownIsbnTitle, doc.RootElement.GetProperty("title").GetString());
         Assert.Equal(FakeBookMetadataLookupService.KnownIsbnAuthor, doc.RootElement.GetProperty("author").GetString());
         Assert.Equal(FakeBookMetadataLookupService.KnownIsbnCoverUrl, doc.RootElement.GetProperty("coverUrl").GetString());
+    }
+
+    [Fact]
+    public async Task Lookup_By_Isbn_Uses_Preferred_Provider_Then_Falls_Back()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await LoginAsync(client);
+
+        await client.PutAsJsonAsync("/api/preferences", new
+        {
+            theme = (string?)null,
+            analyticsConsentOptedOut = false,
+            preferredBookInfoProviderId = 2
+        });
+
+        var response = await client.GetAsync($"/api/books/lookup?isbn={FakeGoogleBooksMetadataLookupService.KnownIsbn}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var doc = await ReadJsonAsync(response);
+        Assert.Equal(FakeGoogleBooksMetadataLookupService.KnownIsbnTitle, doc.RootElement.GetProperty("title").GetString());
+        Assert.Equal(2, doc.RootElement.GetProperty("providerId").GetInt32());
+    }
+
+    [Fact]
+    public async Task Lookup_By_Isbn_Falls_Back_To_Open_Library_When_Preferred_Google_Books_Has_No_Match()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await LoginAsync(client);
+
+        await client.PutAsJsonAsync("/api/preferences", new
+        {
+            theme = (string?)null,
+            analyticsConsentOptedOut = false,
+            preferredBookInfoProviderId = 2
+        });
+
+        // This ISBN is only known to the Open Library fake, not the Google Books fake,
+        // so a preference for provider 2 must still fall back to provider 1's match.
+        var response = await client.GetAsync($"/api/books/lookup?isbn={FakeBookMetadataLookupService.KnownIsbn}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var doc = await ReadJsonAsync(response);
+        Assert.Equal(FakeBookMetadataLookupService.KnownIsbnTitle, doc.RootElement.GetProperty("title").GetString());
+        Assert.Equal(1, doc.RootElement.GetProperty("providerId").GetInt32());
     }
 
     [Fact]

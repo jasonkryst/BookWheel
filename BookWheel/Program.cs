@@ -116,6 +116,9 @@ builder.Services.AddHttpClient<GoogleBooksBookMetadataLookupService>(client =>
 	client.Timeout = TimeSpan.FromSeconds(8);
 	client.DefaultRequestHeaders.UserAgent.ParseAdd("BookWheel/1.0 (+https://github.com/jasonkryst/BookWheel)");
 });
+builder.Services.AddTransient(sp => new BookMetadataLookupDispatcher(
+	sp.GetRequiredService<OpenLibraryBookMetadataLookupService>(),
+	sp.GetRequiredService<GoogleBooksBookMetadataLookupService>()));
 builder.Services.AddHostedService<StartupDiagnosticsService>();
 builder.Services.AddHostedService<LogShippingService>();
 builder.Services.AddHealthChecks()

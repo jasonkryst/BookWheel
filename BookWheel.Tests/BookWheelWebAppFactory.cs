@@ -87,8 +87,10 @@ public sealed class BookWheelWebAppFactory : WebApplicationFactory<Program>
 
         builder.ConfigureServices(services =>
         {
-            services.RemoveAll<IBookMetadataLookupService>();
-            services.AddSingleton<IBookMetadataLookupService, FakeBookMetadataLookupService>();
+            services.RemoveAll<BookMetadataLookupDispatcher>();
+            services.AddSingleton(new BookMetadataLookupDispatcher(
+                new FakeBookMetadataLookupService(),
+                new FakeGoogleBooksMetadataLookupService()));
         });
     }
 
