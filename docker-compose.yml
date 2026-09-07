@@ -48,6 +48,10 @@ services:
       # own .env file to your own GA4 property ID to enable analytics for your deployment —
       # see README's "Analytics" section.
       Analytics__GoogleAnalyticsId: "${GOOGLE_ANALYTICS_ID:-}"
+      # Optional. Blank by default (keyless public Google Books endpoint, lower quota).
+      # Set GOOGLE_BOOKS_API_KEY in your own .env file for a higher request quota —
+      # see README's "Book info providers" feature bullet.
+      BookMetadata__GoogleBooks__ApiKey: "${GOOGLE_BOOKS_API_KEY:-}"
     volumes:
       - bookwheel_app_data:/app/App_Data
       - bookwheel_dp_keys:/home/app/.aspnet/DataProtection-Keys
