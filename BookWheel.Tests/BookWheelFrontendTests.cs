@@ -991,6 +991,22 @@ public sealed class BookWheelFrontendTests : IClassFixture<BookWheelWebAppFactor
     }
 
     [Fact]
+    public async Task Home_Page_Should_Not_Load_Google_Tag_Script_When_Id_Is_Unconfigured()
+    {
+        // appsettings.json ships an empty Analytics:GoogleAnalyticsId by default, and this
+        // factory doesn't override it, so the served page must not make any request to
+        // Google's tag manager (GH #92: no telemetry sent unless an operator opts in via
+        // their own GA ID, set via appsettings or the Analytics__GoogleAnalyticsId env var).
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var html = await client.GetStringAsync("/");
+
+        Assert.DoesNotContain("googletagmanager.com", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("gtag(", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Frontend_Script_Should_Implement_Analytics_Opt_Out_Logic()
     {
         var factory = _factory;

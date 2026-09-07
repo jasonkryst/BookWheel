@@ -44,6 +44,10 @@ services:
       # Schema-owning role (not the Postgres bootstrap superuser), used only for the
       # one-time startup migration.
       ConnectionStrings__BookWheelMigrations: "Host=postgres;Database=bookwheel;Username=bookwheel_migrator;Password=${POSTGRES_MIGRATOR_PASSWORD:-bookwheel_migrator}"
+      # Optional. Blank by default (no telemetry sent). Set GOOGLE_ANALYTICS_ID in your
+      # own .env file to your own GA4 property ID to enable analytics for your deployment —
+      # see README's "Analytics" section.
+      Analytics__GoogleAnalyticsId: "${GOOGLE_ANALYTICS_ID:-}"
     volumes:
       - bookwheel_app_data:/app/App_Data
       - bookwheel_dp_keys:/home/app/.aspnet/DataProtection-Keys
