@@ -3,12 +3,27 @@ using System.Net.Http.Json;
 
 namespace BookWheel.Tests;
 
-public sealed class BookWheelSmokeTests
+public sealed class BookWheelSmokeTests : IClassFixture<BookWheelWebAppFactory>, IAsyncLifetime
 {
+    private readonly BookWheelWebAppFactory _factory;
+
+    public BookWheelSmokeTests(BookWheelWebAppFactory factory)
+    {
+        _factory = factory;
+    }
+
+    public async Task InitializeAsync()
+    {
+        await _factory.StartAsync();
+        await _factory.ResetAsync();
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
+
     [Fact]
     public async Task Startup_Health_And_Version_Endpoints_Return_Success()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var liveResponse = await client.GetAsync("/health/live");
@@ -24,7 +39,7 @@ public sealed class BookWheelSmokeTests
     [Fact]
     public async Task Writable_App_Data_Paths_Are_Available_During_Runtime()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -50,7 +65,7 @@ public sealed class BookWheelSmokeTests
     [Fact]
     public async Task Startup_Migrates_Successfully_When_BookWheelMigrations_ConnectionString_Is_Unset()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var readyResponse = await client.GetAsync("/health/ready");
@@ -61,7 +76,7 @@ public sealed class BookWheelSmokeTests
     [Fact]
     public async Task Static_Assets_Are_Served_With_Long_Lived_Immutable_Cache_Headers()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/js/app.js?v=test");
@@ -76,7 +91,7 @@ public sealed class BookWheelSmokeTests
     [Fact]
     public async Task Index_Html_Still_Uses_No_Store_Cache_Headers()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/");
@@ -89,7 +104,7 @@ public sealed class BookWheelSmokeTests
     [Fact]
     public async Task Static_Js_Response_Is_Compressed_When_Client_Accepts_Gzip()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var request = new HttpRequestMessage(HttpMethod.Get, "/js/app.js?v=test");

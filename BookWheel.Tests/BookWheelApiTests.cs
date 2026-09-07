@@ -8,12 +8,27 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace BookWheel.Tests;
 
-public sealed class BookWheelApiTests
+public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, IAsyncLifetime
 {
+    private readonly BookWheelWebAppFactory _factory;
+
+    public BookWheelApiTests(BookWheelWebAppFactory factory)
+    {
+        _factory = factory;
+    }
+
+    public async Task InitializeAsync()
+    {
+        await _factory.StartAsync();
+        await _factory.ResetAsync();
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
+
     [Fact]
     public async Task Status_Endpoint_Reports_Setup_Required_When_No_Account_Exists()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/api/auth/status");
@@ -27,14 +42,10 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Login_Before_Setup_Returns_Conflict()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
-        var response = await client.PostAsJsonAsync("/api/auth/login", new
-        {
-            username = "test-admin",
-            password = "test-password"
-        });
+        var response = await PostLoginAsync(client, "test-admin", "test-password");
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
     }
@@ -42,31 +53,32 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Failed_Login_Is_Recorded_As_Structured_Warning_Log()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("BookWheelTests/1.0");
+
+        // A username unique to this test (rather than the ubiquitous "test-admin"
+        // default) so the log-entry lookups below can't match a different test's
+        // failed-login attempt sharing this class's now-shared LoggerProvider/log file.
+        const string username = "warninglog-admin";
 
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
-            username = "test-admin",
+            username,
             password = "test-password"
         });
 
-        var response = await client.PostAsJsonAsync("/api/auth/login", new
-        {
-            username = "test-admin",
-            password = "wrong-password"
-        });
+        var response = await PostLoginAsync(client, username, "wrong-password", userAgent: "BookWheelTests/1.0");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
 
         var logEntry = factory.LoggerProvider.Entries.LastOrDefault(entry =>
             entry.Category == "BookWheel.Controllers.AuthController" &&
             entry.Level == Microsoft.Extensions.Logging.LogLevel.Warning &&
-            entry.Message.Contains("Login failed", StringComparison.Ordinal));
+            entry.Message.Contains("Login failed", StringComparison.Ordinal) &&
+            entry.State.TryGetValue("Username", out var loggedUsername) && Equals(loggedUsername, username));
 
         Assert.NotNull(logEntry);
-        Assert.Equal("test-admin", logEntry!.State["Username"]);
+        Assert.Equal(username, logEntry!.State["Username"]);
         Assert.False(logEntry.State.ContainsKey("Password"));
         Assert.Equal("/api/auth/login", logEntry.State["Path"]);
         Assert.True(logEntry.State.ContainsKey("RequestId"));
@@ -85,10 +97,11 @@ public sealed class BookWheelApiTests
             .FirstOrDefault(document =>
                 document.RootElement.GetProperty("Category").GetString() == "BookWheel.Controllers.AuthController" &&
                 document.RootElement.GetProperty("Level").GetString() == "Warning" &&
-                document.RootElement.GetProperty("Message").GetString()?.Contains("Login failed", StringComparison.Ordinal) == true);
+                document.RootElement.GetProperty("Message").GetString()?.Contains("Login failed", StringComparison.Ordinal) == true &&
+                document.RootElement.GetProperty("Properties").GetProperty("Username").GetString() == username);
 
         Assert.NotNull(persistedEntry);
-        Assert.Equal("test-admin", persistedEntry!.RootElement.GetProperty("Properties").GetProperty("Username").GetString());
+        Assert.Equal(username, persistedEntry!.RootElement.GetProperty("Properties").GetProperty("Username").GetString());
         Assert.Equal("/api/auth/login", persistedEntry.RootElement.GetProperty("Properties").GetProperty("Path").GetString());
         Assert.Equal("BookWheelTests/1.0", persistedEntry.RootElement.GetProperty("Properties").GetProperty("UserAgent").GetString());
         Assert.False(persistedEntry.RootElement.GetProperty("Properties").TryGetProperty("Password", out _));
@@ -97,7 +110,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Login_WithBadCredentials_ReturnsSpanishMessage_WhenAcceptLanguageIsSpanish()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -111,6 +124,9 @@ public sealed class BookWheelApiTests
             Content = JsonContent.Create(new { username = "test-admin", password = "wrong-password" })
         };
         request.Headers.Add("Accept-Language", "es");
+        // Distinct synthetic IP so this test's single attempt doesn't collide with the
+        // dedicated rate-limit tests' shared "unknown" bucket (see LoginAsync).
+        request.Headers.TryAddWithoutValidation("X-Forwarded-For", "10.99.0.3");
 
         var response = await client.SendAsync(request);
         using var doc = await ReadJsonAsync(response);
@@ -126,7 +142,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task AddBook_WithMissingTitle_ReturnsSpanishValidationMessage_WhenAcceptLanguageIsSpanish()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -157,7 +173,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task AddBook_WithOverlongIsbn_ReturnsLocalizedLengthMessage()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -186,7 +202,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Setup_Creates_Account_And_Logs_The_User_In()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var setupResponse = await client.PostAsJsonAsync("/api/auth/setup", new
@@ -214,7 +230,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task First_User_Is_Admin_And_Can_Create_Other_Users()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -240,7 +256,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Non_Admin_User_Cannot_Access_User_Management_Endpoints()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -276,7 +292,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Admin_Can_Update_Other_User_Account()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -303,7 +319,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Password_Reset_Link_Can_Be_Generated_And_Used_Once()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -357,25 +373,17 @@ public sealed class BookWheelApiTests
         });
         Assert.Equal(HttpStatusCode.BadRequest, validateAfterUseResponse.StatusCode);
 
-        var oldPasswordLogin = await client.PostAsJsonAsync("/api/auth/login", new
-        {
-            username = "reader-one",
-            password = "reader-pass-1"
-        });
+        var oldPasswordLogin = await PostLoginAsync(client, "reader-one", "reader-pass-1");
         Assert.Equal(HttpStatusCode.Unauthorized, oldPasswordLogin.StatusCode);
 
-        var newPasswordLogin = await client.PostAsJsonAsync("/api/auth/login", new
-        {
-            username = "reader-one",
-            password = "reader-pass-2"
-        });
+        var newPasswordLogin = await PostLoginAsync(client, "reader-one", "reader-pass-2");
         Assert.Equal(HttpStatusCode.OK, newPasswordLogin.StatusCode);
     }
 
     [Fact]
     public async Task Admin_Cannot_Delete_First_Account()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -399,7 +407,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Admin_Can_Delete_User_And_Their_Books()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -432,18 +440,14 @@ public sealed class BookWheelApiTests
         Assert.False(booksDoc.RootElement.TryGetProperty(readerUserId.ToString(), out _));
 
         await client.PostAsync("/api/auth/logout", content: null);
-        var deletedUserLogin = await client.PostAsJsonAsync("/api/auth/login", new
-        {
-            username = "reader-one",
-            password = "reader-pass-1"
-        });
+        var deletedUserLogin = await PostLoginAsync(client, "reader-one", "reader-pass-1");
         Assert.Equal(HttpStatusCode.Unauthorized, deletedUserLogin.StatusCode);
     }
 
     [Fact]
     public async Task Books_Are_Isolated_Per_User()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -490,7 +494,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Login_Is_Rate_Limited_After_Repeated_Failed_Attempts()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
         client.DefaultRequestHeaders.UserAgent.ParseAdd("BookWheelTests/1.0");
 
@@ -529,7 +533,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Login_Rate_Limiter_Uses_Forwarded_Client_Ip_When_Present()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -565,7 +569,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Metrics_Endpoint_Provides_Structured_Operational_Counters()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -579,11 +583,7 @@ public sealed class BookWheelApiTests
         Assert.Equal(HttpStatusCode.OK, spinResponse.StatusCode);
 
         await client.PostAsync("/api/auth/logout", content: null);
-        var failedLoginResponse = await client.PostAsJsonAsync("/api/auth/login", new
-        {
-            username = "test-admin",
-            password = "wrong-password"
-        });
+        var failedLoginResponse = await PostLoginAsync(client, "test-admin", "wrong-password");
         Assert.Equal(HttpStatusCode.Unauthorized, failedLoginResponse.StatusCode);
 
         await LoginAsync(client);
@@ -600,7 +600,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Non_Admin_User_Cannot_Access_Metrics_Endpoint()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -622,7 +622,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Login_With_Valid_Credentials_Allows_Accessing_Protected_Endpoints()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -633,11 +633,7 @@ public sealed class BookWheelApiTests
 
         await client.PostAsync("/api/auth/logout", content: null);
 
-        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new
-        {
-            username = "test-admin",
-            password = "test-password"
-        });
+        var loginResponse = await PostLoginAsync(client, "test-admin", "test-password");
 
         Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
 
@@ -651,7 +647,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Spin_Does_Not_Remove_Selected_Book_From_Active_List()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -682,7 +678,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Spin_Response_Includes_Author_And_CoverUrl_When_Present()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -713,7 +709,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Spin_Response_Omits_Author_And_CoverUrl_When_Absent()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -738,7 +734,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Add_Book_Stores_AddedByScanner_Flag()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -765,7 +761,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Update_Then_Remove_Book_Works()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -802,7 +798,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Removing_A_Book_Twice_Returns_NotFound()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -824,7 +820,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Updating_A_Removed_Book_Returns_NotFound()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -845,7 +841,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Removed_Book_Is_Never_Selected_By_Spin()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -873,7 +869,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Spin_History_Endpoint_Requires_Authentication()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/api/books/spin-history");
@@ -884,7 +880,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Spin_History_Endpoint_Is_Empty_Before_Any_Spins()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -905,7 +901,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Spin_Records_A_Spin_History_Entry_With_Book_And_Timestamp()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -936,7 +932,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Multiple_Spins_Are_Recorded_Newest_First()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -966,7 +962,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Spin_History_Is_Isolated_Per_User()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -993,7 +989,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Export_Includes_Isbn_Author_And_CoverUrl_For_Tagged_Books()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -1020,7 +1016,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Export_Includes_SoftDeleted_Books_With_DeletedAtUtc_Set()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -1055,7 +1051,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Export_Includes_SpinHistory_And_Account_Username()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -1079,7 +1075,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Export_Endpoint_Requires_Authentication()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/api/books/export");
@@ -1090,7 +1086,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Import_Adds_New_Books_And_Reports_Counts()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -1125,7 +1121,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Import_Skips_Case_Insensitive_Title_Duplicate()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -1150,7 +1146,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Import_Skips_Isbn_Duplicate_Even_When_Title_Differs()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -1175,7 +1171,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Import_Skips_Match_Against_A_SoftDeleted_Book_Without_Restoring_It()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -1204,7 +1200,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Import_Dedupes_Duplicates_Within_The_Same_Batch()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -1228,7 +1224,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Import_Tolerates_An_Invalid_Isbn_By_Dropping_It_Instead_Of_Failing()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -1256,7 +1252,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Import_Skips_Blank_Titles_Without_Counting_Or_Failing()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -1281,7 +1277,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Import_With_Empty_Books_Array_Returns_BadRequest()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -1300,7 +1296,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Import_Endpoint_Requires_Authentication()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.PostAsJsonAsync("/api/books/import", new
@@ -1314,7 +1310,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Import_Only_Adds_Books_To_The_Importing_Users_Account()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -1347,7 +1343,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Add_Book_With_Whitespace_Title_Returns_BadRequest()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -1374,7 +1370,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Add_Book_With_Isbn_Author_And_CoverUrl_Persists_Metadata()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
@@ -1399,7 +1395,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Add_Book_With_Invalid_Isbn_Returns_BadRequest()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
@@ -1420,7 +1416,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Update_Book_Backfills_Isbn_Author_And_CoverUrl_On_An_Existing_Book()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
@@ -1446,7 +1442,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Update_Book_With_Invalid_Isbn_Returns_BadRequest()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
@@ -1465,7 +1461,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Lookup_By_Isbn_Returns_Metadata_From_The_Lookup_Service()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
@@ -1484,7 +1480,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Lookup_By_Title_Returns_A_Single_Item_Results_Array_When_Unambiguous()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
@@ -1504,7 +1500,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Lookup_By_Title_Returns_All_Candidates_When_Ambiguous()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
@@ -1526,7 +1522,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Lookup_With_No_Match_Returns_NotFound()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
@@ -1543,7 +1539,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Lookup_With_Invalid_Isbn_Returns_BadRequest()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
@@ -1557,7 +1553,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Lookup_Without_Isbn_Or_Title_Returns_BadRequest()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
@@ -1574,7 +1570,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Lookup_Requires_Authentication()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync($"/api/books/lookup?isbn={FakeBookMetadataLookupService.KnownIsbn}");
@@ -1585,7 +1581,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Version_Endpoint_Returns_NonEmpty_Version_String()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/api/version");
@@ -1600,7 +1596,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Request_Correlation_Header_Is_Propagated()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/version");
@@ -1615,7 +1611,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Migration_Endpoints_Require_Administrator_When_Account_Exists()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -1640,7 +1636,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Health_Endpoints_Report_Live_And_Ready()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var liveResponse = await client.GetAsync("/health/live");
@@ -1653,7 +1649,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Disabled_User_Cannot_Log_In()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -1677,11 +1673,7 @@ public sealed class BookWheelApiTests
         Assert.Equal(HttpStatusCode.OK, disableResponse.StatusCode);
 
         await client.PostAsync("/api/auth/logout", content: null);
-        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new
-        {
-            username = "reader-one",
-            password = "reader-pass-1"
-        });
+        var loginResponse = await PostLoginAsync(client, "reader-one", "reader-pass-1");
 
         Assert.Equal(HttpStatusCode.Locked, loginResponse.StatusCode);
     }
@@ -1691,7 +1683,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Stats_Unauthenticated_Returns_Unauthorized()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/api/stats");
@@ -1702,7 +1694,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Stats_For_User_With_No_History_Returns_Zero_Totals()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
@@ -1720,7 +1712,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Stats_After_Spins_Returns_Correct_Counts()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
@@ -1757,7 +1749,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Stats_NeverSpunCount_Reflects_Unselected_Books()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
@@ -1776,7 +1768,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Stats_After_Book_Deleted_Preserves_Spin_Count()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
@@ -1802,7 +1794,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Admin_Can_Access_Aggregate_Stats()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
@@ -1819,7 +1811,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Aggregate_Stats_Reflect_Multi_User_Totals()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
@@ -1852,7 +1844,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Aggregate_Stats_Unauthenticated_Returns_Unauthorized()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/api/stats/aggregate");
@@ -1863,7 +1855,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Non_Admin_Cannot_Access_Aggregate_Stats()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
@@ -1882,7 +1874,7 @@ public sealed class BookWheelApiTests
     [Fact]
     public async Task Stats_TopBooks_Percentage_Sums_To_One_Hundred()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
@@ -1902,13 +1894,41 @@ public sealed class BookWheelApiTests
         Assert.Equal(100.0, topBooks[0].GetProperty("percentage").GetDouble());
     }
 
+    private static int _loginRateLimitIpCounter;
+
+    // Tests in this class now share one WebApplicationFactory host (and therefore one
+    // in-process login rate limiter) instead of getting a fresh host per test. Every
+    // direct POST to /api/auth/login in this file (except the two tests that
+    // deliberately exercise the limiter — Login_Is_Rate_Limited_After_Repeated_Failed_Attempts
+    // and Login_Rate_Limiter_Uses_Forwarded_Client_Ip_When_Present, which build their own
+    // requests and intentionally share one consistent bucket across their own attempts)
+    // goes through this helper so it gets a distinct synthetic client IP and doesn't
+    // accumulate against the same bucket as every other test, tripping stray 429s.
+    private static async Task<HttpResponseMessage> PostLoginAsync(HttpClient client, string username, string password, string? userAgent = null)
+    {
+        var counter = System.Threading.Interlocked.Increment(ref _loginRateLimitIpCounter);
+        var syntheticIp = $"10.{(counter >> 16) & 0xFF}.{(counter >> 8) & 0xFF}.{counter & 0xFF}";
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/login")
+        {
+            Content = JsonContent.Create(new { username, password })
+        };
+        request.Headers.TryAddWithoutValidation("X-Forwarded-For", syntheticIp);
+
+        // Set explicitly on the message itself, rather than relying on the client's
+        // DefaultRequestHeaders to merge in, so callers that need to assert on this
+        // request's own User-Agent (e.g. in a captured log entry) get a guaranteed value.
+        if (userAgent is not null)
+        {
+            request.Headers.UserAgent.ParseAdd(userAgent);
+        }
+
+        return await client.SendAsync(request);
+    }
+
     private static async Task LoginAsync(HttpClient client, string username = "test-admin", string password = "test-password")
     {
-        var response = await client.PostAsJsonAsync("/api/auth/login", new
-        {
-            username,
-            password
-        });
+        var response = await PostLoginAsync(client, username, password);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }

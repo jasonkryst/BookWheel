@@ -2,12 +2,27 @@ using System.Net;
 
 namespace BookWheel.Tests;
 
-public sealed class BookWheelFrontendTests
+public sealed class BookWheelFrontendTests : IClassFixture<BookWheelWebAppFactory>, IAsyncLifetime
 {
+    private readonly BookWheelWebAppFactory _factory;
+
+    public BookWheelFrontendTests(BookWheelWebAppFactory factory)
+    {
+        _factory = factory;
+    }
+
+    public async Task InitializeAsync()
+    {
+        await _factory.StartAsync();
+        await _factory.ResetAsync();
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
+
     [Fact]
     public async Task Frontend_Should_Serve_I18n_Script_With_All_Locale_Catalogs()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/js/i18n.js");
@@ -36,7 +51,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Home_Page_Should_Include_I18n_Attributes_And_Settings_Button()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/");
@@ -61,7 +76,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Home_Page_Language_Select_Should_List_Supported_Locales()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/");
@@ -82,7 +97,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Frontend_Script_Should_Re_Render_Dynamic_Content_On_Locale_Change()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/js/app.js");
@@ -111,7 +126,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Home_Page_Should_Render_Main_UI_Structure()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/");
@@ -180,7 +195,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Home_Page_Should_Include_Isbn_Lookup_Controls_For_Add_And_Edit()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/");
@@ -209,7 +224,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Frontend_Script_Should_Wire_Up_Isbn_Lookup_And_Render_Metadata()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/js/app.js");
@@ -234,7 +249,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Frontend_Script_Should_Render_Cover_And_Author_For_Spin_Selection()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/js/app.js");
@@ -258,7 +273,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Frontend_Styles_Should_Size_The_Selected_Book_Cover()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/css/site.css");
@@ -286,7 +301,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Frontend_Styles_Should_Derive_Selected_Book_Accent_From_The_Theme_Variable()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/css/site.css");
@@ -320,7 +335,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Frontend_Styles_Should_Give_Lookup_Picker_Rows_Readable_Text_In_Every_Theme()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/css/site.css");
@@ -345,7 +360,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Home_Page_Should_Include_A_Lookup_Picker_For_Ambiguous_Title_Matches()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/");
@@ -361,7 +376,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Frontend_Script_Should_Auto_Fill_On_A_Single_Match_And_Open_A_Picker_When_Ambiguous()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/js/app.js");
@@ -387,7 +402,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Frontend_Script_Should_Contain_Pagination_And_Selection_Behavior()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/js/app.js");
@@ -474,7 +489,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Frontend_Script_Should_Contain_Import_Export_Isbn_Account_And_History_Behavior()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/js/app.js");
@@ -497,7 +512,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Frontend_Script_Should_Contain_Theme_Toggle_Behavior()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/js/app.js");
@@ -516,7 +531,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Frontend_Styles_Should_Include_Selected_Book_Emphasis()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/css/site.css");
@@ -532,7 +547,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Frontend_Styles_Should_Keep_Mobile_Wheel_Inside_Its_Card()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/css/site.css");
@@ -555,7 +570,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Frontend_Styles_Should_Keep_Settings_Dialog_Responsive()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/css/site.css");
@@ -586,7 +601,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Frontend_Styles_Should_Include_Light_And_Dark_Theme_Variables()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/css/site.css");
@@ -607,7 +622,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Frontend_Styles_Should_Include_High_Contrast_Theme_Variables()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/css/site.css");
@@ -634,7 +649,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Frontend_Script_Should_Contain_High_Contrast_Theme_Cycle()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/js/app.js");
@@ -658,7 +673,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Settings_Dialog_Should_Expose_Consolidated_Tab_Structure()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/");
@@ -694,7 +709,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Frontend_Script_Should_Gate_Settings_Tabs_By_Login_And_Admin_State()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/js/app.js");
@@ -720,7 +735,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Frontend_I18n_Should_Include_Settings_Tab_Labels_In_All_Locales()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/js/i18n.js");
@@ -747,7 +762,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Frontend_I18n_Should_Include_Account_Mismatch_Warning_In_All_Locales()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/js/i18n.js");
@@ -761,7 +776,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Home_Page_Should_Include_Barcode_Scanner_Dialog_And_Scan_Buttons()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/");
@@ -796,7 +811,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Frontend_Script_Should_Implement_Barcode_Scanner_Logic()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/js/app.js");
@@ -857,7 +872,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Frontend_Script_Should_Release_Camera_On_Scanner_Close()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/js/app.js");
@@ -883,7 +898,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Frontend_I18n_Should_Include_Scanner_Strings_In_All_Locales()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/js/i18n.js");
@@ -924,7 +939,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Frontend_Styles_Should_Include_Scanner_Video_And_Reticle_Rules()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/css/site.css");
@@ -965,7 +980,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Home_Page_Should_Include_Analytics_Opt_Out_Checkbox()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var html = await client.GetStringAsync("/");
@@ -978,7 +993,7 @@ public sealed class BookWheelFrontendTests
     [Fact]
     public async Task Frontend_Script_Should_Implement_Analytics_Opt_Out_Logic()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var script = await client.GetStringAsync("/js/app.js?v=test");

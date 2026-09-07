@@ -1,9 +1,11 @@
 using BookWheel.Services;
 using BookWheel.Storage;
+using BookWheel.Storage.Postgres;
 using BookWheel.Logging;
 using BookWheel.Tests.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
@@ -39,10 +41,26 @@ public sealed class BookWheelWebAppFactory : WebApplicationFactory<Program>
         var sourceProjectRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "BookWheel"));
         var sourceWebRoot = Path.Combine(sourceProjectRoot, "wwwroot");
         CopyDirectory(sourceWebRoot, tempWebRoot);
+    }
 
-        // Test call sites construct this factory directly (`new BookWheelWebAppFactory()`), not via
-        // IClassFixture<T>, so there is no async lifecycle hook available — start synchronously.
-        _postgresContainer.StartAsync().GetAwaiter().GetResult();
+    public async Task StartAsync()
+    {
+        await _postgresContainer.StartAsync();
+
+        // Force the WebApplicationFactory host to build now (idempotent — a no-op on
+        // subsequent calls once built). Building the host runs Program.cs's top-level
+        // startup code, including the one-time MigrateAsync() call that creates every
+        // table — this must happen before ResetAsync() can safely TRUNCATE them.
+        _ = Server;
+    }
+
+    public async Task ResetAsync()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<BookWheelDbContext>();
+        optionsBuilder.UseNpgsql(_postgresContainer.GetConnectionString());
+        await using var context = new BookWheelDbContext(optionsBuilder.Options);
+        await context.Database.ExecuteSqlRawAsync(
+            "TRUNCATE TABLE books, password_reset_tokens, users, spin_selections RESTART IDENTITY CASCADE;");
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -50,6 +68,15 @@ public sealed class BookWheelWebAppFactory : WebApplicationFactory<Program>
         builder.UseEnvironment("Testing");
         builder.UseContentRoot(_tempContentRoot);
         builder.UseSetting("ConnectionStrings:BookWheel", _postgresContainer.GetConnectionString());
+
+        // Test classes now share one host (and therefore one in-process per-username
+        // lockout counter in AuthService) across many test methods instead of getting a
+        // fresh host per test. No test in this project exercises username-lockout
+        // behavior directly (verified: no references to UsernameLockout/IsLockedOut/
+        // LockedUntilUtc anywhere under BookWheel.Tests), so raise the threshold high
+        // enough that the volume of intentional-failure logins across a shared class
+        // never trips it as a side effect.
+        builder.UseSetting("Security:UsernameLockoutThreshold", "100000");
 
         builder.ConfigureLogging(logging =>
         {
