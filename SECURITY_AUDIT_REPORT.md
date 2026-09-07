@@ -93,7 +93,9 @@ Recommendations:
 3. Document the setting prominently in `README.md`'s configuration section, including what data is sent and to whom.
 4. If analytics ships enabled by default in any form going forward, add a visible privacy notice/consent mechanism, and ensure it does not fire on the pre-login screen without consent.
 
-**Status (2026-09-06):** Addressed via an opt-out mechanism rather than removal — see `README.md`'s new "Analytics" section. The default ID is retained (tracking remains on by default for the maintainer's own deployment), but end users can now disable it via a Settings → Preferences checkbox, which sets Google's documented `ga-disable-<id>` flag immediately. Downstream forkers are now explicitly told in the README to override or blank the ID for their own deployment.
+**Status (2026-09-06):** Partially addressed via an opt-out mechanism rather than removal — see `README.md`'s "Analytics" section. The default ID was retained at that point (tracking remained on by default for the maintainer's own deployment), but end users could disable it via a Settings → Preferences checkbox, which sets Google's documented `ga-disable-<id>` flag immediately.
+
+**Status (2026-09-07, GH #92):** Fully addressed. `appsettings.json`'s `Analytics:GoogleAnalyticsId` now ships blank by default (recommendation #2 — the real ID is no longer committed to source), and `Program.cs`/`wwwroot/index.html` skip emitting the `gtag.js` script tag and its network request entirely when the ID is empty (recommendation #1), via the new `GoogleAnalyticsHtmlInjector` helper. The maintainer's own deployment sets its ID out-of-band via the `Analytics__GoogleAnalyticsId` environment variable (`GOOGLE_ANALYTICS_ID` in `docker-compose.yml`), and the README documents both the env var and the blank-by-default behavior (recommendation #3). Recommendation #4 (consent mechanism) was already covered by the 2026-09-06 opt-out checkbox.
 
 #### 3) Low (NEW) - No baseline HTTP security headers on any response
 
@@ -228,7 +230,7 @@ Full test suite: a `dotnet test BookWheel.slnx` run was started for this audit b
 ### Short Term (1-2 weeks)
 
 1. Decide the approach for Finding #1 (Production `Secure` cookie forced regardless of request scheme) — either base it on `Request.IsHttps` and accept the residual confidentiality tradeoff, or keep it forced and add explicit, loud documentation plus a startup-time warning when Production is running without HTTPS. Either way, stop leaving operators with a silent, undiagnosable login failure on non-localhost plain-HTTP deployments.
-2. Change the default `Analytics:GoogleAnalyticsId` to an empty string and skip emitting the `gtag.js` tag entirely when unset (Finding #2). This is a one-line config change with an immediate privacy benefit for every downstream deployer who hasn't touched the setting.
+2. [Done, GH #92] Change the default `Analytics:GoogleAnalyticsId` to an empty string and skip emitting the `gtag.js` tag entirely when unset (Finding #2).
 3. Add `X-Content-Type-Options: nosniff` and either `X-Frame-Options: DENY` or a `frame-ancestors` CSP directive globally (Finding #3) — low effort, meaningful clickjacking/MIME-sniffing reduction.
 
 ### Mid Term (2-6 weeks)

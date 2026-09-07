@@ -303,7 +303,7 @@ async Task WriteConfiguredIndexAsync(HttpContext context)
 	var webRootPath = app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
 	var indexPath = Path.Combine(webRootPath, "index.html");
 	var html = await File.ReadAllTextAsync(indexPath);
-	html = html.Replace("__GOOGLE_ANALYTICS_ID__", googleAnalyticsId, StringComparison.Ordinal);
+	html = GoogleAnalyticsHtmlInjector.Apply(html, googleAnalyticsId);
 	html = html.Replace("__ASSET_VERSION__", Uri.EscapeDataString(appVersion), StringComparison.Ordinal);
 
 	context.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";

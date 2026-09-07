@@ -12,7 +12,7 @@ Of the 16 documented feature areas exercised, **15 PASS** and **1 PASS-with-obse
 
 Three items are flagged as **discrepancies/anomalies worth the maintainer's attention** (none blocking, none reproduced as a confirmed functional defect):
 
-1. An undocumented Google Analytics (`gtag.js`) script is baked into `index.html` with a live-looking property ID and attempts to phone home on every page load (fails in this environment due to network egress restrictions to Google's domain specifically — Open Library egress worked fine). This isn't mentioned anywhere in the README's feature list, which is otherwise very thorough about privacy/self-hosting posture.
+1. An undocumented Google Analytics (`gtag.js`) script is baked into `index.html` with a live-looking property ID and attempts to phone home on every page load (fails in this environment due to network egress restrictions to Google's domain specifically — Open Library egress worked fine). This isn't mentioned anywhere in the README's feature list, which is otherwise very thorough about privacy/self-hosting posture. **Status (2026-09-07, GH #92): resolved** — the ID now ships blank by default and the `gtag.js` script is no longer emitted when unset; see `README.md`'s "Analytics" section and `SECURITY_AUDIT_REPORT.md` Finding #2.
 2. `GET /api/metrics` reported `spinCount: 0` while `GET /api/books/spin-history` and the Stats modal correctly showed 10+ persisted spins for the same account in the same session — suggesting `spinCount` (unlike `totalBookCount`, which was accurate) is an in-memory/process-lifetime counter that can desync from the persisted spin-history log. Not called out in the Observability section of the README.
 3. Two transient `400 Bad Request` responses to `POST /api/books` were observed in the console after a locale switch, with no corresponding user action and no duplicate/corrupted data created. Could not be reliably reproduced or isolated to a specific trigger; noted for awareness only.
 
@@ -104,7 +104,7 @@ The first attempted `POST /api/auth/setup` (weak/placeholder password) returned 
 
 ## Recommendations
 
-1. Document or remove the `gtag.js` / Google Analytics inclusion in `index.html`; as shipped it's a silent telemetry call that contradicts the self-hosted/privacy framing of the rest of the README.
+1. [Done, GH #92] Document or remove the `gtag.js` / Google Analytics inclusion in `index.html`; as shipped it's a silent telemetry call that contradicts the self-hosted/privacy framing of the rest of the README.
 2. Clarify (in the Observability section) whether `/api/metrics` counters are meant to be process-lifetime-only or should reflect persisted state; if the former, consider noting the distinction from `GET /api/books/spin-history`/Stats so operators don't misread a low `spinCount` as "spins aren't being recorded."
 3. Investigate the two transient `400` responses on `POST /api/books` noted above, if reproducible with more targeted testing (e.g., rapid form re-submission during a locale/theme change).
 
