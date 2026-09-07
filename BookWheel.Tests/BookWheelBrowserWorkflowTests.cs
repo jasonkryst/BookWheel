@@ -4,12 +4,27 @@ using System.Text.Json;
 
 namespace BookWheel.Tests;
 
-public sealed class BookWheelBrowserWorkflowTests
+public sealed class BookWheelBrowserWorkflowTests : IClassFixture<BookWheelWebAppFactory>, IAsyncLifetime
 {
+    private readonly BookWheelWebAppFactory _factory;
+
+    public BookWheelBrowserWorkflowTests(BookWheelWebAppFactory factory)
+    {
+        _factory = factory;
+    }
+
+    public async Task InitializeAsync()
+    {
+        await _factory.StartAsync();
+        await _factory.ResetAsync();
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
+
     [Fact]
     public async Task Login_Theme_And_Book_Workflow_Is_End_To_End_Reachable()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var homeResponse = await client.GetAsync("/");

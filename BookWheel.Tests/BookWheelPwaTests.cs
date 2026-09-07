@@ -3,12 +3,27 @@ using System.Text.Json;
 
 namespace BookWheel.Tests;
 
-public sealed class BookWheelPwaTests
+public sealed class BookWheelPwaTests : IClassFixture<BookWheelWebAppFactory>, IAsyncLifetime
 {
+    private readonly BookWheelWebAppFactory _factory;
+
+    public BookWheelPwaTests(BookWheelWebAppFactory factory)
+    {
+        _factory = factory;
+    }
+
+    public async Task InitializeAsync()
+    {
+        await _factory.StartAsync();
+        await _factory.ResetAsync();
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
+
     [Fact]
     public async Task Manifest_Should_Be_Served_With_Correct_Content_Type_And_Fields()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/manifest.webmanifest");
@@ -31,7 +46,7 @@ public sealed class BookWheelPwaTests
     [Fact]
     public async Task Manifest_Icons_Should_All_Resolve_To_Real_Files()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var manifestResponse = await client.GetAsync("/manifest.webmanifest");
@@ -54,7 +69,7 @@ public sealed class BookWheelPwaTests
     [Fact]
     public async Task Home_Page_Should_Reference_Manifest_Theme_Color_And_Icons()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/");
@@ -68,7 +83,7 @@ public sealed class BookWheelPwaTests
     [Fact]
     public async Task Offline_Fallback_Page_Should_Be_Served()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/offline.html");
@@ -81,7 +96,7 @@ public sealed class BookWheelPwaTests
     [Fact]
     public async Task Service_Worker_Should_Be_Served_With_Current_Version_And_Lifecycle_Handlers()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var versionResponse = await client.GetAsync("/api/version");
@@ -104,7 +119,7 @@ public sealed class BookWheelPwaTests
     [Fact]
     public async Task Service_Worker_Should_Never_Intercept_Api_Requests()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/sw.js");
@@ -127,7 +142,7 @@ public sealed class BookWheelPwaTests
     [Fact]
     public async Task Frontend_Script_Should_Register_Service_Worker_With_Feature_Detection()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/js/app.js");
@@ -147,7 +162,7 @@ public sealed class BookWheelPwaTests
     [Fact]
     public async Task Frontend_Script_Should_Notify_User_On_Connectivity_Changes()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/js/app.js");
@@ -162,7 +177,7 @@ public sealed class BookWheelPwaTests
     [Fact]
     public async Task I18n_Catalog_Should_Include_Connectivity_Toast_Strings_For_All_Locales()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/js/i18n.js");
