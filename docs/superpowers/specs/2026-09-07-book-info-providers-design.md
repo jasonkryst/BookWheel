@@ -44,12 +44,14 @@ BookWheel/
     IBookMetadataLookupService.cs      (unchanged interface)
     OpenLibraryBookMetadataLookupService.cs   (unchanged; ProviderId = 1 on results)
     GoogleBooksBookMetadataLookupService.cs   (new; ProviderId = 2 on results)
-    BookMetadataLookupDispatcher.cs    (new; the IBookMetadataLookupService actually injected into BooksController)
+    BookMetadataLookupDispatcher.cs    (new; plain class, not an IBookMetadataLookupService — see below)
   Controllers/
     BooksController.cs                 (lookup returns providerId; create/update accepts bookInfoProviderId)
     PreferencesController.cs           (new; GET/PUT /api/preferences)
-    AuthController.cs                  (/api/auth/me response gains theme/analyticsConsentOptedOut/preferredBookInfoProviderId)
+  Storage/
+    IUserPreferencesRepository.cs      (new; Theme/AnalyticsConsentOptedOut/PreferredBookInfoProviderId live on the same `users` row as credentials, but get their own small repository interface — consistent with this repo's one-interface-per-concern pattern — rather than extending ICredentialRepository, which JsonCredentialRepository also implements and has no legacy concept of preferences)
   Storage/Postgres/
+    PostgresUserPreferencesRepository.cs (new)
     Entities/
       BookInfoProviderEntity.cs        (new)
       BookEntity.cs                    (+ BookInfoProviderId, nullable)
@@ -107,7 +109,7 @@ The migration (`AddBookInfoProviders`) follows `AddBookTypeTable`'s shape: `AddC
 
 `GoogleBooksBookMetadataLookupService` mirrors `OpenLibraryBookMetadataLookupService`'s shape: typed `HttpClient` (base address `https://www.googleapis.com/books/v1/`), ISBN lookup via `volumes?q=isbn:{isbn}`, title search via `volumes?q=intitle:{title}&maxResults={maxResults}`, mapping Google's `volumeInfo.{title,authors,industryIdentifiers,imageLinks.thumbnail}` into `BookMetadataResult`. Same defensive-degrade-to-null/empty behavior on `HttpRequestException`/`TaskCanceledException`/`JsonException`. Reads an optional API key from `BookMetadataOptions.GoogleBooksApiKey` (bound from `BookMetadata:GoogleBooks:ApiKey`, overridable by the `BookMetadata__GoogleBooks__ApiKey` env var — same override convention as `Observability:LogShipping:ApiKey`) and appends `&key=...` when present; omitted entirely when not configured, calling the public keyless endpoint.
 
-`BookMetadataLookupDispatcher : IBookMetadataLookupService` is the service actually registered against the interface and injected into `BooksController`. `Program.cs` registers the two concrete providers as keyed services via `AddKeyedHttpClient`/`AddKeyedSingleton` (`.NET`'s keyed DI), keyed by the same `int` values as `book_info_providers.Id` (`1` = Open Library, `2` = Google Books); the dispatcher takes an `IEnumerable<IBookMetadataLookupService>` paired with their keys (or two `[FromKeyedServices]` constructor parameters — whichever reads cleaner once written) plus the current user's `PreferredBookInfoProviderId`. Algorithm for both `LookupByIsbnAsync`/`LookupByTitleAsync`:
+`BookMetadataLookupDispatcher` is a plain class (not an `IBookMetadataLookupService` implementation itself — its methods need an extra `preferredProviderId` parameter that providers don't care about, so reusing the provider interface would pollute it). `Program.cs` registers both concrete providers normally (two typed `HttpClient` registrations, no keyed DI — this codebase doesn't use keyed services anywhere and two fixed providers don't need that machinery) and registers `BookMetadataLookupDispatcher` as a singleton whose constructor takes `OpenLibraryBookMetadataLookupService` and `GoogleBooksBookMetadataLookupService` directly, building an internal `Dictionary<int, IBookMetadataLookupService>` (`1` → Open Library, `2` → Google Books) keyed the same as `book_info_providers.Id`. `BooksController` is injected with `BookMetadataLookupDispatcher` directly (a concrete class, the same pattern as `AuthService`) instead of `IBookMetadataLookupService`, and resolves the current user's `PreferredBookInfoProviderId` itself (via the new preferences repository, see below) to pass into each call. Algorithm for both `LookupByIsbnAsync`/`LookupByTitleAsync` (each taking an added `int? preferredProviderId` parameter):
 1. Try the preferred provider (or Open Library if no preference set).
 2. If it throws internally it already degrades to `null`/empty per each provider's own contract — the dispatcher treats `null`/empty as "try the fallback."
 3. Try the other provider.
@@ -122,21 +124,21 @@ The migration (`AddBookInfoProviders`) follows `AddBookTypeTable`'s shape: `AddC
 [HttpGet]  // GET /api/preferences
 [HttpPut]  // PUT /api/preferences, body: UpdatePreferencesRequest
 ```
-Both require an authenticated user (401 otherwise, same pattern as `BooksController`). `UpdatePreferencesRequest`: `Theme` (string?, validated against the known theme set), `AnalyticsConsentOptedOut` (bool), `PreferredBookInfoProviderId` (int?, validated against existing `book_info_providers` rows rather than a hardcoded `[Range]`, since the provider set is expected to grow — a lookup against `BookInfoProviders` in the service layer, returning 400 on an unknown id).
+Both require an authenticated user (401 otherwise, same pattern as `BooksController`). `UpdatePreferencesRequest`: `Theme` (string?, validated against the known theme set), `AnalyticsConsentOptedOut` (bool), `PreferredBookInfoProviderId` (`int?`, `[Range(1, 2)]` — `RangeAttribute` already skips validation when the value is null, so this accepts "no preference" while rejecting an unknown id; identical pattern to `UpdateBookRequest.BookTypeId`'s existing `[Range(1, 3)]`, chosen for consistency over a DB round-trip for a 2-row table).
 
-`AuthController`'s `/api/auth/me` response is extended with the same three fields, so the frontend gets them immediately after login/session-check without a second call.
+`AuthenticatedUser` (the in-memory session record `AuthService` caches per login — see `AuthService.SessionRecord`) intentionally stays identity-only (`UserId`/`Username`/`IsAdmin`); adding preferences to it would mean keeping that cache in sync on every `PUT /api/preferences`, for no real benefit. Instead the frontend calls `GET /api/preferences` once as its own step right after `/api/auth/me` (bootstrap) or right after a successful login/setup — one extra fast same-origin call, always DB-fresh, no session-cache invalidation to get wrong.
 
 ### Book create/update
 
-`BooksController`'s `lookup` action includes `providerId` in its JSON response (from `BookMetadataResult.ProviderId`). `UpdateBookRequest` (used for both create and update — see existing `[Range(1,3)]` `BookTypeId` field) gains `public int? BookInfoProviderId { get; set; }`, validated the same way as the preference field (existence check against `book_info_providers`, not a hardcoded range). The frontend is the thing that threads a lookup result's `providerId` into the subsequent create/update call; a manually-typed entry simply omits it (`null`).
+`BooksController`'s `lookup` action includes `providerId` in its JSON response (from `BookMetadataResult.ProviderId`) with no controller change needed — `BookMetadataResult` already serializes directly as the response body. `UpdateBookRequest` (used for both create and update — see existing `[Range(1,3)]` `BookTypeId` field) gains `public int? BookInfoProviderId { get; set; }` with `[Range(1, 2)]` (same nullable-skips-validation reasoning as the preferences field above). The frontend is the thing that threads a lookup result's `providerId` into the subsequent create/update call; a manually-typed entry simply omits it (`null`).
 
 ### Frontend
 
 `index.html`: new `<select id="bookInfoProviderSelect">` in `#settingsPreferencesPanel`, alongside the existing theme selector and analytics-consent checkbox, with its two `<option>`s ("Open Library" / "Google Books", ids `1`/`2`) hardcoded directly in markup — the provider table is expected to change rarely, and every other lookup value in this UI (e.g. book types) is already hardcoded the same way rather than fetched.
 
 `app.js`:
-- On the pre-auth-check page load (`applyTheme(getPreferredTheme())`), keep reading from `localStorage` exactly as today — this is the pre-login cache path and must not require a network call.
-- After `/api/auth/me` resolves successfully, apply the server's `theme`/`analyticsConsentOptedOut`/`preferredBookInfoProviderId` as the authoritative values, and write `theme` back into `localStorage` so the *next* page load's pre-auth paint matches (per approved design: server is source of truth, localStorage is a same-device paint cache only).
+- On the pre-auth-check page load (`applyTheme(getPreferredTheme())`, `applyAnalyticsConsent()`), keep reading from `localStorage` exactly as today, unchanged — this is the pre-login cache path (it also gates the early Google Analytics opt-out flag) and must not require a network call.
+- After authentication resolves (both the bootstrap `/api/auth/me` path and the login/setup submit handlers), call `GET /api/preferences` and apply the server's `theme`/`analyticsConsentOptedOut`/`preferredBookInfoProviderId` as the authoritative values, writing `theme` and `analyticsConsentOptedOut` back into `localStorage` so the *next* page load's pre-auth paint matches (per approved design: server is source of truth, localStorage is a same-device paint cache only).
 - Preference control `change` handlers now call `PUT /api/preferences` (in addition to updating `localStorage`/DOM immediately for responsiveness), rather than writing to `localStorage` alone.
 - Book add/edit flow: capture `providerId` from the `/api/books/lookup` response and include it as `bookInfoProviderId` when submitting the create/update request.
 
