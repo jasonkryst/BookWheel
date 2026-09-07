@@ -11,6 +11,7 @@ public sealed class BookEntity
     public DateTimeOffset? DeletedAtUtc { get; set; }
     public bool AddedByScanner { get; set; }
     public int BookTypeId { get; set; }
+    public int? BookInfoProviderId { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public Guid CreatedByUserId { get; set; }
     public DateTimeOffset? UpdatedAtUtc { get; set; }

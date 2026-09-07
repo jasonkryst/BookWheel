@@ -27,6 +27,7 @@ public sealed class OpenLibraryBookMetadataLookupServiceTests
         Assert.Equal("Joshua Bloch", result.Author);
         Assert.Equal("large.jpg", result.CoverUrl);
         Assert.Equal("9780134685991", result.Isbn);
+        Assert.Equal(1, result.ProviderId);
     }
 
     [Fact]

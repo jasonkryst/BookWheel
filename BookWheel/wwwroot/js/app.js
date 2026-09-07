@@ -103,6 +103,7 @@ const settingsManageUsersPanel = document.getElementById('settingsManageUsersPan
 const settingsImportExportPanel = document.getElementById('settingsImportExportPanel');
 const settingsPreferencesPanel = document.getElementById('settingsPreferencesPanel');
 const analyticsConsentCheckbox = document.getElementById('analyticsConsentCheckbox');
+const bookInfoProviderSelect = document.getElementById('bookInfoProviderSelect');
 const appVersionEl = document.getElementById('appVersion');
 const toastRegion = document.getElementById('toastRegion');
 const scannerDialog = document.getElementById('scannerDialog');
@@ -125,6 +126,8 @@ let pendingDeleteBook = null;
 let pendingDeleteUser = null;
 let currentUser = null;
 let allUsers = [];
+let bookAddLookupProviderId = null;
+let editBookLookupProviderId = null;
 let resetTokenFromUrl = null;
 const BOOKS_PER_PAGE = 10;
 const THEME_STORAGE_KEY = 'bookwheel-theme';
@@ -365,11 +368,55 @@ function setAnalyticsConsent(optedIn) {
   applyAnalyticsConsent();
 }
 
+function applyPreferences(preferences) {
+  if (!preferences) {
+    return;
+  }
+  if (preferences.theme) {
+    applyTheme(preferences.theme);
+  }
+  setAnalyticsConsent(!preferences.analyticsConsentOptedOut);
+  if (bookInfoProviderSelect) {
+    bookInfoProviderSelect.value = String(preferences.preferredBookInfoProviderId || 1);
+  }
+}
+
+async function loadAndApplyPreferences() {
+  try {
+    const preferences = await requestJson('/api/preferences');
+    applyPreferences(preferences);
+  } catch (error) {
+    // Preferences are best-effort on top of the locally cached theme/consent
+    // already applied at bootstrap; a failed fetch just means this device
+    // won't pick up changes made on another device this session.
+  }
+}
+
+async function savePreferencesIfAuthenticated() {
+  if (!currentUser) {
+    return;
+  }
+  try {
+    await requestJson('/api/preferences', {
+      method: 'PUT',
+      body: JSON.stringify({
+        theme: document.documentElement.getAttribute('data-theme') || DARK_THEME,
+        analyticsConsentOptedOut: isAnalyticsOptedOut(),
+        preferredBookInfoProviderId: bookInfoProviderSelect ? (parseInt(bookInfoProviderSelect.value, 10) || null) : null
+      })
+    });
+  } catch (error) {
+    // Best-effort: the change is already reflected locally (localStorage/DOM);
+    // a failed PUT just means it won't sync to the server until the next save.
+  }
+}
+
 function toggleTheme() {
   const currentTheme = document.documentElement.getAttribute('data-theme') || DARK_THEME;
   const currentIndex = THEME_CYCLE.indexOf(currentTheme);
   const nextTheme = THEME_CYCLE[(currentIndex + 1) % THEME_CYCLE.length];
   applyTheme(nextTheme);
+  savePreferencesIfAuthenticated();
 }
 
 function getTotalPages() {
@@ -1128,6 +1175,7 @@ async function editBook(book) {
   editBookAuthor.value = book.author || '';
   editBookCoverUrl.value = book.coverUrl || '';
   editBookType.value = String(book.bookTypeId || 1);
+  editBookLookupProviderId = typeof book.bookInfoProviderId === 'number' ? book.bookInfoProviderId : null;
   renderMetadataPreview({
     previewEl: editBookPreview,
     coverImgEl: editBookCoverImg,
@@ -1157,7 +1205,8 @@ async function saveEdit() {
       isbn: editBookIsbn.value.trim(),
       author: editBookAuthor.value.trim(),
       coverUrl: editBookCoverUrl.value.trim(),
-      bookTypeId: parseInt(editBookType.value, 10) || 1
+      bookTypeId: parseInt(editBookType.value, 10) || 1,
+      bookInfoProviderId: editBookLookupProviderId
     })
   });
 
@@ -1189,7 +1238,7 @@ function renderMetadataPreview({ previewEl, coverImgEl, authorTextEl, author, co
   }
 }
 
-function applyLookupResult(result, { titleInput, isbnInput, authorInput, coverInput, previewEl, coverImgEl, authorTextEl }) {
+function applyLookupResult(result, { titleInput, isbnInput, authorInput, coverInput, previewEl, coverImgEl, authorTextEl, setProviderId }) {
   const titleValue = titleInput.value.trim();
   const isbnValue = isbnInput.value.trim();
 
@@ -1201,6 +1250,10 @@ function applyLookupResult(result, { titleInput, isbnInput, authorInput, coverIn
   }
   authorInput.value = result.author || '';
   coverInput.value = result.coverUrl || '';
+
+  if (setProviderId) {
+    setProviderId(typeof result.providerId === 'number' ? result.providerId : null);
+  }
 
   renderMetadataPreview({
     previewEl,
@@ -1302,7 +1355,8 @@ bookLookupBtn.addEventListener('click', () => runMetadataLookup({
   previewEl: bookAddPreview,
   coverImgEl: bookAddCoverImg,
   authorTextEl: bookAddAuthorText,
-  messageEl: bookMessage
+  messageEl: bookMessage,
+  setProviderId: value => { bookAddLookupProviderId = value; }
 }));
 
 editLookupBtn.addEventListener('click', () => runMetadataLookup({
@@ -1313,7 +1367,8 @@ editLookupBtn.addEventListener('click', () => runMetadataLookup({
   previewEl: editBookPreview,
   coverImgEl: editBookCoverImg,
   authorTextEl: editBookAuthorText,
-  messageEl: editError
+  messageEl: editError,
+  setProviderId: value => { editBookLookupProviderId = value; }
 }));
 
 function stopScannerStream() {
@@ -1762,6 +1817,7 @@ loginForm.addEventListener('submit', async event => {
       })
     });
     applyCurrentUser(authResult.user || null);
+    await loadAndApplyPreferences();
     showApp(true);
     showToast(authMode === 'setup' ? t('auth.accountCreatedToast') : t('auth.signedInToast'), 'success');
     await refreshBooks();
@@ -1805,7 +1861,8 @@ bookForm.addEventListener('submit', async event => {
         author: bookAuthor.value.trim(),
         coverUrl: bookCoverUrl.value.trim(),
         addedByScanner: wasAddedByScanner,
-        bookTypeId: parseInt(bookType.value, 10) || 1
+        bookTypeId: parseInt(bookType.value, 10) || 1,
+        bookInfoProviderId: bookAddLookupProviderId
       })
     });
     bookTitle.value = '';
@@ -1813,6 +1870,7 @@ bookForm.addEventListener('submit', async event => {
     bookAuthor.value = '';
     bookCoverUrl.value = '';
     bookType.value = '1';
+    bookAddLookupProviderId = null;
     bookAddPreview.classList.add('hidden');
     bookAddCoverImg.hidden = true;
     bookAddAuthorText.textContent = '';
@@ -2273,6 +2331,13 @@ if (langSelect) {
 if (analyticsConsentCheckbox) {
   analyticsConsentCheckbox.addEventListener('change', () => {
     setAnalyticsConsent(analyticsConsentCheckbox.checked);
+    savePreferencesIfAuthenticated();
+  });
+}
+
+if (bookInfoProviderSelect) {
+  bookInfoProviderSelect.addEventListener('change', () => {
+    savePreferencesIfAuthenticated();
   });
 }
 
@@ -2627,6 +2692,7 @@ syncLangSelect();
       username: me.username,
       isAdmin: me.isAdmin
     });
+    await loadAndApplyPreferences();
     showApp(true);
     await refreshBooks();
   } catch {

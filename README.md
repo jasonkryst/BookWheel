@@ -61,6 +61,7 @@ This solution is split into separate application and test projects:
 - Mobile and tablet layouts keep the wheel and Settings dialog within the viewport without horizontal scrolling or browser zoom, including the Import tab's native file picker
 - Barcode scanner for ISBN lookup: tap the camera (📷) button next to the ISBN field on the add-book row or the edit dialog to scan a book's barcode with the device camera; on detection the ISBN field is populated and the Open Library lookup fires automatically; the scanner supports camera flipping (front/rear) and shows a framing reticle; requires Chrome, Edge, or Android Chrome (uses the native Barcode Detection API — browsers that do not support it show a clear message instead of an error); books added via the scanner store an `AddedByScanner` flag in the database and display a 📷 badge in the book list for easy identification (GH #69)
 - Book type classification: each book has a type — Physical 📖, Digital 📱, or Nook Only 🔖 — selected from a dropdown when adding or editing; the type is backed by a `book_types` reference table in the database with a foreign-key index from `books`, seeded with the three initial types for future extensibility; the selected type icon appears in the book list alongside the title; type is included in the JSON export and respected on import (GH #73)
+- Book info providers: book lookups can be served by Open Library or Google Books, selectable per-user from Settings → Preferences ("Book info source"); if the preferred provider has no match, the other provider is tried automatically before giving up. Available providers are backed by a `book_info_providers` reference table, and each book records which provider actually supplied its data (null for manually-entered books, or books added before this feature). Google Books calls the public keyless endpoint by default; set `BookMetadata:GoogleBooks:ApiKey` in `appsettings.json`, the `BookMetadata__GoogleBooks__ApiKey` environment variable, or `GOOGLE_BOOKS_API_KEY` in `docker-compose.yml`'s `.env` file, to use an API key for a higher request quota (GH #70)
 - Spin Wheel Stats 📊: a Stats button in the header opens a modal showing per-user spin history analytics — total spins, unique books spun, never-spun count, longest and shortest time a book has been on the wheel (derived from a new `CreatedAtUtc` column on books), and a canvas bar chart plus ranked table of top-selected books by spin count; administrators additionally see a cross-user aggregate view with total spins across all users, user count, and top users by spin count (GH #75); a "Book Lists" tab shows the full list of unique-spun books (sorted by spin count) and all never-spun active books (sorted alphabetically)
 
 ## Internationalization
@@ -340,6 +341,7 @@ Then transfer ownership of the existing tables to the new migrator role (the aut
 ```bash
 docker exec bookwheel-postgres psql -U bookwheel -d bookwheel -c '
   ALTER TABLE "__EFMigrationsHistory" OWNER TO bookwheel_migrator;
+  ALTER TABLE book_info_providers OWNER TO bookwheel_migrator;
   ALTER TABLE book_types OWNER TO bookwheel_migrator;
   ALTER TABLE books OWNER TO bookwheel_migrator;
   ALTER TABLE password_reset_tokens OWNER TO bookwheel_migrator;
@@ -427,6 +429,11 @@ Auth endpoints:
 - `GET /health/live`
 - `GET /health/ready`
 
+Preferences endpoints (authentication required):
+
+- `GET /api/preferences` — returns the authenticated user's `theme`, `analyticsConsentOptedOut`, and `preferredBookInfoProviderId` (all `null`/`false` by default for a user who has never set one)
+- `PUT /api/preferences` — replaces all three preference values in one call; `theme` must be `dark`, `light`, or `high-contrast` (or omitted/`null`), and `preferredBookInfoProviderId` must be a known provider id (or omitted/`null`)
+
 Operational endpoint (admin only):
 
 - `GET /api/metrics`
@@ -465,14 +472,14 @@ Book endpoints (authentication required):
 - `DELETE /api/books/{id}`
 - `POST /api/books/spin`
 - `GET /api/books/spin-history` — returns the authenticated user's own spin selections, newest first
-- `GET /api/books/lookup?isbn={isbn}` or `GET /api/books/lookup?title={title}` — queries the Open Library API for a book's title, author, ISBN, and cover URL; returns `404` when nothing matches and `400` when neither `isbn` nor `title` is supplied or the ISBN fails checksum validation
+- `GET /api/books/lookup?isbn={isbn}` or `GET /api/books/lookup?title={title}` — queries the authenticated user's preferred book-info provider (Open Library or Google Books, falling back to the other provider if the preferred one has no match) for a book's title, author, ISBN, and cover URL, plus which provider answered (`providerId`); returns `404` when nothing matches and `400` when neither `isbn` nor `title` is supplied or the ISBN fails checksum validation
 
 Stats endpoints (authentication required):
 
 - `GET /api/stats` — returns per-user spin analytics: total spins, unique books spun, never-spun count, longest/shortest time a book has been on the wheel (derived from `CreatedAtUtc`), a ranked top-books list with spin counts and percentages, and the full list of never-spun active books
 - `GET /api/stats/aggregate` — administrator only; returns cross-user totals: total spins across all users, active user count, and top users by spin count
 
-`POST /api/books` and `PUT /api/books/{id}` accept optional `isbn`, `author`, and `coverUrl` fields alongside the required `title`. A supplied `isbn` is validated (ISBN-10 or ISBN-13, hyphens/spaces ignored) and rejected with `400` if it fails checksum validation.
+`POST /api/books` and `PUT /api/books/{id}` accept optional `isbn`, `author`, `coverUrl`, and `bookInfoProviderId` fields alongside the required `title`. A supplied `isbn` is validated (ISBN-10 or ISBN-13, hyphens/spaces ignored) and rejected with `400` if it fails checksum validation.
 
 `DELETE /api/books/{id}` soft-deletes the book (sets a `DeletedAtUtc` timestamp) instead of removing the row. Soft-deleted books are excluded from `GET /api/books`, spin selection, and the `totalBookCount` metric, and re-deleting or updating an already-deleted book returns `404`. There is no restore endpoint. A full user-account removal (`DELETE /api/users/{id}`) still hard-deletes all of that user's books, including any already soft-deleted, along with their spin history.
 
@@ -509,6 +516,7 @@ Current integration tests cover:
 - Spin-history recording and retrieval: each spin persists a user/book/timestamp entry, the read endpoint requires authentication, returns entries newest-first, keeps a book's title even after that book is later soft-deleted, and is isolated per user
 - ISBN validation (valid/invalid ISBN-10 and ISBN-13, with and without separators), ISBN/author/cover persistence on add and edit, and the `/api/books/lookup` endpoint's success, not-found, and validation-error responses
 - Title lookup requests Open Library's general search parameter (`q=`) rather than the strict title-field parameter, so titles not indexed verbatim still return matches (GH #63)
+- Book info provider preference: `/api/books/lookup` uses the authenticated user's preferred provider (Open Library or Google Books) and falls back to the other provider when the preferred one has no match; `POST`/`PUT /api/books` persist which provider actually supplied a book's data (`null` for manual entries); `GET`/`PUT /api/preferences` round-trip theme, analytics-consent, and provider preference, rejecting unknown values with `400` (GH #70)
 - Spin selection response includes author/cover when the selected book has that metadata, and omits them (rather than erroring) when it doesn't (GH #62)
 - Security regression checks for encrypted credential storage, failed-login audit logging, and rate limiting
 - Proxy-aware rate-limit behavior using forwarded client IP headers
@@ -524,7 +532,7 @@ Current integration tests cover:
 
 Frontend-focused tests also verify that the HTML, JavaScript, and CSS expose the account setup mode, selected-book UI (including the cover/author shown alongside the "Last selected" title, GH #62), pagination summary, delete confirmation flow, logout form reset behavior, icon-based dark/light/high-contrast theme toggle behavior, the consolidated Settings dialog's tab structure and visibility rules, file-based import/export behavior, and the ISBN lookup controls (input, Lookup button, cover/author preview) on both the add-book row and the edit dialog. Additional checks confirm the spin-result highlight, ambiguous-match toast, and lookup-picker rows derive their color from the active theme's CSS variables rather than a fixed dark-mode color (GH #63).
 
-Integration tests never call the real Open Library API: `BookWheelWebAppFactory` substitutes a deterministic `IBookMetadataLookupService` fake, and `OpenLibraryBookMetadataLookupServiceTests` exercises the real HTTP-parsing logic against a stubbed `HttpMessageHandler` (success, not-found, malformed JSON, and network-failure cases).
+Integration tests never call the real Open Library or Google Books APIs: `BookWheelWebAppFactory` substitutes a `BookMetadataLookupDispatcher` built from two deterministic `IBookMetadataLookupService` fakes (one per provider), and `OpenLibraryBookMetadataLookupServiceTests`/`GoogleBooksBookMetadataLookupServiceTests` exercise each provider's real HTTP-parsing logic against a stubbed `HttpMessageHandler` (success, not-found, malformed JSON, and network-failure cases). `BookMetadataLookupDispatcherTests` covers the preferred-provider/fallback selection logic in isolation, with no HTTP involved at all.
 
 The frontend also includes import/export interactions (a JSON tabbed panel inside the Settings dialog) and wheel shuffle behavior when books are added.
 

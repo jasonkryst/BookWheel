@@ -21,4 +21,7 @@ public sealed class UpdateBookRequest
 
     [Range(1, 3, ErrorMessage = "Book type must be a valid type.")]
     public int BookTypeId { get; set; } = 1;
+
+    [Range(1, 2, ErrorMessage = "Book info provider must be a valid provider.")]
+    public int? BookInfoProviderId { get; set; }
 }

@@ -102,6 +102,12 @@
   <data name="InvalidBookType" xml:space="preserve">
     <value>El tipo de libro debe ser un tipo válido.</value>
   </data>
+  <data name="InvalidBookInfoProvider" xml:space="preserve">
+    <value>El proveedor de información del libro debe ser válido.</value>
+  </data>
+  <data name="InvalidTheme" xml:space="preserve">
+    <value>El tema debe ser un valor válido.</value>
+  </data>
   <data name="UsernameLength" xml:space="preserve">
     <value>El nombre de usuario debe tener entre 1 y 64 caracteres.</value>
   </data>

@@ -11,4 +11,7 @@ public sealed class UserEntity
     public bool IsLocked { get; set; }
     public DateTimeOffset? LockedUntilUtc { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
+    public string? Theme { get; set; }
+    public bool AnalyticsConsentOptedOut { get; set; }
+    public int? PreferredBookInfoProviderId { get; set; }
 }

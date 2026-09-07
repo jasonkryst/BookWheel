@@ -15,7 +15,8 @@ public sealed class BooksController : ControllerBase
     private readonly IBookRepository _store;
     private readonly ISpinHistoryRepository _spinHistory;
     private readonly ApiMessageLocalizer _errors;
-    private readonly IBookMetadataLookupService _metadataLookup;
+    private readonly BookMetadataLookupDispatcher _metadataLookup;
+    private readonly IUserPreferencesRepository _preferencesRepository;
     private readonly IOptionsSnapshot<BookMetadataOptions> _metadataOptions;
 
     public BooksController(
@@ -24,7 +25,8 @@ public sealed class BooksController : ControllerBase
         IBookRepository store,
         ISpinHistoryRepository spinHistory,
         ApiMessageLocalizer errors,
-        IBookMetadataLookupService metadataLookup,
+        BookMetadataLookupDispatcher metadataLookup,
+        IUserPreferencesRepository preferencesRepository,
         IOptionsSnapshot<BookMetadataOptions> metadataOptions)
     {
         _authService = authService;
@@ -33,6 +35,7 @@ public sealed class BooksController : ControllerBase
         _spinHistory = spinHistory;
         _errors = errors;
         _metadataLookup = metadataLookup;
+        _preferencesRepository = preferencesRepository;
         _metadataOptions = metadataOptions;
     }
 
@@ -195,7 +198,7 @@ public sealed class BooksController : ControllerBase
 
         try
         {
-            var book = await _store.AddAsync(user.UserId, request.Title, normalizedIsbn, NormalizeOptional(request.Author), NormalizeOptional(request.CoverUrl), request.AddedByScanner, request.BookTypeId);
+            var book = await _store.AddAsync(user.UserId, request.Title, normalizedIsbn, NormalizeOptional(request.Author), NormalizeOptional(request.CoverUrl), request.AddedByScanner, request.BookTypeId, bookInfoProviderId: request.BookInfoProviderId);
             return Ok(book);
         }
         catch (CorruptedDataException ex)
@@ -226,7 +229,7 @@ public sealed class BooksController : ControllerBase
 
         try
         {
-            var book = await _store.UpdateAsync(user.UserId, id, request.Title, normalizedIsbn, NormalizeOptional(request.Author), NormalizeOptional(request.CoverUrl), request.BookTypeId);
+            var book = await _store.UpdateAsync(user.UserId, id, request.Title, normalizedIsbn, NormalizeOptional(request.Author), NormalizeOptional(request.CoverUrl), request.BookTypeId, bookInfoProviderId: request.BookInfoProviderId);
             return Ok(book);
         }
         catch (CorruptedDataException ex)
@@ -253,6 +256,8 @@ public sealed class BooksController : ControllerBase
             return BadRequest(new { message = _errors.Localize("Provide an ISBN or a title to look up.") });
         }
 
+        var preferences = await _preferencesRepository.GetAsync(user.UserId);
+
         if (!string.IsNullOrWhiteSpace(isbn))
         {
             if (!IsbnValidator.TryNormalize(isbn, out var normalizedIsbn))
@@ -260,7 +265,7 @@ public sealed class BooksController : ControllerBase
                 return BadRequest(new { message = _errors.Localize("The provided ISBN is not valid.") });
             }
 
-            var result = await _metadataLookup.LookupByIsbnAsync(normalizedIsbn, HttpContext.RequestAborted);
+            var result = await _metadataLookup.LookupByIsbnAsync(normalizedIsbn, preferences.PreferredBookInfoProviderId, HttpContext.RequestAborted);
             if (result is null)
             {
                 return NotFound(new { message = _errors.Localize("No book metadata found for that ISBN.") });
@@ -270,7 +275,7 @@ public sealed class BooksController : ControllerBase
         }
 
         var maxResults = Math.Clamp(_metadataOptions.Value.TitleSearchResultLimit, 1, 25);
-        var results = await _metadataLookup.LookupByTitleAsync(title!.Trim(), maxResults, HttpContext.RequestAborted);
+        var results = await _metadataLookup.LookupByTitleAsync(title!.Trim(), maxResults, preferences.PreferredBookInfoProviderId, HttpContext.RequestAborted);
         if (results.Count == 0)
         {
             return NotFound(new { message = _errors.Localize("No book metadata found for that title.") });
