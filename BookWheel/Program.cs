@@ -101,9 +101,15 @@ builder.Services.AddControllers()
 		};
 	});
 builder.Services.AddHttpClient("central-log-shipper");
-builder.Services.AddHttpClient<IBookMetadataLookupService, OpenLibraryBookMetadataLookupService>(client =>
+builder.Services.AddHttpClient<OpenLibraryBookMetadataLookupService>(client =>
 {
 	client.BaseAddress = new Uri("https://openlibrary.org/");
+	client.Timeout = TimeSpan.FromSeconds(8);
+	client.DefaultRequestHeaders.UserAgent.ParseAdd("BookWheel/1.0 (+https://github.com/jasonkryst/BookWheel)");
+});
+builder.Services.AddHttpClient<GoogleBooksBookMetadataLookupService>(client =>
+{
+	client.BaseAddress = new Uri("https://www.googleapis.com/books/v1/");
 	client.Timeout = TimeSpan.FromSeconds(8);
 	client.DefaultRequestHeaders.UserAgent.ParseAdd("BookWheel/1.0 (+https://github.com/jasonkryst/BookWheel)");
 });

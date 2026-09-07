@@ -43,7 +43,7 @@ public sealed class OpenLibraryBookMetadataLookupService : IBookMetadataLookupSe
                 return null;
             }
 
-            return new BookMetadataResult { Title = title, Author = author, Isbn = isbn, CoverUrl = coverUrl };
+            return new BookMetadataResult { Title = title, Author = author, Isbn = isbn, CoverUrl = coverUrl, ProviderId = 1 };
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
@@ -90,7 +90,7 @@ public sealed class OpenLibraryBookMetadataLookupService : IBookMetadataLookupSe
                 var isbn = ExtractBestIsbn(doc);
                 var coverUrl = ExtractSearchCoverUrl(doc);
 
-                results.Add(new BookMetadataResult { Title = resultTitle, Author = author, Isbn = isbn, CoverUrl = coverUrl });
+                results.Add(new BookMetadataResult { Title = resultTitle, Author = author, Isbn = isbn, CoverUrl = coverUrl, ProviderId = 1 });
             }
 
             return results;
