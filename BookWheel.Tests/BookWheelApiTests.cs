@@ -142,7 +142,7 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
     [Fact]
     public async Task AddBook_WithMissingTitle_ReturnsSpanishValidationMessage_WhenAcceptLanguageIsSpanish()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new
@@ -173,7 +173,7 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
     [Fact]
     public async Task AddBook_WithOverlongIsbn_ReturnsLocalizedLengthMessage()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/auth/setup", new

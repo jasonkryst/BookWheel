@@ -76,7 +76,7 @@ public sealed class BookWheelSmokeTests : IClassFixture<BookWheelWebAppFactory>,
     [Fact]
     public async Task Static_Assets_Are_Served_With_Long_Lived_Immutable_Cache_Headers()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/js/app.js?v=test");
@@ -91,7 +91,7 @@ public sealed class BookWheelSmokeTests : IClassFixture<BookWheelWebAppFactory>,
     [Fact]
     public async Task Index_Html_Still_Uses_No_Store_Cache_Headers()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/");
@@ -104,7 +104,7 @@ public sealed class BookWheelSmokeTests : IClassFixture<BookWheelWebAppFactory>,
     [Fact]
     public async Task Static_Js_Response_Is_Compressed_When_Client_Accepts_Gzip()
     {
-        using var factory = new BookWheelWebAppFactory();
+        var factory = _factory;
         using var client = factory.CreateClient();
 
         var request = new HttpRequestMessage(HttpMethod.Get, "/js/app.js?v=test");
