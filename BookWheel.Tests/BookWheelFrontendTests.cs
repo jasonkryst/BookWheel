@@ -42,6 +42,8 @@ public sealed class BookWheelFrontendTests : IClassFixture<BookWheelWebAppFactor
         Assert.Contains("Version: {version}", script, StringComparison.Ordinal);
         Assert.Contains("Page {current} of {total}", script, StringComparison.Ordinal);
         Assert.Contains("Generate reset link", script, StringComparison.Ordinal);
+        Assert.Contains("Fuente de información del libro", script, StringComparison.Ordinal);
+        Assert.Contains("Źródło informacji o książce", script, StringComparison.Ordinal);
 
         // Negative: locale data lives only in this catalog file, not duplicated
         // as a second hardcoded English-only copy anywhere in the same file.
@@ -988,6 +990,20 @@ public sealed class BookWheelFrontendTests : IClassFixture<BookWheelWebAppFactor
         Assert.Contains("id=\"analyticsConsentCheckbox\"", html, StringComparison.Ordinal);
         Assert.Contains("data-i18n=\"settings.analyticsLabel\"", html, StringComparison.Ordinal);
         Assert.Contains("window.__BOOKWHEEL_GA_ID__", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Home_Page_Should_Include_Book_Info_Provider_Select()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var html = await client.GetStringAsync("/");
+
+        Assert.Contains("id=\"bookInfoProviderSelect\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-i18n=\"settings.bookInfoProviderLabel\"", html, StringComparison.Ordinal);
+        Assert.Contains("<option value=\"1\">Open Library</option>", html, StringComparison.Ordinal);
+        Assert.Contains("<option value=\"2\">Google Books</option>", html, StringComparison.Ordinal);
     }
 
     [Fact]
