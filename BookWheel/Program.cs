@@ -73,6 +73,9 @@ builder.Services.AddSingleton<ICredentialRepository>(sp => sp.GetRequiredService
 builder.Services.AddSingleton<PostgresPasswordResetTokenRepository>();
 builder.Services.AddSingleton<IPasswordResetTokenRepository>(sp => sp.GetRequiredService<PostgresPasswordResetTokenRepository>());
 
+builder.Services.AddSingleton<PostgresUserPreferencesRepository>();
+builder.Services.AddSingleton<IUserPreferencesRepository>(sp => sp.GetRequiredService<PostgresUserPreferencesRepository>());
+
 builder.Services.AddSingleton<DataMigrationService>();
 builder.Services.AddSingleton<PostgresMigrationService>();
 builder.Services.AddControllers()

@@ -36,6 +36,8 @@ public sealed class ApiMessageLocalizer(IStringLocalizer<SharedErrors> localizer
 		["Author must be 300 characters or fewer."] = "AuthorLength",
 		["Cover URL must be 2048 characters or fewer."] = "CoverUrlLength",
 		["Book type must be a valid type."] = "InvalidBookType",
+		["Book info provider must be a valid provider."] = "InvalidBookInfoProvider",
+		["Theme must be a valid value."] = "InvalidTheme",
 		["Username must be between 1 and 64 characters."] = "UsernameLength",
 		["Password is required."] = "PasswordRequired",
 		["Password must be at least 8 characters."] = "PasswordLength",
