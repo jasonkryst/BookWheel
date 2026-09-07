@@ -12,6 +12,7 @@ public sealed class BookWheelDbContext : DbContext
     public DbSet<UserEntity> Users => Set<UserEntity>();
     public DbSet<BookEntity> Books => Set<BookEntity>();
     public DbSet<BookTypeEntity> BookTypes => Set<BookTypeEntity>();
+    public DbSet<BookInfoProviderEntity> BookInfoProviders => Set<BookInfoProviderEntity>();
     public DbSet<PasswordResetTokenEntity> PasswordResetTokens => Set<PasswordResetTokenEntity>();
     public DbSet<SpinSelectionEntity> SpinSelections => Set<SpinSelectionEntity>();
 
@@ -38,6 +39,7 @@ public sealed class BookWheelDbContext : DbContext
             entity.Property(b => b.CoverUrl).HasMaxLength(2048);
             entity.HasIndex(b => b.UserId);
             entity.HasIndex(b => b.BookTypeId);
+            entity.HasIndex(b => b.BookInfoProviderId);
             entity.Property(b => b.CreatedAtUtc).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
             entity.HasIndex(b => b.CreatedByUserId);
             entity.HasIndex(b => b.LastUpdatedByUserId);
@@ -54,6 +56,17 @@ public sealed class BookWheelDbContext : DbContext
                 new BookTypeEntity { Id = 1, Name = "Physical" },
                 new BookTypeEntity { Id = 2, Name = "Digital" },
                 new BookTypeEntity { Id = 3, Name = "Nook Only" });
+        });
+
+        modelBuilder.Entity<BookInfoProviderEntity>(entity =>
+        {
+            entity.ToTable("book_info_providers");
+            entity.HasKey(p => p.Id);
+            entity.Property(p => p.Name).HasMaxLength(50).IsRequired();
+            entity.HasIndex(p => p.Name).IsUnique();
+            entity.HasData(
+                new BookInfoProviderEntity { Id = 1, Name = "Open Library" },
+                new BookInfoProviderEntity { Id = 2, Name = "Google Books" });
         });
 
         modelBuilder.Entity<SpinSelectionEntity>(entity =>

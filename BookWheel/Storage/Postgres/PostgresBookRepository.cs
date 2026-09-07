@@ -34,7 +34,7 @@ public sealed class PostgresBookRepository : IBookRepository
         return entities.Select(ToRecord).ToList();
     }
 
-    public async Task<BookRecord> AddAsync(Guid userId, string title, string? isbn = null, string? author = null, string? coverUrl = null, bool addedByScanner = false, int bookTypeId = 1, Guid? createdByUserId = null)
+    public async Task<BookRecord> AddAsync(Guid userId, string title, string? isbn = null, string? author = null, string? coverUrl = null, bool addedByScanner = false, int bookTypeId = 1, Guid? createdByUserId = null, int? bookInfoProviderId = null)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
         var entity = new BookEntity
@@ -47,6 +47,7 @@ public sealed class PostgresBookRepository : IBookRepository
             CoverUrl = coverUrl,
             AddedByScanner = addedByScanner,
             BookTypeId = bookTypeId,
+            BookInfoProviderId = bookInfoProviderId,
             CreatedByUserId = createdByUserId ?? userId
         };
         context.Books.Add(entity);
@@ -54,7 +55,7 @@ public sealed class PostgresBookRepository : IBookRepository
         return ToRecord(entity);
     }
 
-    public async Task<BookRecord> UpdateAsync(Guid userId, Guid id, string title, string? isbn = null, string? author = null, string? coverUrl = null, int bookTypeId = 1, Guid? updatedByUserId = null)
+    public async Task<BookRecord> UpdateAsync(Guid userId, Guid id, string title, string? isbn = null, string? author = null, string? coverUrl = null, int bookTypeId = 1, Guid? updatedByUserId = null, int? bookInfoProviderId = null)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
         var entity = await context.Books.FirstOrDefaultAsync(b => b.UserId == userId && b.Id == id)
@@ -64,6 +65,7 @@ public sealed class PostgresBookRepository : IBookRepository
         entity.Author = author;
         entity.CoverUrl = coverUrl;
         entity.BookTypeId = bookTypeId;
+        entity.BookInfoProviderId = bookInfoProviderId;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
         entity.LastUpdatedByUserId = updatedByUserId ?? userId;
         await context.SaveChangesAsync();
@@ -123,6 +125,7 @@ public sealed class PostgresBookRepository : IBookRepository
         DeletedAtUtc = entity.DeletedAtUtc,
         AddedByScanner = entity.AddedByScanner,
         BookTypeId = entity.BookTypeId,
+        BookInfoProviderId = entity.BookInfoProviderId,
         CreatedAtUtc = entity.CreatedAtUtc,
         CreatedByUserId = entity.CreatedByUserId,
         UpdatedAtUtc = entity.UpdatedAtUtc,
