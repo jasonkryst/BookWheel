@@ -9,6 +9,7 @@
     <InformationalVersion Condition="'$(InformationalVersion)' == ''">2.17.0</InformationalVersion>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="MailKit" Version="4.17.0" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.19">
       <PrivateAssets>all</PrivateAssets>

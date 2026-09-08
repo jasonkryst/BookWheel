@@ -49,8 +49,10 @@ builder.Services.AddPooledDbContextFactory<BookWheelDbContext>(options => option
 builder.Services.Configure<SecurityOptions>(builder.Configuration.GetSection(SecurityOptions.SectionName));
 builder.Services.Configure<ObservabilityOptions>(builder.Configuration.GetSection(ObservabilityOptions.SectionName));
 builder.Services.Configure<BookMetadataOptions>(builder.Configuration.GetSection(BookMetadataOptions.SectionName));
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
 builder.Services.AddSingleton<AuthService>();
 builder.Services.AddSingleton<AppMetricsService>();
+builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 builder.Services.AddLocalization();
 builder.Services.AddSingleton<ApiMessageLocalizer>();
 

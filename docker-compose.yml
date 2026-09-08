@@ -52,6 +52,15 @@ services:
       # Set GOOGLE_BOOKS_API_KEY in your own .env file for a higher request quota —
       # see README's "Book info providers" feature bullet.
       BookMetadata__GoogleBooks__ApiKey: "${GOOGLE_BOOKS_API_KEY:-}"
+      # Set SMTP_HOST/SMTP_PORT/SMTP_USERNAME/SMTP_PASSWORD/SMTP_FROM_ADDRESS in
+      # your own .env file to enable outbound email (password reset / forgotten
+      # username links) — see README's "Email (SMTP)" section. Email delivery is
+      # silently skipped (logged only) when SMTP_HOST is unset.
+      Smtp__Host: "${SMTP_HOST:-}"
+      Smtp__Port: "${SMTP_PORT:-587}"
+      Smtp__Username: "${SMTP_USERNAME:-}"
+      Smtp__Password: "${SMTP_PASSWORD:-}"
+      Smtp__FromAddress: "${SMTP_FROM_ADDRESS:-}"
     volumes:
       - bookwheel_app_data:/app/App_Data
       - bookwheel_dp_keys:/home/app/.aspnet/DataProtection-Keys
