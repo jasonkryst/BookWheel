@@ -120,4 +120,13 @@
   <data name="ResetTokenRequired" xml:space="preserve">
     <value>Se requiere un token de restablecimiento.</value>
   </data>
+  <data name="EmailRequired" xml:space="preserve">
+    <value>El correo electrónico es obligatorio.</value>
+  </data>
+  <data name="InvalidEmailFormat" xml:space="preserve">
+    <value>El correo electrónico debe ser una dirección válida.</value>
+  </data>
+  <data name="EmailAlreadyExists" xml:space="preserve">
+    <value>El correo electrónico ya existe.</value>
+  </data>
 </root>

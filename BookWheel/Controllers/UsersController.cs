@@ -66,7 +66,7 @@ public sealed class UsersController : ControllerBase
 
         try
         {
-            var user = await _credentialRepository.CreateUserAsync(request.Username, request.IsAdmin);
+            var user = await _credentialRepository.CreateUserAsync(request.Username, request.IsAdmin, request.Email);
             var appBaseUrl = $"{Request.Scheme}://{Request.Host}{Request.PathBase}";
             var setupLink = await _authService.CreatePasswordResetLinkAsync(user.UserId, appBaseUrl);
             _logger.LogInformation(
@@ -117,7 +117,7 @@ public sealed class UsersController : ControllerBase
         try
         {
             var before = (await _credentialRepository.GetUsersAsync()).FirstOrDefault(user => user.UserId == id);
-            var user = await _credentialRepository.UpdateUserAsync(id, request.Username, request.IsAdmin, request.IsDisabled, request.ForcePasswordReset, request.IsLocked);
+            var user = await _credentialRepository.UpdateUserAsync(id, request.Username, request.IsAdmin, request.IsDisabled, request.ForcePasswordReset, request.IsLocked, request.Email);
             if (before is not null)
             {
                 if (before.IsAdmin != user.IsAdmin)

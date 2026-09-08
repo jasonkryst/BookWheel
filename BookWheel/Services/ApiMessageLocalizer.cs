@@ -42,6 +42,9 @@ public sealed class ApiMessageLocalizer(IStringLocalizer<SharedErrors> localizer
 		["Password is required."] = "PasswordRequired",
 		["Password must be at least 8 characters."] = "PasswordLength",
 		["A reset token is required."] = "ResetTokenRequired",
+		["Email is required."] = "EmailRequired",
+		["Email must be a valid email address."] = "InvalidEmailFormat",
+		["Email already exists."] = "EmailAlreadyExists",
 	};
 
 	public static IReadOnlyDictionary<string, string> KnownMessageKeys => KeysByEnglishMessage;

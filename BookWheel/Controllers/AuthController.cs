@@ -29,7 +29,7 @@ public sealed class AuthController : ControllerBase
     }
 
     [HttpPost("setup")]
-    public async Task<IActionResult> Setup([FromBody] LoginRequest request)
+    public async Task<IActionResult> Setup([FromBody] SetupAccountRequest request)
     {
         var hasAccount = await _authService.HasAccountAsync();
         if (hasAccount)
@@ -44,7 +44,7 @@ public sealed class AuthController : ControllerBase
             return Conflict(new { message = _errors.Localize("An account already exists.") });
         }
 
-        var user = await _authService.CreateAccountAsync(request.Username, request.Password);
+        var user = await _authService.CreateAccountAsync(request.Username, request.Password, request.Email);
         _logger.LogInformation(
             "Initial account created for username {Username} from {ClientIp} path {Path} request {RequestId} user agent {UserAgent}",
             request.Username,
@@ -206,6 +206,34 @@ public sealed class AuthController : ControllerBase
                 ex.Message);
             return BadRequest(new { message = _errors.Localize(ex.Message) });
         }
+    }
+
+    [HttpPost("password-reset/request")]
+    public async Task<IActionResult> RequestPasswordReset([FromBody] RequestPasswordResetRequest request)
+    {
+        var appBaseUrl = $"{Request.Scheme}://{Request.Host}{Request.PathBase}";
+        await _authService.RequestPasswordResetAsync(request.Username, appBaseUrl);
+        _logger.LogInformation(
+            "Password reset requested. Username {Username} from {ClientIp} path {Path} request {RequestId} user agent {UserAgent}",
+            request.Username,
+            GetClientIp(),
+            GetRequestPath(),
+            GetRequestId(),
+            GetUserAgent());
+        return Ok(new { message = "If that account exists and has an email on file, a reset link has been sent." });
+    }
+
+    [HttpPost("forgot-username")]
+    public async Task<IActionResult> ForgotUsername([FromBody] ForgotUsernameRequest request)
+    {
+        await _authService.RequestForgottenUsernameAsync(request.Email);
+        _logger.LogInformation(
+            "Forgotten-username requested from {ClientIp} path {Path} request {RequestId} user agent {UserAgent}",
+            GetClientIp(),
+            GetRequestPath(),
+            GetRequestId(),
+            GetUserAgent());
+        return Ok(new { message = "If that email is on file, we've sent the associated username." });
     }
 
     [HttpPost("password-reset/validate")]

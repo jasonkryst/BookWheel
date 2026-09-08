@@ -12,4 +12,7 @@ public sealed class UpdateUserAccountRequest
     public bool IsDisabled { get; set; }
     public bool ForcePasswordReset { get; set; }
     public bool IsLocked { get; set; }
+
+    [EmailAddress(ErrorMessage = "Email must be a valid email address.")]
+    public string? Email { get; set; }
 }
