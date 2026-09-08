@@ -53,6 +53,7 @@ builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailO
 builder.Services.AddSingleton<AuthService>();
 builder.Services.AddSingleton<AppMetricsService>();
 builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+builder.Services.AddSingleton<AccountEmailService>();
 builder.Services.AddLocalization();
 builder.Services.AddSingleton<ApiMessageLocalizer>();
 
