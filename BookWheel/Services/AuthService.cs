@@ -12,6 +12,9 @@ public sealed class AuthService
     private readonly SecurityOptions _securityOptions;
     private readonly ConcurrentDictionary<string, SessionRecord> _sessions = new();
     private readonly ConcurrentDictionary<string, FailedLoginRecord> _failedLogins = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, RateLimitRecord> _passwordResetRequests = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, RateLimitRecord> _forgottenUsernameRequests = new(StringComparer.OrdinalIgnoreCase);
+    private readonly AccountEmailService _accountEmailService;
     private readonly TimeSpan _sessionLifetime = TimeSpan.FromHours(8);
 
     private sealed class FailedLoginRecord
@@ -20,17 +23,24 @@ public sealed class AuthService
         public DateTimeOffset? LockedUntilUtc { get; set; }
     }
 
+    private sealed class RateLimitRecord
+    {
+        public int Count { get; set; }
+        public DateTimeOffset WindowStartUtc { get; set; }
+    }
+
     private sealed class SessionRecord
     {
         public AuthenticatedUser User { get; set; } = new();
         public DateTimeOffset ExpiresAtUtc { get; set; }
     }
 
-    public AuthService(ICredentialRepository credentialRepository, IPasswordResetTokenRepository resetTokenRepository, IOptions<SecurityOptions> securityOptions)
+    public AuthService(ICredentialRepository credentialRepository, IPasswordResetTokenRepository resetTokenRepository, IOptions<SecurityOptions> securityOptions, AccountEmailService accountEmailService)
     {
         _credentialRepository = credentialRepository;
         _resetTokenRepository = resetTokenRepository;
         _securityOptions = securityOptions.Value;
+        _accountEmailService = accountEmailService;
     }
 
     public Task<bool> HasAccountAsync()
@@ -38,9 +48,9 @@ public sealed class AuthService
         return _credentialRepository.HasAccountAsync();
     }
 
-    public async Task<AuthenticatedUser> CreateAccountAsync(string username, string password)
+    public async Task<AuthenticatedUser> CreateAccountAsync(string username, string password, string email)
     {
-        var user = await _credentialRepository.CreateInitialAccountAsync(username, password);
+        var user = await _credentialRepository.CreateInitialAccountAsync(username, password, email);
         return ToAuthenticatedUser(user);
     }
 
@@ -104,13 +114,79 @@ public sealed class AuthService
         return new LoginValidationResult { User = ToAuthenticatedUser(user) };
     }
 
-    public async Task<(string ResetLink, DateTimeOffset ExpiresAtUtc, string Username)> CreatePasswordResetLinkAsync(Guid userId, string appBaseUrl)
+    private static bool TryConsumeRateLimit(ConcurrentDictionary<string, RateLimitRecord> store, string key)
+    {
+        const int maxRequestsPerWindow = 3;
+        var window = TimeSpan.FromMinutes(15);
+        var now = DateTimeOffset.UtcNow;
+        var normalizedKey = key.Trim();
+
+        var record = store.AddOrUpdate(
+            normalizedKey,
+            _ => new RateLimitRecord { Count = 1, WindowStartUtc = now },
+            (_, existing) =>
+            {
+                if (now - existing.WindowStartUtc > window)
+                {
+                    existing.WindowStartUtc = now;
+                    existing.Count = 1;
+                }
+                else
+                {
+                    existing.Count += 1;
+                }
+
+                return existing;
+            });
+
+        return record.Count <= maxRequestsPerWindow;
+    }
+
+    public async Task RequestPasswordResetAsync(string username, string appBaseUrl, CancellationToken cancellationToken = default)
+    {
+        if (!TryConsumeRateLimit(_passwordResetRequests, username))
+        {
+            return;
+        }
+
+        var account = await _credentialRepository.FindByUsernameAsync(username);
+        if (account is null || account.IsDisabled || string.IsNullOrWhiteSpace(account.Email))
+        {
+            return;
+        }
+
+        await CreatePasswordResetLinkAsync(account.UserId, appBaseUrl, cancellationToken);
+    }
+
+    public async Task RequestForgottenUsernameAsync(string email, CancellationToken cancellationToken = default)
+    {
+        if (!TryConsumeRateLimit(_forgottenUsernameRequests, email))
+        {
+            return;
+        }
+
+        var username = await _credentialRepository.FindUsernameByEmailAsync(email);
+        if (username is null)
+        {
+            return;
+        }
+
+        await _accountEmailService.SendForgottenUsernameEmailAsync(email, username, cancellationToken);
+    }
+
+    public async Task<(string ResetLink, DateTimeOffset ExpiresAtUtc, string Username)> CreatePasswordResetLinkAsync(Guid userId, string appBaseUrl, CancellationToken cancellationToken = default)
     {
         var user = await _credentialRepository.MarkForPasswordResetAsync(userId);
         var (rawToken, expiresAtUtc) = await _resetTokenRepository.CreateAsync(userId);
 
         var trimmedBaseUrl = appBaseUrl.TrimEnd('/');
         var resetLink = $"{trimmedBaseUrl}/?resetToken={Uri.EscapeDataString(rawToken)}";
+
+        if (!string.IsNullOrWhiteSpace(user.Email))
+        {
+            await _accountEmailService.SendPasswordResetEmailAsync(user.Email, user.Username, resetLink, expiresAtUtc, cancellationToken);
+        }
+
         return (resetLink, expiresAtUtc, user.Username);
     }
 
