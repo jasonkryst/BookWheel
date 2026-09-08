@@ -142,7 +142,7 @@ public sealed class AuthService
         return record.Count <= maxRequestsPerWindow;
     }
 
-    public async Task RequestPasswordResetAsync(string username, string appBaseUrl, CancellationToken cancellationToken = default)
+    public async Task RequestPasswordResetAsync(string username, string appBaseUrl)
     {
         if (!TryConsumeRateLimit(_passwordResetRequests, username))
         {
@@ -155,10 +155,10 @@ public sealed class AuthService
             return;
         }
 
-        await CreatePasswordResetLinkAsync(account.UserId, appBaseUrl, cancellationToken);
+        await CreatePasswordResetLinkAsync(account.UserId, appBaseUrl);
     }
 
-    public async Task RequestForgottenUsernameAsync(string email, CancellationToken cancellationToken = default)
+    public async Task RequestForgottenUsernameAsync(string email)
     {
         if (!TryConsumeRateLimit(_forgottenUsernameRequests, email))
         {
@@ -171,10 +171,11 @@ public sealed class AuthService
             return;
         }
 
-        await _accountEmailService.SendForgottenUsernameEmailAsync(email, username, cancellationToken);
+        // Fire-and-forget for the same timing reason as CreatePasswordResetLinkAsync below.
+        _ = _accountEmailService.SendForgottenUsernameEmailAsync(email, username, CancellationToken.None);
     }
 
-    public async Task<(string ResetLink, DateTimeOffset ExpiresAtUtc, string Username)> CreatePasswordResetLinkAsync(Guid userId, string appBaseUrl, CancellationToken cancellationToken = default)
+    public async Task<(string ResetLink, DateTimeOffset ExpiresAtUtc, string Username)> CreatePasswordResetLinkAsync(Guid userId, string appBaseUrl)
     {
         var user = await _credentialRepository.MarkForPasswordResetAsync(userId);
         var (rawToken, expiresAtUtc) = await _resetTokenRepository.CreateAsync(userId);
@@ -184,7 +185,16 @@ public sealed class AuthService
 
         if (!string.IsNullOrWhiteSpace(user.Email))
         {
-            await _accountEmailService.SendPasswordResetEmailAsync(user.Email, user.Username, resetLink, expiresAtUtc, cancellationToken);
+            // Fire-and-forget: awaiting a live SMTP round trip here would make "account
+            // exists and has an email" measurably slower than every other outcome for
+            // RequestPasswordResetAsync's self-service caller, defeating the anti-
+            // enumeration guarantee that method exists to provide. SendAsync never
+            // throws (see SmtpEmailSender), so there's nothing to await for error
+            // handling, and AccountEmailService/IEmailSender are both registered as
+            // singletons, so this detached task safely outlives the HTTP request.
+            // CancellationToken.None is deliberate — the send must not be cut short
+            // by the request's own lifetime.
+            _ = _accountEmailService.SendPasswordResetEmailAsync(user.Email, user.Username, resetLink, expiresAtUtc, CancellationToken.None);
         }
 
         return (resetLink, expiresAtUtc, user.Username);
