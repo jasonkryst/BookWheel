@@ -4,6 +4,7 @@ public sealed class UserAccountSummary
 {
     public Guid UserId { get; set; }
     public string Username { get; set; } = string.Empty;
+    public string? Email { get; set; }
     public bool IsAdmin { get; set; }
     public bool IsDisabled { get; set; }
     public bool ForcePasswordReset { get; set; }

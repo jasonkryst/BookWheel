@@ -23,7 +23,7 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
         return await context.Users.AnyAsync();
     }
 
-    public async Task<CredentialRecord> CreateInitialAccountAsync(string username, string password)
+    public async Task<CredentialRecord> CreateInitialAccountAsync(string username, string password, string email)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
         if (await context.Users.AnyAsync())
@@ -36,6 +36,11 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
             throw new InvalidOperationException("Username and password are required.");
         }
 
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            throw new InvalidOperationException("Email is required.");
+        }
+
         var normalizedUsername = username.Trim();
         var entity = new UserEntity
         {
@@ -43,6 +48,7 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
             Username = normalizedUsername,
             PasswordHash = PasswordHasher.HashPassword(normalizedUsername, password),
             IsAdmin = true,
+            Email = email.Trim(),
             CreatedAtUtc = DateTimeOffset.UtcNow
         };
 
@@ -76,6 +82,7 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
             {
                 UserId = u.Id,
                 Username = u.Username,
+                Email = u.Email,
                 IsAdmin = u.IsAdmin,
                 IsDisabled = u.IsDisabled,
                 ForcePasswordReset = u.ForcePasswordReset,
@@ -86,7 +93,7 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
             .ToListAsync();
     }
 
-    public async Task<UserAccountSummary> CreateUserAsync(string username, bool isAdmin)
+    public async Task<UserAccountSummary> CreateUserAsync(string username, bool isAdmin, string email)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
         if (!await context.Users.AnyAsync())
@@ -99,10 +106,21 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
             throw new InvalidOperationException("Username is required.");
         }
 
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            throw new InvalidOperationException("Email is required.");
+        }
+
         var normalizedUsername = username.Trim();
         if (await context.Users.AnyAsync(u => u.Username == normalizedUsername))
         {
             throw new InvalidOperationException("Username already exists.");
+        }
+
+        var normalizedEmail = email.Trim();
+        if (await context.Users.AnyAsync(u => u.Email == normalizedEmail))
+        {
+            throw new InvalidOperationException("Email already exists.");
         }
 
         var entity = new UserEntity
@@ -111,6 +129,7 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
             Username = normalizedUsername,
             PasswordHash = PasswordHasher.HashPassword(normalizedUsername, GenerateTemporaryPassword()),
             IsAdmin = isAdmin,
+            Email = normalizedEmail,
             CreatedAtUtc = DateTimeOffset.UtcNow
         };
 
@@ -122,7 +141,7 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
         }
         catch (DbUpdateException ex) when (IsUniqueViolation(ex))
         {
-            throw new InvalidOperationException("Username already exists.");
+            throw new InvalidOperationException(IsEmailConstraintViolation(ex) ? "Email already exists." : "Username already exists.");
         }
 
         return ToSummary(entity);
@@ -130,15 +149,15 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
 
     public Task<UserAccountSummary> UpdateUserAsync(Guid userId, string username, bool isAdmin)
     {
-        return UpdateUserCoreAsync(userId, username, isAdmin, isDisabled: null, forcePasswordReset: null, isLocked: null);
+        return UpdateUserCoreAsync(userId, username, isAdmin, isDisabled: null, forcePasswordReset: null, isLocked: null, email: null);
     }
 
-    public Task<UserAccountSummary> UpdateUserAsync(Guid userId, string username, bool isAdmin, bool isDisabled, bool forcePasswordReset, bool isLocked)
+    public Task<UserAccountSummary> UpdateUserAsync(Guid userId, string username, bool isAdmin, bool isDisabled, bool forcePasswordReset, bool isLocked, string? email)
     {
-        return UpdateUserCoreAsync(userId, username, isAdmin, isDisabled, forcePasswordReset, isLocked);
+        return UpdateUserCoreAsync(userId, username, isAdmin, isDisabled, forcePasswordReset, isLocked, email);
     }
 
-    private async Task<UserAccountSummary> UpdateUserCoreAsync(Guid userId, string username, bool isAdmin, bool? isDisabled, bool? forcePasswordReset, bool? isLocked)
+    private async Task<UserAccountSummary> UpdateUserCoreAsync(Guid userId, string username, bool isAdmin, bool? isDisabled, bool? forcePasswordReset, bool? isLocked, string? email)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
         var entity = await context.Users.FirstOrDefaultAsync(u => u.Id == userId)
@@ -156,6 +175,16 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
             throw new InvalidOperationException("Username already exists.");
         }
 
+        var normalizedEmail = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
+        if (normalizedEmail is not null)
+        {
+            var duplicateEmailExists = await context.Users.AnyAsync(u => u.Id != userId && u.Email == normalizedEmail);
+            if (duplicateEmailExists)
+            {
+                throw new InvalidOperationException("Email already exists.");
+            }
+        }
+
         if (!isAdmin)
         {
             var adminCount = await context.Users.CountAsync(u => u.IsAdmin);
@@ -167,6 +196,7 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
 
         entity.Username = normalizedUsername;
         entity.IsAdmin = isAdmin;
+        entity.Email = normalizedEmail;
 
         if (isDisabled.HasValue)
         {
@@ -190,7 +220,7 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
         }
         catch (DbUpdateException ex) when (IsUniqueViolation(ex))
         {
-            throw new InvalidOperationException("Username already exists.");
+            throw new InvalidOperationException(IsEmailConstraintViolation(ex) ? "Email already exists." : "Username already exists.");
         }
 
         return ToSummary(entity);
@@ -252,15 +282,41 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
         return await context.Users.Where(u => u.Id == userId).Select(u => u.Username).FirstOrDefaultAsync();
     }
 
+    public async Task<CredentialRecord?> FindByUsernameAsync(string username)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var normalizedUsername = username.Trim();
+        var entity = await context.Users.FirstOrDefaultAsync(u => u.Username == normalizedUsername);
+        return entity is null ? null : ToRecord(entity);
+    }
+
+    public async Task<string?> FindUsernameByEmailAsync(string email)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var normalizedEmail = email.Trim();
+        return await context.Users
+            .Where(u => !u.IsDisabled && u.Email == normalizedEmail)
+            .Select(u => u.Username)
+            .FirstOrDefaultAsync();
+    }
+
     private static bool IsUniqueViolation(DbUpdateException ex)
     {
         return ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
+    }
+
+    private static bool IsEmailConstraintViolation(DbUpdateException ex)
+    {
+        return ex.InnerException is PostgresException postgresException &&
+            postgresException.ConstraintName is not null &&
+            postgresException.ConstraintName.Contains("Email", StringComparison.OrdinalIgnoreCase);
     }
 
     private static CredentialRecord ToRecord(UserEntity entity) => new()
     {
         UserId = entity.Id,
         Username = entity.Username,
+        Email = entity.Email,
         PasswordHash = entity.PasswordHash,
         IsAdmin = entity.IsAdmin,
         IsDisabled = entity.IsDisabled,
@@ -274,6 +330,7 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
     {
         UserId = entity.Id,
         Username = entity.Username,
+        Email = entity.Email,
         IsAdmin = entity.IsAdmin,
         IsDisabled = entity.IsDisabled,
         ForcePasswordReset = entity.ForcePasswordReset,

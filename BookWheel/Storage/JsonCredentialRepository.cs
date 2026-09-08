@@ -160,7 +160,7 @@ public sealed class JsonCredentialRepository : ICredentialRepository
         }
     }
 
-    public async Task<CredentialRecord> CreateInitialAccountAsync(string username, string password)
+    public async Task<CredentialRecord> CreateInitialAccountAsync(string username, string password, string email)
     {
         await _gate.WaitAsync();
         try
@@ -176,6 +176,11 @@ public sealed class JsonCredentialRepository : ICredentialRepository
                 throw new InvalidOperationException("Username and password are required.");
             }
 
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                throw new InvalidOperationException("Email is required.");
+            }
+
             var normalizedUsername = username.Trim();
 
             var record = new CredentialRecord
@@ -184,6 +189,7 @@ public sealed class JsonCredentialRepository : ICredentialRepository
                 Username = normalizedUsername,
                 PasswordHash = PasswordHasher.HashPassword(normalizedUsername, password),
                 IsAdmin = true,
+                Email = email.Trim(),
                 CreatedAtUtc = DateTimeOffset.UtcNow
             };
 
@@ -240,7 +246,7 @@ public sealed class JsonCredentialRepository : ICredentialRepository
         }
     }
 
-    public async Task<UserAccountSummary> CreateUserAsync(string username, bool isAdmin)
+    public async Task<UserAccountSummary> CreateUserAsync(string username, bool isAdmin, string email)
     {
         await _gate.WaitAsync();
         try
@@ -256,10 +262,21 @@ public sealed class JsonCredentialRepository : ICredentialRepository
                 throw new InvalidOperationException("Username is required.");
             }
 
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                throw new InvalidOperationException("Email is required.");
+            }
+
             var normalizedUsername = username.Trim();
             if (users.Any(user => string.Equals(user.Username, normalizedUsername, StringComparison.OrdinalIgnoreCase)))
             {
                 throw new InvalidOperationException("Username already exists.");
+            }
+
+            var normalizedEmail = email.Trim();
+            if (users.Any(user => user.Email is not null && string.Equals(user.Email, normalizedEmail, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new InvalidOperationException("Email already exists.");
             }
 
             var record = new CredentialRecord
@@ -268,6 +285,7 @@ public sealed class JsonCredentialRepository : ICredentialRepository
                 Username = normalizedUsername,
                 PasswordHash = PasswordHasher.HashPassword(normalizedUsername, GenerateTemporaryPassword()),
                 IsAdmin = isAdmin,
+                Email = normalizedEmail,
                 CreatedAtUtc = DateTimeOffset.UtcNow
             };
 
@@ -325,7 +343,7 @@ public sealed class JsonCredentialRepository : ICredentialRepository
         }
     }
 
-    public async Task<UserAccountSummary> UpdateUserAsync(Guid userId, string username, bool isAdmin, bool isDisabled, bool forcePasswordReset, bool isLocked)
+    public async Task<UserAccountSummary> UpdateUserAsync(Guid userId, string username, bool isAdmin, bool isDisabled, bool forcePasswordReset, bool isLocked, string? email)
     {
         await _gate.WaitAsync();
         try
@@ -348,6 +366,18 @@ public sealed class JsonCredentialRepository : ICredentialRepository
                 throw new InvalidOperationException("Username already exists.");
             }
 
+            var normalizedEmail = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
+            if (normalizedEmail is not null)
+            {
+                var duplicateEmail = users.FirstOrDefault(user =>
+                    user.UserId != userId && user.Email is not null && string.Equals(user.Email, normalizedEmail, StringComparison.OrdinalIgnoreCase));
+
+                if (duplicateEmail is not null)
+                {
+                    throw new InvalidOperationException("Email already exists.");
+                }
+            }
+
             if (!isAdmin)
             {
                 var adminCount = users.Count(user => user.IsAdmin);
@@ -363,6 +393,7 @@ public sealed class JsonCredentialRepository : ICredentialRepository
             record.ForcePasswordReset = forcePasswordReset;
             record.IsLocked = isLocked;
             record.LockedUntilUtc = isLocked ? DateTimeOffset.UtcNow.AddHours(12) : null;
+            record.Email = normalizedEmail;
 
             await WriteUsersUnsafeAsync(users);
             return ToSummary(record);
@@ -453,6 +484,39 @@ public sealed class JsonCredentialRepository : ICredentialRepository
         {
             var users = await ReadUsersUnsafeAsync();
             return users.FirstOrDefault(user => user.UserId == userId)?.Username;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async Task<CredentialRecord?> FindByUsernameAsync(string username)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var users = await ReadUsersUnsafeAsync();
+            var normalizedUsername = username.Trim();
+            return users.FirstOrDefault(user => string.Equals(user.Username, normalizedUsername, StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async Task<string?> FindUsernameByEmailAsync(string email)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var users = await ReadUsersUnsafeAsync();
+            var normalizedEmail = email.Trim();
+            return users.FirstOrDefault(user =>
+                !user.IsDisabled &&
+                user.Email is not null &&
+                string.Equals(user.Email, normalizedEmail, StringComparison.OrdinalIgnoreCase))?.Username;
         }
         finally
         {
@@ -559,6 +623,7 @@ public sealed class JsonCredentialRepository : ICredentialRepository
         {
             UserId = record.UserId,
             Username = record.Username,
+            Email = record.Email,
             IsAdmin = record.IsAdmin,
             IsDisabled = record.IsDisabled,
             ForcePasswordReset = record.ForcePasswordReset,

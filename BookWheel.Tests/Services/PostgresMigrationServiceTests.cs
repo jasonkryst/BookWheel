@@ -68,7 +68,7 @@ public sealed class PostgresMigrationServiceTests : IAsyncLifetime, IDisposable
     [Fact]
     public async Task RunAsync_Copies_Users_Books_And_Tokens_Into_Postgres()
     {
-        var admin = await _jsonCredentialRepository.CreateInitialAccountAsync("admin-one", "correct-password");
+        var admin = await _jsonCredentialRepository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");
 
         var report = await _service.RunAsync();
 
@@ -79,12 +79,13 @@ public sealed class PostgresMigrationServiceTests : IAsyncLifetime, IDisposable
         Assert.Equal(admin.UserId, migratedUser.Id);
         Assert.Equal("admin-one", migratedUser.Username);
         Assert.True(migratedUser.IsAdmin);
+        Assert.Equal("admin-one@example.com", migratedUser.Email);
     }
 
     [Fact]
     public async Task RunAsync_Twice_Throws_On_Second_Run()
     {
-        await _jsonCredentialRepository.CreateInitialAccountAsync("admin-one", "correct-password");
+        await _jsonCredentialRepository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");
         await _service.RunAsync();
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => _service.RunAsync());
