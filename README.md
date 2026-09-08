@@ -4,7 +4,7 @@
 [![Copilot](https://github.com/jasonkryst/BookWheel/actions/workflows/agents/copilot-pull-request-reviewer/badge.svg)](https://github.com/jasonkryst/BookWheel/actions/workflows/agents/copilot-pull-request-reviewer)
 [![Docker Release](https://github.com/jasonkryst/BookWheel/actions/workflows/docker-release.yml/badge.svg)](https://github.com/jasonkryst/BookWheel/actions/workflows/docker-release.yml)
 
-Book Wheel is a .NET 8 web app for managing a list of books and spinning a wheel to pick a title at random.
+Book Wheel is a .NET 10 web app for managing a list of books and spinning a wheel to pick a title at random.
 
 This solution is split into separate application and test projects:
 
@@ -122,7 +122,7 @@ Book Wheel/
 
 ## Prerequisites
 
-- .NET SDK 8.0+
+- .NET SDK 10.0+
 - PowerShell or terminal capable of running `dotnet` CLI commands
 - Docker Desktop (or Docker Engine) for containerized runs
 - PostgreSQL 16+ (or use the bundled `docker-compose.yml` service) — required at startup; set `ConnectionStrings:BookWheel` or the `ConnectionStrings__BookWheel` environment variable
