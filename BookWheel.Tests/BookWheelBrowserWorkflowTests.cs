@@ -35,7 +35,8 @@ public sealed class BookWheelBrowserWorkflowTests : IClassFixture<BookWheelWebAp
         var setupResponse = await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "ui-admin",
-            password = "ui-password"
+            password = "ui-password",
+            email = "test-setup@example.com"
         });
         Assert.Equal(HttpStatusCode.OK, setupResponse.StatusCode);
 

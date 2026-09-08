@@ -104,7 +104,8 @@ public sealed class PreferencesControllerTests : IClassFixture<BookWheelWebAppFa
 
     private static async Task AuthenticateAsync(HttpClient client)
     {
-        var response = await client.PostAsJsonAsync("/api/auth/setup", new { username = $"user-{Guid.NewGuid():N}", password = "correct horse battery staple" });
+        var response = await client.PostAsJsonAsync("/api/auth/setup", new { username = $"user-{Guid.NewGuid():N}", password = "correct horse battery staple",
+            email = "test-setup@example.com" });
         response.EnsureSuccessStatusCode();
     }
 }

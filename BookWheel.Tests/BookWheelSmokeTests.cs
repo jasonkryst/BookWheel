@@ -45,7 +45,8 @@ public sealed class BookWheelSmokeTests : IClassFixture<BookWheelWebAppFactory>,
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         var appDataPath = Path.Combine(factory.ContentRootPath, "App_Data");
