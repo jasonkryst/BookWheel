@@ -503,6 +503,9 @@ function setAuthMode(mode) {
     authTitle.textContent = t('auth.setPasswordTitle');
     authMessage.textContent = t('auth.setPasswordSubtitle');
     loginForm.classList.add('hidden');
+    authHelperLinks.classList.add('hidden');
+    forgotPasswordForm.classList.add('hidden');
+    forgotUsernameForm.classList.add('hidden');
     resetPasswordForm.classList.remove('hidden');
     return;
   }
