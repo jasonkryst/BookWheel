@@ -23,6 +23,7 @@ This solution is split into separate application and test projects:
 - Administrator-only user management uses separate creation and account-management tabs, with searchable status filters and at-a-glance account-state indicators
 - New-user onboarding uses admin-shared setup links instead of admin-supplied passwords
 - Administrator-generated password reset links (24-hour expiry) instead of direct password setting
+- Email-based account recovery: users can request a password reset link (`POST /api/auth/password-reset/request`, by username) or a reminder of their username (`POST /api/auth/forgot-username`, by email) from the login screen; both always return the same generic confirmation regardless of whether the account/email exists, to prevent account enumeration. Email is now a required, admin-set, globally-unique field on every account created via setup or by an administrator (existing accounts created before this feature keep working with no email until an administrator backfills one). Outbound email is sent via SMTP — see "Email (SMTP)" below for configuration. (GH #115)
 - User management tab is visible only to administrators, inside the consolidated Settings dialog
 - Add, edit, and remove books
 - Optional ISBN tagging when adding or editing a book, with a Lookup action that queries the Open Library API to auto-fill author and cover art (GH #57)
@@ -86,6 +87,18 @@ Spanish and Polish translations were authored by the assistant as a first pass a
 BookWheel includes an optional Google Analytics (gtag.js) integration, configured via `Analytics:GoogleAnalyticsId` in `appsettings.json` or the `Analytics__GoogleAnalyticsId` environment variable (`GOOGLE_ANALYTICS_ID` in `docker-compose.yml`). **The shipped default is blank, so no analytics script loads and no telemetry is sent unless you explicitly set your own GA4 property ID.**
 
 When a non-empty ID is configured, the script loads on every page (including the pre-login screen) and tracking is **on by default**. Users can opt out at any time via the "Allow anonymous usage analytics" checkbox in Settings → Preferences; the choice is stored in the browser's `localStorage` (`bookwheel-analytics-consent`) and takes effect immediately via Google's documented `window['ga-disable-<id>']` flag, without needing a page reload.
+
+## Email (SMTP)
+
+Password-reset and forgotten-username emails are sent via SMTP, configured through `appsettings.json`'s `Smtp` section or environment variable overrides — there is no in-app settings UI for this, matching how the Google Books API key is configured:
+
+- `Smtp:Host` / `Smtp__Host` / `SMTP_HOST` — SMTP server hostname. Leave empty to disable email sending entirely (delivery is silently skipped and logged, never surfaced as an error to the caller).
+- `Smtp:Port` / `Smtp__Port` / `SMTP_PORT` — defaults to `587`.
+- `Smtp:Username` / `Smtp__Username` / `SMTP_USERNAME` and `Smtp:Password` / `Smtp__Password` / `SMTP_PASSWORD` — SMTP auth credentials; leave both empty to connect without authentication.
+- `Smtp:EnableSsl` / `Smtp__EnableSsl` — `true` (default) uses STARTTLS; `false` connects unencrypted.
+- `Smtp:FromAddress` / `Smtp__FromAddress` / `SMTP_FROM_ADDRESS` and `Smtp:FromName` / `Smtp__FromName` — the sender address/name on outgoing emails.
+
+In `docker-compose.yml`, set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, and `SMTP_FROM_ADDRESS` in your own `.env` file.
 
 ## Progressive Web App
 
@@ -426,6 +439,8 @@ Auth endpoints:
 - `POST /api/auth/login`
 - `POST /api/auth/logout`
 - `GET /api/auth/me`
+- `POST /api/auth/password-reset/request` — self-service; body `{ username }`; always returns `200` with a generic message
+- `POST /api/auth/forgot-username` — self-service; body `{ email }`; always returns `200` with a generic message
 - `GET /health/live`
 - `GET /health/ready`
 
@@ -450,9 +465,10 @@ User-management endpoints (administrator only):
 
 `POST /api/users` behavior:
 
-- Request body accepts `username` and `isAdmin` only
+- Request body accepts `username`, `isAdmin`, and `email` (required)
 - Administrators do not provide a password when creating a user
 - Response includes `setupLink` and `setupLinkExpiresAtUtc` for secure account setup sharing
+- `email` must be unique across all accounts (case-insensitive); `PUT /api/users/{id}` can also set/clear/change an existing account's email
 
 Password reset endpoint:
 

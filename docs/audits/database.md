@@ -34,6 +34,8 @@ Every entity uses a `Guid` PK except `book_types`, which uses `integer` with `Id
 
 `Username` is `citext` (verified live and in `InitialCreate`), giving case-insensitive uniqueness/lookup without app-side `ToLower()` normalization scattered across query code — a good, deliberate choice, and the `citext` extension is registered via `AlterDatabase().Annotation("Npgsql:PostgresExtension:citext", ...)` in `InitialCreate` rather than assumed pre-installed.
 
+**Update (GH #115):** `users.Email` (added by the `AddUserEmail` migration) follows this exact same pattern — nullable `citext`, with a unique index (`IX_users_Email`). Unlike `Username`, `Email` is nullable (legacy accounts predating this feature have none), but Postgres unique indexes never treat two `NULL`s as a collision, so multiple such accounts coexist without violating uniqueness.
+
 ### 4. Live schema vs. model snapshot — no drift found
 
 Ran `\d+` against all six application tables (`books`, `book_types`, `users`, `password_reset_tokens`, `spin_selections`, `__EFMigrationsHistory`) and cross-checked column names, types, nullability, and defaults against `BookWheelDbContextModelSnapshot.cs`. Every column, type, default (`now()` on `books.CreatedAtUtc`, `false` on `AddedByScanner`, `1` on `BookTypeId`), and index matched exactly. `__EFMigrationsHistory` shows all seven migrations applied, all at `ProductVersion 9.0.19`, consistent with the pinned EF Core version in `BookWheel.csproj`. **No remediation needed here** — this is a positive finding, listed under design findings only because it was one of the explicit review items.
@@ -90,6 +92,8 @@ By contrast, `PostgresMigrationService.RunAsync()` (the one-time JSON→Postgres
 ### 9. Username uniqueness — enforced at the DB level, not just app code
 
 `IX_users_Username` is a live `UNIQUE` index on `citext` (confirmed via `\d+ users`), and `PostgresCredentialRepository.CreateUserAsync`/`UpdateUserCoreAsync` additionally catch `DbUpdateException` where `ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation }` and translate it into a friendly `InvalidOperationException("Username already exists.")`. This is the correct pattern — the app-level `AnyAsync(u => u.Username == normalizedUsername)` pre-check is only an optimization for the common case; the real race-condition guard is the unique index plus the exception handler. **No concurrency gap here** — flagged as a positive finding, not a defect, since the task specifically asked to verify this.
+
+**Update (GH #115):** The same two-layer pattern (DB unique index + app-level `DbUpdateException`/`UniqueViolation` handling, translated to a friendly `InvalidOperationException`) now also covers `users.Email` in `PostgresCredentialRepository.CreateUserAsync`/`UpdateUserCoreAsync`.
 
 ### 10. Soft-delete filter has no supporting index
 
