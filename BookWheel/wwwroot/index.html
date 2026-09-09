@@ -26,12 +26,45 @@
           <span data-i18n="auth.usernameLabel">Username</span>
           <input id="username" autocomplete="username" aria-describedby="loginError" required />
         </label>
+        <label id="setupEmailLabel" class="hidden">
+          <span data-i18n="auth.emailLabel">Email</span>
+          <input id="setupEmail" type="email" autocomplete="email" aria-describedby="loginError" />
+        </label>
         <label>
           <span data-i18n="auth.passwordLabel">Password</span>
           <input id="password" type="password" autocomplete="current-password" aria-describedby="loginError" required />
         </label>
         <button id="authSubmitBtn" type="submit" data-i18n="auth.loginSubmit">Log in</button>
         <p id="loginError" class="error" role="alert" aria-live="assertive" aria-atomic="true"></p>
+      </form>
+
+      <div id="authHelperLinks" class="stack">
+        <button type="button" id="forgotPasswordLinkBtn" class="link-btn" data-i18n="auth.forgotPasswordLink">Forgot password?</button>
+        <button type="button" id="forgotUsernameLinkBtn" class="link-btn" data-i18n="auth.forgotUsernameLink">Forgot username?</button>
+      </div>
+
+      <form id="forgotPasswordForm" class="stack hidden">
+        <label>
+          <span data-i18n="auth.usernameLabel">Username</span>
+          <input id="forgotPasswordUsername" autocomplete="username" required />
+        </label>
+        <div class="actions">
+          <button type="submit" data-i18n="auth.forgotPasswordSubmit">Send reset link</button>
+          <button type="button" id="cancelForgotPasswordBtn" class="secondary" data-i18n="common.cancel">Cancel</button>
+        </div>
+        <p id="forgotPasswordMessage" class="message" aria-live="polite"></p>
+      </form>
+
+      <form id="forgotUsernameForm" class="stack hidden">
+        <label>
+          <span data-i18n="auth.emailLabel">Email</span>
+          <input id="forgotUsernameEmail" type="email" autocomplete="email" required />
+        </label>
+        <div class="actions">
+          <button type="submit" data-i18n="auth.forgotUsernameSubmit">Send username</button>
+          <button type="button" id="cancelForgotUsernameBtn" class="secondary" data-i18n="common.cancel">Cancel</button>
+        </div>
+        <p id="forgotUsernameMessage" class="message" aria-live="polite"></p>
       </form>
 
       <form id="resetPasswordForm" class="stack hidden">
@@ -180,6 +213,10 @@
             <label>
               <span data-i18n="auth.usernameLabel">Username</span>
               <input id="createUserUsername" maxlength="64" placeholder="reader-01" required />
+            </label>
+            <label>
+              <span data-i18n="users.emailLabel">Email</span>
+              <input id="createUserEmail" type="email" autocomplete="email" placeholder="reader-01@example.com" required />
             </label>
             <label class="checkbox-row">
               <input id="createUserIsAdmin" type="checkbox" />

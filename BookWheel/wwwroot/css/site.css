@@ -265,6 +265,15 @@ button:disabled {
 .error { color: var(--danger); min-height: 1.2em; }
 .message { color: var(--muted); min-height: 1.2em; }
 
+.link-btn {
+  background: none;
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+  padding: 0;
+  align-self: flex-start;
+}
+
 .selected-book {
   min-height: 1.6em;
   font-size: 1.35rem;

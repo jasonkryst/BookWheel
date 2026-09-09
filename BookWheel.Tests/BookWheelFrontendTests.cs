@@ -1007,6 +1007,39 @@ public sealed class BookWheelFrontendTests : IClassFixture<BookWheelWebAppFactor
     }
 
     [Fact]
+    public async Task Home_Page_Should_Include_Setup_Email_Field_And_Forgot_Links()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("id=\"setupEmail\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-i18n=\"auth.emailLabel\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"forgotPasswordLinkBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"forgotUsernameLinkBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"createUserEmail\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_I18n_Should_Include_Forgot_Password_And_Username_Strings_In_All_Locales()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/i18n.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("forgotPasswordLink: 'Forgot password?'", script, StringComparison.Ordinal);
+        Assert.Contains("forgotPasswordLink: '¿Olvidaste tu contraseña?'", script, StringComparison.Ordinal);
+        Assert.Contains("forgotPasswordLink: 'Nie pamiętasz hasła?'", script, StringComparison.Ordinal);
+        Assert.Contains("forgotUsernameLink: 'Forgot username?'", script, StringComparison.Ordinal);
+        Assert.Contains("forgotUsernameLink: '¿Olvidaste tu nombre de usuario?'", script, StringComparison.Ordinal);
+        Assert.Contains("forgotUsernameLink: 'Nie pamiętasz nazwy użytkownika?'", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Home_Page_Should_Not_Load_Google_Tag_Script_When_Id_Is_Unconfigured()
     {
         // appsettings.json ships an empty Analytics:GoogleAnalyticsId by default, and this
