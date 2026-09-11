@@ -2,6 +2,7 @@
   "name": "Book Wheel",
   "short_name": "Book Wheel",
   "description": "Manage a list of books and spin a wheel to pick a title at random.",
+  "categories": ["books", "productivity"],
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -12,5 +13,28 @@
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Spin Wheel",
+      "short_name": "Spin Wheel",
+      "description": "Spin the wheel to pick a random book.",
+      "url": "?view=wheel",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Books",
+      "short_name": "Books",
+      "description": "View your list of books.",
+      "url": "?view=books",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Stats",
+      "short_name": "Stats",
+      "description": "View your book wheel statistics.",
+      "url": "?view=stats",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    }
   ]
 }
