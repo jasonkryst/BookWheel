@@ -19,21 +19,21 @@
       "name": "Spin Wheel",
       "short_name": "Spin Wheel",
       "description": "Spin the wheel to pick a random book.",
-      "url": "?view=wheel",
+      "url": "/?view=wheel",
       "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Books",
       "short_name": "Books",
       "description": "View your list of books.",
-      "url": "?view=books",
+      "url": "/?view=books",
       "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Stats",
       "short_name": "Stats",
       "description": "View your book wheel statistics.",
-      "url": "?view=stats",
+      "url": "/?view=stats",
       "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
