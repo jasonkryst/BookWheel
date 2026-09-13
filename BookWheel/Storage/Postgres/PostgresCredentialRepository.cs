@@ -149,15 +149,15 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
 
     public Task<UserAccountSummary> UpdateUserAsync(Guid userId, string username, bool isAdmin)
     {
-        return UpdateUserCoreAsync(userId, username, isAdmin, isDisabled: null, forcePasswordReset: null, isLocked: null, email: null);
+        return UpdateUserCoreAsync(userId, username, isAdmin, isDisabled: null, forcePasswordReset: null, isLocked: null, email: null, updateEmail: false);
     }
 
     public Task<UserAccountSummary> UpdateUserAsync(Guid userId, string username, bool isAdmin, bool isDisabled, bool forcePasswordReset, bool isLocked, string? email)
     {
-        return UpdateUserCoreAsync(userId, username, isAdmin, isDisabled, forcePasswordReset, isLocked, email);
+        return UpdateUserCoreAsync(userId, username, isAdmin, isDisabled, forcePasswordReset, isLocked, email, updateEmail: true);
     }
 
-    private async Task<UserAccountSummary> UpdateUserCoreAsync(Guid userId, string username, bool isAdmin, bool? isDisabled, bool? forcePasswordReset, bool? isLocked, string? email)
+    private async Task<UserAccountSummary> UpdateUserCoreAsync(Guid userId, string username, bool isAdmin, bool? isDisabled, bool? forcePasswordReset, bool? isLocked, string? email, bool updateEmail)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
         var entity = await context.Users.FirstOrDefaultAsync(u => u.Id == userId)
@@ -196,7 +196,11 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
 
         entity.Username = normalizedUsername;
         entity.IsAdmin = isAdmin;
-        entity.Email = normalizedEmail;
+
+        if (updateEmail)
+        {
+            entity.Email = normalizedEmail;
+        }
 
         if (isDisabled.HasValue)
         {

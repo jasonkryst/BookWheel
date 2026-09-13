@@ -129,4 +129,7 @@
   <data name="EmailAlreadyExists" xml:space="preserve">
     <value>El correo electrónico ya existe.</value>
   </data>
+  <data name="EmailLength" xml:space="preserve">
+    <value>El correo electrónico debe tener 256 caracteres o menos.</value>
+  </data>
 </root>

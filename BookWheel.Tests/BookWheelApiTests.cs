@@ -393,7 +393,7 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        var response = await client.PostAsJsonAsync("/api/auth/password-reset/request", new { username = "does-not-exist" });
+        var response = await PostRateLimitedAuthEndpointAsync(client, "/api/auth/password-reset/request", new { username = "does-not-exist" }, NextSyntheticIp());
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Empty(factory.FakeEmailSender.SentEmails);
@@ -406,11 +406,68 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         using var client = factory.CreateClient();
         await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
 
-        var response = await client.PostAsJsonAsync("/api/auth/password-reset/request", new { username = "test-admin" });
+        var response = await PostRateLimitedAuthEndpointAsync(client, "/api/auth/password-reset/request", new { username = "test-admin" }, NextSyntheticIp());
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var sent = Assert.Single(factory.FakeEmailSender.SentEmails);
         Assert.Equal("admin@example.com", sent.ToAddress);
+    }
+
+    [Fact]
+    public async Task PasswordResetRequest_Does_Not_Force_Password_Reset_On_Account()
+    {
+        // Self-service "I forgot my password" must never itself invalidate the
+        // account's current password before the caller has even opened the email
+        // (that's a DoS: anyone could force-lock any account just by knowing its
+        // username). Only completing the reset with a valid token should do that.
+        var factory = _factory;
+        using var client = factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
+
+        var response = await PostRateLimitedAuthEndpointAsync(client, "/api/auth/password-reset/request", new { username = "test-admin" }, NextSyntheticIp());
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Single(factory.FakeEmailSender.SentEmails);
+
+        await client.PostAsync("/api/auth/logout", content: null);
+        var loginResponse = await PostLoginAsync(client, "test-admin", "test-password");
+
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task PasswordResetRequest_For_Locked_Account_Returns_Generic_Ok_And_Sends_No_Email()
+    {
+        // A locked-out account must not leak a working reset link to whoever
+        // requests one — that would let an attacker bypass an administrator's
+        // deliberate lock just by asking.
+        var factory = _factory;
+        using var client = factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
+
+        var (readerUserId, readerSetupLink) = await CreateUserAsync(client, "locked-reader");
+        await SetPasswordFromSetupLinkAsync(client, readerSetupLink, "reader-pass-1");
+
+        var lockResponse = await client.PutAsJsonAsync($"/api/users/{readerUserId}", new
+        {
+            username = "locked-reader",
+            isAdmin = false,
+            isDisabled = false,
+            forcePasswordReset = false,
+            isLocked = true,
+            email = "locked-reader@example.com"
+        });
+        Assert.Equal(HttpStatusCode.OK, lockResponse.StatusCode);
+
+        // Creating the account above already sent its own setup-link email (see
+        // Admin_Generated_Reset_Link_Also_Sends_Email_When_Target_Has_Email) — clear
+        // that unrelated send so this assertion isolates the self-service request
+        // under test, not account creation.
+        factory.FakeEmailSender.SentEmails.Clear();
+
+        var response = await PostRateLimitedAuthEndpointAsync(client, "/api/auth/password-reset/request", new { username = "locked-reader" }, NextSyntheticIp());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Empty(factory.FakeEmailSender.SentEmails);
     }
 
     [Fact]
@@ -427,9 +484,14 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         using var client = factory.CreateClient();
         await client.PostAsJsonAsync("/api/auth/setup", new { username = "rate-limit-admin", password = "test-password", email = "rate-limit-admin@example.com" });
 
+        // All 5 calls deliberately share one synthetic IP: this test targets
+        // AuthService's own per-username limiter (3 per 15 minutes), which requires
+        // looking like a single repeated caller. The per-IP limiter added alongside
+        // it in Program.cs permits 5/minute, comfortably above this loop's 5 calls.
+        var syntheticIp = NextSyntheticIp();
         for (var i = 0; i < 5; i++)
         {
-            var response = await client.PostAsJsonAsync("/api/auth/password-reset/request", new { username = "rate-limit-admin" });
+            var response = await PostRateLimitedAuthEndpointAsync(client, "/api/auth/password-reset/request", new { username = "rate-limit-admin" }, syntheticIp);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
 
@@ -443,7 +505,7 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         using var client = factory.CreateClient();
         await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
 
-        var response = await client.PostAsJsonAsync("/api/auth/forgot-username", new { email = "admin@example.com" });
+        var response = await PostRateLimitedAuthEndpointAsync(client, "/api/auth/forgot-username", new { email = "admin@example.com" }, NextSyntheticIp());
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var sent = Assert.Single(factory.FakeEmailSender.SentEmails);
@@ -456,7 +518,7 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        var response = await client.PostAsJsonAsync("/api/auth/forgot-username", new { email = "nobody@example.com" });
+        var response = await PostRateLimitedAuthEndpointAsync(client, "/api/auth/forgot-username", new { email = "nobody@example.com" }, NextSyntheticIp());
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Empty(factory.FakeEmailSender.SentEmails);
@@ -2237,6 +2299,33 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         {
             request.Headers.UserAgent.ParseAdd(userAgent);
         }
+
+        return await client.SendAsync(request);
+    }
+
+    private static int _authRateLimitIpCounter;
+
+    // Program.cs now partitions the password-reset-request and forgot-username rate
+    // limiters per-IP (in addition to AuthService's existing per-username/per-email
+    // limiter), same as login. Tests in this class share one WebApplicationFactory
+    // host (and therefore one in-process limiter), so every call to either endpoint
+    // needs its own distinct synthetic IP to avoid tripping a 429 as a side effect of
+    // unrelated tests, unless a test is deliberately exercising the limiter itself
+    // (in which case it reuses one IP across its own calls, e.g.
+    // PasswordResetRequest_Beyond_RateLimit_Still_Returns_Ok_But_Stops_Sending).
+    private static string NextSyntheticIp()
+    {
+        var counter = System.Threading.Interlocked.Increment(ref _authRateLimitIpCounter);
+        return $"10.{200 + ((counter >> 16) & 0x3F)}.{(counter >> 8) & 0xFF}.{counter & 0xFF}";
+    }
+
+    private static async Task<HttpResponseMessage> PostRateLimitedAuthEndpointAsync(HttpClient client, string path, object body, string syntheticIp)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, path)
+        {
+            Content = JsonContent.Create(body)
+        };
+        request.Headers.TryAddWithoutValidation("X-Forwarded-For", syntheticIp);
 
         return await client.SendAsync(request);
     }

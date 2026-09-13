@@ -100,6 +100,8 @@ Password-reset and forgotten-username emails are sent via SMTP, configured throu
 
 In `docker-compose.yml`, set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, and `SMTP_FROM_ADDRESS` in your own `.env` file.
 
+Self-service password-reset emails also need `App:BaseUrl` / `App__BaseUrl` / `APP_BASE_URL` set to this deployment's public URL (e.g. `https://books.example.com`) so the link mailed to the user points somewhere real — it is deliberately never derived from the incoming request's `Host` header, since that header is attacker-controlled. It is empty by default, which silently disables the self-service "forgot my password" email (the admin-triggered reset-link flow in the Users admin page is unaffected, since it returns the link directly to the authenticated admin rather than emailing it).
+
 ## Progressive Web App
 
 Book Wheel can be installed as a standalone app (desktop Chrome/Edge, Android, and — with reduced polish — iOS Safari) and its UI shell keeps working when the network drops.

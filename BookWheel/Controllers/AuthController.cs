@@ -1,6 +1,7 @@
 using BookWheel.Models;
 using BookWheel.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace BookWheel.Controllers;
 
@@ -12,13 +13,15 @@ public sealed class AuthController : ControllerBase
     private readonly AppMetricsService _metricsService;
     private readonly ILogger<AuthController> _logger;
     private readonly ApiMessageLocalizer _errors;
+    private readonly AppOptions _appOptions;
 
-    public AuthController(AuthService authService, AppMetricsService metricsService, ILogger<AuthController> logger, ApiMessageLocalizer errors)
+    public AuthController(AuthService authService, AppMetricsService metricsService, ILogger<AuthController> logger, ApiMessageLocalizer errors, IOptions<AppOptions> appOptions)
     {
         _authService = authService;
         _metricsService = metricsService;
         _logger = logger;
         _errors = errors;
+        _appOptions = appOptions.Value;
     }
 
     [HttpGet("status")]
@@ -211,7 +214,11 @@ public sealed class AuthController : ControllerBase
     [HttpPost("password-reset/request")]
     public async Task<IActionResult> RequestPasswordReset([FromBody] RequestPasswordResetRequest request)
     {
-        var appBaseUrl = $"{Request.Scheme}://{Request.Host}{Request.PathBase}";
+        // Deliberately NOT derived from Request.Scheme/Request.Host: that header is
+        // attacker-controlled (AllowedHosts is "*"), and this link is mailed blind to
+        // whoever owns the account, not just returned to the caller who set the header.
+        // Use the operator-configured App:BaseUrl instead — see AppOptions.
+        var appBaseUrl = _appOptions.BaseUrl.TrimEnd('/');
         await _authService.RequestPasswordResetAsync(request.Username, appBaseUrl);
         _logger.LogInformation(
             "Password reset requested. Username {Username} from {ClientIp} path {Path} request {RequestId} user agent {UserAgent}",

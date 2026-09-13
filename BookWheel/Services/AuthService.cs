@@ -114,6 +114,8 @@ public sealed class AuthService
         return new LoginValidationResult { User = ToAuthenticatedUser(user) };
     }
 
+    private const int RateLimitSweepBatchSize = 20;
+
     private static bool TryConsumeRateLimit(ConcurrentDictionary<string, RateLimitRecord> store, string key)
     {
         const int maxRequestsPerWindow = 3;
@@ -139,7 +141,27 @@ public sealed class AuthService
                 return existing;
             });
 
+        SweepExpiredEntries(store, window, now);
+
         return record.Count <= maxRequestsPerWindow;
+    }
+
+    // These dictionaries have no other eviction mechanism (they live for the lifetime
+    // of the singleton AuthService), so every distinct username/email ever probed would
+    // otherwise accumulate forever. This is a small self-hosted app rather than an
+    // internet-scale target, so a bounded, opportunistic sweep on every call — checking
+    // only a small batch of entries rather than the whole dictionary — is enough to keep
+    // memory bounded without needing a background timer.
+    private static void SweepExpiredEntries(ConcurrentDictionary<string, RateLimitRecord> store, TimeSpan window, DateTimeOffset now)
+    {
+        var staleThreshold = window + window;
+        foreach (var entry in store.Take(RateLimitSweepBatchSize))
+        {
+            if (now - entry.Value.WindowStartUtc > staleThreshold)
+            {
+                store.TryRemove(entry.Key, out _);
+            }
+        }
     }
 
     public async Task RequestPasswordResetAsync(string username, string appBaseUrl)
@@ -150,12 +172,26 @@ public sealed class AuthService
         }
 
         var account = await _credentialRepository.FindByUsernameAsync(username);
-        if (account is null || account.IsDisabled || string.IsNullOrWhiteSpace(account.Email))
+        if (account is null || account.IsDisabled || account.IsLocked || string.IsNullOrWhiteSpace(account.Email) || string.IsNullOrWhiteSpace(appBaseUrl))
         {
             return;
         }
 
-        await CreatePasswordResetLinkAsync(account.UserId, appBaseUrl);
+        // Deliberately does NOT call CreatePasswordResetLinkAsync/MarkForPasswordResetAsync:
+        // that would set ForcePasswordReset (killing the account's current password
+        // immediately, before the caller even opens the email) and clear IsLocked
+        // (silently undoing an administrator's deliberate lock) — both unauthenticated,
+        // anonymous-caller side effects that a plain "I forgot my password" request has
+        // no business triggering. The reset token itself is the security gate here
+        // (validated in CompletePasswordResetAsync); ForcePasswordReset is a separate,
+        // admin-only signal reserved for the admin-triggered flow in UsersController.
+        var (rawToken, expiresAtUtc) = await _resetTokenRepository.CreateAsync(account.UserId);
+        var trimmedBaseUrl = appBaseUrl.TrimEnd('/');
+        var resetLink = $"{trimmedBaseUrl}/?resetToken={Uri.EscapeDataString(rawToken)}";
+
+        // Fire-and-forget for the same anti-enumeration timing reason documented on
+        // CreatePasswordResetLinkAsync below.
+        _ = _accountEmailService.SendPasswordResetEmailAsync(account.Email, account.Username, resetLink, expiresAtUtc, CancellationToken.None);
     }
 
     public async Task RequestForgottenUsernameAsync(string email)

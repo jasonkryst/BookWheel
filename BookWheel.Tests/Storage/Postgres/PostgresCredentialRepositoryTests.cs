@@ -163,6 +163,23 @@ public sealed class PostgresCredentialRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task UpdateUserAsync_ThreeArg_Overload_Leaves_Email_Unchanged()
+    {
+        // The 3-arg overload (username/isAdmin only, used by callers that never touch
+        // email) must not wipe the existing Email out from under the account — that
+        // was backend drift versus the in-memory repository, which never touched
+        // Email for this overload.
+        await _repository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");
+        var reader = await _repository.CreateUserAsync("reader-one", isAdmin: false, email: "reader-one@example.com");
+
+        await _repository.UpdateUserAsync(reader.UserId, "reader-one-renamed", isAdmin: false);
+
+        var found = await _repository.FindByUsernameAsync("reader-one-renamed");
+        Assert.NotNull(found);
+        Assert.Equal("reader-one@example.com", found!.Email);
+    }
+
+    [Fact]
     public async Task DeleteUserAsync_Removes_NonFirst_User()
     {
         await _repository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");

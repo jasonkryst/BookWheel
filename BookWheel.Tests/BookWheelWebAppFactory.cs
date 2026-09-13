@@ -82,6 +82,13 @@ public sealed class BookWheelWebAppFactory : WebApplicationFactory<Program>
         // never trips it as a side effect.
         builder.UseSetting("Security:UsernameLockoutThreshold", "100000");
 
+        // AuthController.RequestPasswordReset now derives the mailed reset link from
+        // App:BaseUrl rather than the (attacker-controllable) Host header, so tests that
+        // exercise the self-service password-reset email need this configured or the
+        // request would silently no-op (see AuthService.RequestPasswordResetAsync's
+        // blank-appBaseUrl guard).
+        builder.UseSetting("App:BaseUrl", "https://bookwheel.test");
+
         builder.ConfigureLogging(logging =>
         {
             logging.ClearProviders();

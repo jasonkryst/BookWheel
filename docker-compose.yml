@@ -61,6 +61,11 @@ services:
       Smtp__Username: "${SMTP_USERNAME:-}"
       Smtp__Password: "${SMTP_PASSWORD:-}"
       Smtp__FromAddress: "${SMTP_FROM_ADDRESS:-}"
+      # Optional. Blank by default (self-service password-reset emails are silently
+      # skipped until this is set). Set APP_BASE_URL in your own .env file to the
+      # public URL this deployment is reachable at (e.g. https://books.example.com)
+      # so reset-link emails point somewhere real — see README's "Email (SMTP)" section.
+      App__BaseUrl: "${APP_BASE_URL:-}"
     volumes:
       - bookwheel_app_data:/app/App_Data
       - bookwheel_dp_keys:/home/app/.aspnet/DataProtection-Keys
