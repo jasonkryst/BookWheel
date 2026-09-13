@@ -749,7 +749,7 @@ public sealed class BookWheelFrontendTests : IClassFixture<BookWheelWebAppFactor
         // Positive: opening the dialog always lands on Preferences without
         // eagerly loading the user directory; the user list is only fetched
         // once the Manage users tab is actually activated.
-        Assert.Contains("function openSettingsDialog() {\n  setSettingsTab('preferences');\n  openDialog(settingsDialog, settingsPreferencesTabBtn);\n}", script, StringComparison.Ordinal);
+        Assert.Contains("function openSettingsDialog(updateUrl = true) {\n  setSettingsTab('preferences');\n  openDialog(settingsDialog, settingsPreferencesTabBtn);\n  if (updateUrl) {\n    setRequestedView('preferences');\n  }\n}", script, StringComparison.Ordinal);
         Assert.Contains("async function activateSettingsManageUsersTab() {\n  resetUserManagementMessages();\n  setUserManagementTab('directory');\n  await loadUsers();\n}", script, StringComparison.Ordinal);
     }
 
