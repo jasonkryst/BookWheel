@@ -49,8 +49,12 @@ builder.Services.AddPooledDbContextFactory<BookWheelDbContext>(options => option
 builder.Services.Configure<SecurityOptions>(builder.Configuration.GetSection(SecurityOptions.SectionName));
 builder.Services.Configure<ObservabilityOptions>(builder.Configuration.GetSection(ObservabilityOptions.SectionName));
 builder.Services.Configure<BookMetadataOptions>(builder.Configuration.GetSection(BookMetadataOptions.SectionName));
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
+builder.Services.Configure<AppOptions>(builder.Configuration.GetSection(AppOptions.SectionName));
 builder.Services.AddSingleton<AuthService>();
 builder.Services.AddSingleton<AppMetricsService>();
+builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+builder.Services.AddSingleton<AccountEmailService>();
 builder.Services.AddLocalization();
 builder.Services.AddSingleton<ApiMessageLocalizer>();
 
@@ -168,6 +172,25 @@ builder.Services.AddRateLimiter(options =>
 			var clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 			return RateLimitPartition.GetFixedWindowLimiter(
 				$"login:{clientIp}",
+				_ => new FixedWindowRateLimiterOptions
+				{
+					PermitLimit = 5,
+					Window = TimeSpan.FromMinutes(1),
+					QueueLimit = 0,
+					AutoReplenishment = true
+				});
+		}
+
+		if (context.Request.Path.Equals("/api/auth/password-reset/request", StringComparison.OrdinalIgnoreCase)
+			|| context.Request.Path.Equals("/api/auth/forgot-username", StringComparison.OrdinalIgnoreCase))
+		{
+			// Same per-IP shape as login above. AuthService also rate-limits per
+			// username/email (TryConsumeRateLimit), but that alone is trivially
+			// bypassed by cycling through different usernames/emails from one IP —
+			// this partition closes that gap.
+			var clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+			return RateLimitPartition.GetFixedWindowLimiter(
+				$"{context.Request.Path.Value}:{clientIp}",
 				_ => new FixedWindowRateLimiterOptions
 				{
 					PermitLimit = 5,

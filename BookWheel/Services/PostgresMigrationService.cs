@@ -51,6 +51,7 @@ public sealed class PostgresMigrationService
             {
                 Id = user.UserId,
                 Username = user.Username,
+                Email = user.Email,
                 PasswordHash = user.PasswordHash,
                 IsAdmin = user.IsAdmin,
                 IsDisabled = user.IsDisabled,

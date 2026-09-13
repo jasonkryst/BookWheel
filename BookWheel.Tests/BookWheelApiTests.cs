@@ -64,7 +64,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username,
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         var response = await PostLoginAsync(client, username, "wrong-password", userAgent: "BookWheelTests/1.0");
@@ -116,7 +117,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/login")
@@ -148,7 +150,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         var request = new HttpRequestMessage(HttpMethod.Post, "/api/books")
@@ -179,7 +182,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         var response = await client.PostAsJsonAsync("/api/books", new
@@ -208,7 +212,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var setupResponse = await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         Assert.Equal(HttpStatusCode.OK, setupResponse.StatusCode);
@@ -236,7 +241,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         var (_, readerSetupLink) = await CreateUserAsync(client, "reader-one");
@@ -262,7 +268,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         var (createdUserId, createdUserSetupLink) = await CreateUserAsync(client, "reader-one");
@@ -277,7 +284,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var createUserResponse = await client.PostAsJsonAsync("/api/users", new
         {
             username = "reader-two",
-            isAdmin = false
+            isAdmin = false,
+            email = "reader-two@example.com"
         });
 
         Assert.Equal(HttpStatusCode.Forbidden, createUserResponse.StatusCode);
@@ -298,7 +306,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         var (createdUserId, _) = await CreateUserAsync(client, "reader-one");
@@ -317,6 +326,316 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
     }
 
     [Fact]
+    public async Task Admin_Can_Update_Own_Email()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var setupResponse = await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "original@example.com"
+        });
+        using var setupDoc = await ReadJsonAsync(setupResponse);
+        var adminId = setupDoc.RootElement.GetProperty("user").GetProperty("userId").GetGuid();
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/users/{adminId}", new
+        {
+            username = "test-admin",
+            isAdmin = true,
+            isDisabled = false,
+            forcePasswordReset = false,
+            isLocked = false,
+            email = "updated@example.com"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+        using var updatedDoc = await ReadJsonAsync(updateResponse);
+        Assert.Equal("updated@example.com", updatedDoc.RootElement.GetProperty("email").GetString());
+
+        var meResponse = await client.GetAsync("/api/auth/me");
+        using var meDoc = await ReadJsonAsync(meResponse);
+        Assert.Equal("updated@example.com", meDoc.RootElement.GetProperty("email").GetString());
+    }
+
+    [Fact]
+    public async Task Admin_Self_Update_Rejects_Changes_To_Other_Fields()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var setupResponse = await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "original@example.com"
+        });
+        using var setupDoc = await ReadJsonAsync(setupResponse);
+        var adminId = setupDoc.RootElement.GetProperty("user").GetProperty("userId").GetGuid();
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/users/{adminId}", new
+        {
+            username = "renamed-admin",
+            isAdmin = true,
+            isDisabled = false,
+            forcePasswordReset = false,
+            isLocked = false,
+            email = "updated@example.com"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, updateResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Setup_Login_And_Me_Responses_Include_Email()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var setupResponse = await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "admin@example.com"
+        });
+        using var setupDoc = await ReadJsonAsync(setupResponse);
+        Assert.Equal("admin@example.com", setupDoc.RootElement.GetProperty("user").GetProperty("email").GetString());
+
+        await client.PostAsync("/api/auth/logout", content: null);
+        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new { username = "test-admin", password = "test-password" });
+        using var loginDoc = await ReadJsonAsync(loginResponse);
+        Assert.Equal("admin@example.com", loginDoc.RootElement.GetProperty("user").GetProperty("email").GetString());
+
+        var meResponse = await client.GetAsync("/api/auth/me");
+        using var meDoc = await ReadJsonAsync(meResponse);
+        Assert.Equal("admin@example.com", meDoc.RootElement.GetProperty("email").GetString());
+    }
+
+    [Fact]
+    public async Task Setup_Without_Email_Returns_BadRequest()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateUser_Without_Email_Returns_BadRequest()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
+
+        var response = await client.PostAsJsonAsync("/api/users", new { username = "reader-one", isAdmin = false });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateUser_With_Duplicate_Email_Returns_BadRequest()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "shared@example.com" });
+
+        var response = await client.PostAsJsonAsync("/api/users", new { username = "reader-one", isAdmin = false, email = "shared@example.com" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateUser_With_Email_Already_Used_By_Another_Account_Returns_BadRequest()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
+        var createUserResponse = await client.PostAsJsonAsync("/api/users", new { username = "reader-one", isAdmin = false, email = "reader-one@example.com" });
+        using var createUserDoc = await ReadJsonAsync(createUserResponse);
+        var readerId = createUserDoc.RootElement.GetProperty("userId").GetGuid();
+
+        var response = await client.PutAsJsonAsync($"/api/users/{readerId}", new
+        {
+            username = "reader-one",
+            isAdmin = false,
+            isDisabled = false,
+            forcePasswordReset = false,
+            isLocked = false,
+            email = "admin@example.com"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PasswordResetRequest_For_Unknown_Username_Returns_Generic_Ok_And_Sends_No_Email()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await PostRateLimitedAuthEndpointAsync(client, "/api/auth/password-reset/request", new { username = "does-not-exist" }, NextSyntheticIp());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Empty(factory.FakeEmailSender.SentEmails);
+    }
+
+    [Fact]
+    public async Task PasswordResetRequest_For_Known_Username_With_Email_Sends_Reset_Email()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
+
+        var response = await PostRateLimitedAuthEndpointAsync(client, "/api/auth/password-reset/request", new { username = "test-admin" }, NextSyntheticIp());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var sent = Assert.Single(factory.FakeEmailSender.SentEmails);
+        Assert.Equal("admin@example.com", sent.ToAddress);
+    }
+
+    [Fact]
+    public async Task PasswordResetRequest_Does_Not_Force_Password_Reset_On_Account()
+    {
+        // Self-service "I forgot my password" must never itself invalidate the
+        // account's current password before the caller has even opened the email
+        // (that's a DoS: anyone could force-lock any account just by knowing its
+        // username). Only completing the reset with a valid token should do that.
+        var factory = _factory;
+        using var client = factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
+
+        var response = await PostRateLimitedAuthEndpointAsync(client, "/api/auth/password-reset/request", new { username = "test-admin" }, NextSyntheticIp());
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Single(factory.FakeEmailSender.SentEmails);
+
+        await client.PostAsync("/api/auth/logout", content: null);
+        var loginResponse = await PostLoginAsync(client, "test-admin", "test-password");
+
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task PasswordResetRequest_For_Locked_Account_Returns_Generic_Ok_And_Sends_No_Email()
+    {
+        // A locked-out account must not leak a working reset link to whoever
+        // requests one — that would let an attacker bypass an administrator's
+        // deliberate lock just by asking.
+        var factory = _factory;
+        using var client = factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
+
+        var (readerUserId, readerSetupLink) = await CreateUserAsync(client, "locked-reader");
+        await SetPasswordFromSetupLinkAsync(client, readerSetupLink, "reader-pass-1");
+
+        var lockResponse = await client.PutAsJsonAsync($"/api/users/{readerUserId}", new
+        {
+            username = "locked-reader",
+            isAdmin = false,
+            isDisabled = false,
+            forcePasswordReset = false,
+            isLocked = true,
+            email = "locked-reader@example.com"
+        });
+        Assert.Equal(HttpStatusCode.OK, lockResponse.StatusCode);
+
+        // Creating the account above already sent its own setup-link email (see
+        // Admin_Generated_Reset_Link_Also_Sends_Email_When_Target_Has_Email) — clear
+        // that unrelated send so this assertion isolates the self-service request
+        // under test, not account creation.
+        factory.FakeEmailSender.SentEmails.Clear();
+
+        var response = await PostRateLimitedAuthEndpointAsync(client, "/api/auth/password-reset/request", new { username = "locked-reader" }, NextSyntheticIp());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Empty(factory.FakeEmailSender.SentEmails);
+    }
+
+    [Fact]
+    public async Task PasswordResetRequest_Beyond_RateLimit_Still_Returns_Ok_But_Stops_Sending()
+    {
+        // Uses its own username ("rate-limit-admin"), distinct from every other
+        // test's "test-admin"/etc. — AuthService's rate-limit dictionaries live on
+        // the singleton AuthService shared across this whole test class (ResetAsync
+        // only truncates the DB and clears FakeEmailSender; it does not, and should
+        // not, reach into AuthService's in-memory rate-limit state), so reusing a
+        // username another test also sends password-reset requests for would make
+        // this test's pass/fail depend on unspecified test execution order.
+        var factory = _factory;
+        using var client = factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "rate-limit-admin", password = "test-password", email = "rate-limit-admin@example.com" });
+
+        // All 5 calls deliberately share one synthetic IP: this test targets
+        // AuthService's own per-username limiter (3 per 15 minutes), which requires
+        // looking like a single repeated caller. The per-IP limiter added alongside
+        // it in Program.cs permits 5/minute, comfortably above this loop's 5 calls.
+        var syntheticIp = NextSyntheticIp();
+        for (var i = 0; i < 5; i++)
+        {
+            var response = await PostRateLimitedAuthEndpointAsync(client, "/api/auth/password-reset/request", new { username = "rate-limit-admin" }, syntheticIp);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        Assert.Equal(3, factory.FakeEmailSender.SentEmails.Count);
+    }
+
+    [Fact]
+    public async Task ForgotUsername_For_Known_Email_Sends_Username_Email()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
+
+        var response = await PostRateLimitedAuthEndpointAsync(client, "/api/auth/forgot-username", new { email = "admin@example.com" }, NextSyntheticIp());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var sent = Assert.Single(factory.FakeEmailSender.SentEmails);
+        Assert.Contains("test-admin", sent.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ForgotUsername_For_Unknown_Email_Returns_Generic_Ok_And_Sends_No_Email()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await PostRateLimitedAuthEndpointAsync(client, "/api/auth/forgot-username", new { email = "nobody@example.com" }, NextSyntheticIp());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Empty(factory.FakeEmailSender.SentEmails);
+    }
+
+    [Fact]
+    public async Task Admin_Generated_Reset_Link_Also_Sends_Email_When_Target_Has_Email()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
+        var createUserResponse = await client.PostAsJsonAsync("/api/users", new { username = "reader-one", isAdmin = false, email = "reader-one@example.com" });
+        using var createUserDoc = await ReadJsonAsync(createUserResponse);
+        var readerId = createUserDoc.RootElement.GetProperty("userId").GetGuid();
+
+        // Creating the user above already sent its own setup-link email (POST
+        // /api/users emails a setup link whenever the new account has an email —
+        // see UsersController.CreateUser / AuthService.CreatePasswordResetLinkAsync).
+        // Clear that unrelated send so this assertion isolates the side effect of
+        // the admin-triggered reset-link endpoint under test, not account creation.
+        factory.FakeEmailSender.SentEmails.Clear();
+
+        var response = await client.PostAsync($"/api/users/{readerId}/password-reset-link", content: null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var sent = Assert.Single(factory.FakeEmailSender.SentEmails);
+        Assert.Equal("reader-one@example.com", sent.ToAddress);
+    }
+
+    [Fact]
     public async Task Password_Reset_Link_Can_Be_Generated_And_Used_Once()
     {
         var factory = _factory;
@@ -325,7 +644,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         var (createdUserId, _) = await CreateUserAsync(client, "reader-one");
@@ -389,7 +709,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         var meResponse = await client.GetAsync("/api/auth/me");
@@ -413,7 +734,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         var (readerUserId, readerSetupLink) = await CreateUserAsync(client, "reader-one");
@@ -453,7 +775,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await AddBookAsync(client, "Admin Book");
@@ -501,7 +824,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         HttpStatusCode lastStatus = HttpStatusCode.OK;
@@ -539,7 +863,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         HttpStatusCode lastFirstIpStatus = HttpStatusCode.OK;
@@ -575,7 +900,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await AddBookAsync(client, "Metrics Book");
@@ -606,7 +932,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         var (_, readerSetupLinkForMetrics) = await CreateUserAsync(client, "reader-one");
@@ -628,7 +955,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await client.PostAsync("/api/auth/logout", content: null);
@@ -653,7 +981,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -684,7 +1013,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -715,7 +1045,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -740,7 +1071,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -767,7 +1099,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -804,7 +1137,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -826,7 +1160,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -847,7 +1182,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -886,7 +1222,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -907,7 +1244,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -938,7 +1276,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -968,7 +1307,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -995,7 +1335,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -1022,7 +1363,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -1057,7 +1399,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -1092,7 +1435,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -1127,7 +1471,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -1152,7 +1497,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -1177,7 +1523,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -1206,7 +1553,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -1230,7 +1578,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -1258,7 +1607,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -1283,7 +1633,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -1316,7 +1667,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -1349,7 +1701,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         await LoginAsync(client);
@@ -1373,7 +1726,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
         await LoginAsync(client);
 
         var response = await client.PostAsJsonAsync("/api/books", new
@@ -1398,7 +1752,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
         await LoginAsync(client);
 
         var response = await client.PostAsJsonAsync("/api/books", new { title = "Manually Entered Book" });
@@ -1416,7 +1771,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
         await LoginAsync(client);
 
         var response = await client.PostAsJsonAsync("/api/books", new { title = "Looked-Up Book", bookInfoProviderId = 1 });
@@ -1433,7 +1789,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
         await LoginAsync(client);
 
         var response = await client.PostAsJsonAsync("/api/books", new
@@ -1454,7 +1811,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
         await LoginAsync(client);
         var bookId = await AddBookAsync(client, "Untagged Book");
 
@@ -1480,7 +1838,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
         await LoginAsync(client);
         var bookId = await AddBookAsync(client, "Untagged Book");
 
@@ -1499,7 +1858,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
         await LoginAsync(client);
 
         var response = await client.GetAsync($"/api/books/lookup?isbn={FakeBookMetadataLookupService.KnownIsbn}");
@@ -1518,7 +1878,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
         await LoginAsync(client);
 
         await client.PutAsJsonAsync("/api/preferences", new
@@ -1543,7 +1904,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
         await LoginAsync(client);
 
         await client.PutAsJsonAsync("/api/preferences", new
@@ -1570,7 +1932,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
         await LoginAsync(client);
 
         var response = await client.GetAsync($"/api/books/lookup?title={Uri.EscapeDataString(FakeBookMetadataLookupService.KnownTitle)}");
@@ -1590,7 +1953,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
         await LoginAsync(client);
 
         var response = await client.GetAsync($"/api/books/lookup?title={Uri.EscapeDataString(FakeBookMetadataLookupService.AmbiguousTitle)}");
@@ -1612,7 +1976,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
         await LoginAsync(client);
 
         var response = await client.GetAsync("/api/books/lookup?title=SomeTitleThatWillNeverMatchAnything");
@@ -1629,7 +1994,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
         await LoginAsync(client);
 
         var response = await client.GetAsync("/api/books/lookup?isbn=not-a-real-isbn");
@@ -1643,7 +2009,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
         await LoginAsync(client);
 
         var response = await client.GetAsync("/api/books/lookup");
@@ -1704,7 +2071,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         var (_, migrationReaderSetupLink) = await CreateUserAsync(client, "reader-one");
@@ -1742,7 +2110,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsJsonAsync("/api/auth/setup", new
         {
             username = "test-admin",
-            password = "test-password"
+            password = "test-password",
+            email = "test-setup@example.com"
         });
 
         var (readerUserId, readerSetupLinkForDisable) = await CreateUserAsync(client, "reader-one");
@@ -1784,7 +2153,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
 
         var response = await client.GetAsync("/api/stats");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -1802,7 +2172,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
         var bookIdA = await AddBookAsync(client, "Book A");
         var bookIdB = await AddBookAsync(client, "Book B");
 
@@ -1839,7 +2210,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
         await AddBookAsync(client, "Book Alpha");
         await AddBookAsync(client, "Book Beta");
 
@@ -1858,7 +2230,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
         var bookId = await AddBookAsync(client, "Ephemeral Book");
 
         var spinResponse = await client.PostAsync("/api/books/spin", null);
@@ -1884,7 +2257,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
 
         var response = await client.GetAsync("/api/stats/aggregate");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -1901,7 +2275,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
         await AddBookAsync(client, "Admin Book");
         await client.PostAsync("/api/books/spin", null);
 
@@ -1945,7 +2320,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
 
         var (_, readerSetupLink) = await CreateUserAsync(client, "reader-one");
         await SetPasswordFromSetupLinkAsync(client, readerSetupLink, "reader-pass-1");
@@ -1964,7 +2340,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password" });
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
         await AddBookAsync(client, "Book One");
 
         for (var i = 0; i < 5; i++)
@@ -2013,6 +2390,33 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         return await client.SendAsync(request);
     }
 
+    private static int _authRateLimitIpCounter;
+
+    // Program.cs now partitions the password-reset-request and forgot-username rate
+    // limiters per-IP (in addition to AuthService's existing per-username/per-email
+    // limiter), same as login. Tests in this class share one WebApplicationFactory
+    // host (and therefore one in-process limiter), so every call to either endpoint
+    // needs its own distinct synthetic IP to avoid tripping a 429 as a side effect of
+    // unrelated tests, unless a test is deliberately exercising the limiter itself
+    // (in which case it reuses one IP across its own calls, e.g.
+    // PasswordResetRequest_Beyond_RateLimit_Still_Returns_Ok_But_Stops_Sending).
+    private static string NextSyntheticIp()
+    {
+        var counter = System.Threading.Interlocked.Increment(ref _authRateLimitIpCounter);
+        return $"10.{200 + ((counter >> 16) & 0x3F)}.{(counter >> 8) & 0xFF}.{counter & 0xFF}";
+    }
+
+    private static async Task<HttpResponseMessage> PostRateLimitedAuthEndpointAsync(HttpClient client, string path, object body, string syntheticIp)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, path)
+        {
+            Content = JsonContent.Create(body)
+        };
+        request.Headers.TryAddWithoutValidation("X-Forwarded-For", syntheticIp);
+
+        return await client.SendAsync(request);
+    }
+
     private static async Task LoginAsync(HttpClient client, string username = "test-admin", string password = "test-password")
     {
         var response = await PostLoginAsync(client, username, password);
@@ -2025,7 +2429,8 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var createUserResponse = await client.PostAsJsonAsync("/api/users", new
         {
             username,
-            isAdmin
+            isAdmin,
+            email = $"{username}@example.com"
         });
 
         Assert.Equal(HttpStatusCode.OK, createUserResponse.StatusCode);

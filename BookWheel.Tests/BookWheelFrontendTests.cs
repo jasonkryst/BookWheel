@@ -749,7 +749,7 @@ public sealed class BookWheelFrontendTests : IClassFixture<BookWheelWebAppFactor
         // Positive: opening the dialog always lands on Preferences without
         // eagerly loading the user directory; the user list is only fetched
         // once the Manage users tab is actually activated.
-        Assert.Contains("function openSettingsDialog() {\n  setSettingsTab('preferences');\n  openDialog(settingsDialog, settingsPreferencesTabBtn);\n}", script, StringComparison.Ordinal);
+        Assert.Contains("function openSettingsDialog(updateUrl = true) {\n  setSettingsTab('preferences');\n  openDialog(settingsDialog, settingsPreferencesTabBtn);\n  if (updateUrl) {\n    setRequestedView('preferences');\n  }\n}", script, StringComparison.Ordinal);
         Assert.Contains("async function activateSettingsManageUsersTab() {\n  resetUserManagementMessages();\n  setUserManagementTab('directory');\n  await loadUsers();\n}", script, StringComparison.Ordinal);
     }
 
@@ -1023,6 +1023,75 @@ public sealed class BookWheelFrontendTests : IClassFixture<BookWheelWebAppFactor
         Assert.Contains("data-i18n=\"settings.bookInfoProviderLabel\"", html, StringComparison.Ordinal);
         Assert.Contains("<option value=\"1\">Open Library</option>", html, StringComparison.Ordinal);
         Assert.Contains("<option value=\"2\">Google Books</option>", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Home_Page_Should_Include_Setup_Email_Field_And_Forgot_Links()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("id=\"setupEmail\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-i18n=\"auth.emailLabel\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"forgotPasswordLinkBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"forgotUsernameLinkBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"createUserEmail\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_I18n_Should_Include_Forgot_Password_And_Username_Strings_In_All_Locales()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/i18n.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("forgotPasswordLink: 'Forgot password?'", script, StringComparison.Ordinal);
+        Assert.Contains("forgotPasswordLink: '¿Olvidaste tu contraseña?'", script, StringComparison.Ordinal);
+        Assert.Contains("forgotPasswordLink: 'Nie pamiętasz hasła?'", script, StringComparison.Ordinal);
+        Assert.Contains("forgotUsernameLink: 'Forgot username?'", script, StringComparison.Ordinal);
+        Assert.Contains("forgotUsernameLink: '¿Olvidaste tu nombre de usuario?'", script, StringComparison.Ordinal);
+        Assert.Contains("forgotUsernameLink: 'Nie pamiętasz nazwy użytkownika?'", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Home_Page_Should_Include_Non_Dismissible_Email_Required_Dialog()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("id=\"emailRequiredDialog\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"emailRequiredForm\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"emailRequiredInput\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-i18n=\"auth.emailRequiredDialogTitle\"", html, StringComparison.Ordinal);
+
+        // Negative: no close/cancel button in the dialog markup — it must not be
+        // dismissible without supplying an email.
+        var dialogStart = html.IndexOf("id=\"emailRequiredDialog\"", StringComparison.Ordinal);
+        var dialogEnd = html.IndexOf("</dialog>", dialogStart, StringComparison.Ordinal);
+        var dialogMarkup = html.Substring(dialogStart, dialogEnd - dialogStart);
+        Assert.DoesNotContain("type=\"button\"", dialogMarkup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Script_Should_Prompt_Admins_Missing_Email_And_Block_Dialog_Dismissal()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("function needsEmail(user)", script, StringComparison.Ordinal);
+        Assert.Contains("user.isAdmin && !user.email", script, StringComparison.Ordinal);
+        Assert.Contains("emailRequiredDialog.addEventListener('cancel'", script, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -17,6 +17,7 @@ public sealed class BookWheelWebAppFactory : WebApplicationFactory<Program>
 {
     private readonly string _tempContentRoot;
     private readonly TestLoggerProvider _loggerProvider = new();
+    private readonly FakeEmailSender _fakeEmailSender = new();
     private readonly PostgreSqlContainer _postgresContainer = new PostgreSqlBuilder()
         .WithImage("postgres:16-alpine")
         .WithDatabase("bookwheel_test")
@@ -29,6 +30,8 @@ public sealed class BookWheelWebAppFactory : WebApplicationFactory<Program>
     public string LogDirectoryPath => Path.Combine(_tempContentRoot, "App_Data", "logs");
 
     public TestLoggerProvider LoggerProvider => _loggerProvider;
+
+    public FakeEmailSender FakeEmailSender => _fakeEmailSender;
 
     public BookWheelWebAppFactory()
     {
@@ -61,6 +64,7 @@ public sealed class BookWheelWebAppFactory : WebApplicationFactory<Program>
         await using var context = new BookWheelDbContext(optionsBuilder.Options);
         await context.Database.ExecuteSqlRawAsync(
             "TRUNCATE TABLE books, password_reset_tokens, users, spin_selections RESTART IDENTITY CASCADE;");
+        _fakeEmailSender.SentEmails.Clear();
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -78,6 +82,13 @@ public sealed class BookWheelWebAppFactory : WebApplicationFactory<Program>
         // never trips it as a side effect.
         builder.UseSetting("Security:UsernameLockoutThreshold", "100000");
 
+        // AuthController.RequestPasswordReset now derives the mailed reset link from
+        // App:BaseUrl rather than the (attacker-controllable) Host header, so tests that
+        // exercise the self-service password-reset email need this configured or the
+        // request would silently no-op (see AuthService.RequestPasswordResetAsync's
+        // blank-appBaseUrl guard).
+        builder.UseSetting("App:BaseUrl", "https://bookwheel.test");
+
         builder.ConfigureLogging(logging =>
         {
             logging.ClearProviders();
@@ -91,6 +102,9 @@ public sealed class BookWheelWebAppFactory : WebApplicationFactory<Program>
             services.AddSingleton(new BookMetadataLookupDispatcher(
                 new FakeBookMetadataLookupService(),
                 new FakeGoogleBooksMetadataLookupService()));
+
+            services.RemoveAll<IEmailSender>();
+            services.AddSingleton<IEmailSender>(_fakeEmailSender);
         });
     }
 

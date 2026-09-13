@@ -29,7 +29,7 @@ public sealed class PostgresCredentialRepositoryTests : IAsyncLifetime
     [Fact]
     public async Task CreateInitialAccountAsync_Creates_First_Account_As_Admin()
     {
-        var user = await _repository.CreateInitialAccountAsync("admin-one", "correct-password");
+        var user = await _repository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");
 
         Assert.True(user.IsAdmin);
         Assert.True(await _repository.HasAccountAsync());
@@ -38,7 +38,7 @@ public sealed class PostgresCredentialRepositoryTests : IAsyncLifetime
     [Fact]
     public async Task ValidateCredentialsAsync_With_Correct_Password_Returns_Record()
     {
-        await _repository.CreateInitialAccountAsync("admin-one", "correct-password");
+        await _repository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");
 
         var result = await _repository.ValidateCredentialsAsync("admin-one", "correct-password");
 
@@ -49,7 +49,7 @@ public sealed class PostgresCredentialRepositoryTests : IAsyncLifetime
     [Fact]
     public async Task ValidateCredentialsAsync_With_Wrong_Password_Returns_Null()
     {
-        await _repository.CreateInitialAccountAsync("admin-one", "correct-password");
+        await _repository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");
 
         var result = await _repository.ValidateCredentialsAsync("admin-one", "wrong-password");
 
@@ -59,7 +59,7 @@ public sealed class PostgresCredentialRepositoryTests : IAsyncLifetime
     [Fact]
     public async Task ValidateCredentialsAsync_Is_Case_Insensitive_On_Username()
     {
-        await _repository.CreateInitialAccountAsync("Admin-One", "correct-password");
+        await _repository.CreateInitialAccountAsync("Admin-One", "correct-password", "admin-one@example.com");
 
         var result = await _repository.ValidateCredentialsAsync("admin-one", "correct-password");
 
@@ -69,9 +69,9 @@ public sealed class PostgresCredentialRepositoryTests : IAsyncLifetime
     [Fact]
     public async Task CreateUserAsync_Adds_NonAdmin_User()
     {
-        await _repository.CreateInitialAccountAsync("admin-one", "correct-password");
+        await _repository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");
 
-        var user = await _repository.CreateUserAsync("reader-one", isAdmin: false);
+        var user = await _repository.CreateUserAsync("reader-one", isAdmin: false, email: "reader-one@example.com");
 
         Assert.False(user.IsAdmin);
         var users = await _repository.GetUsersAsync();
@@ -81,27 +81,109 @@ public sealed class PostgresCredentialRepositoryTests : IAsyncLifetime
     [Fact]
     public async Task CreateUserAsync_With_Duplicate_Username_Throws()
     {
-        await _repository.CreateInitialAccountAsync("admin-one", "correct-password");
-        await _repository.CreateUserAsync("reader-one", isAdmin: false);
+        await _repository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");
+        await _repository.CreateUserAsync("reader-one", isAdmin: false, email: "reader-one@example.com");
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _repository.CreateUserAsync("Reader-One", isAdmin: false));
+            () => _repository.CreateUserAsync("Reader-One", isAdmin: false, email: "reader-one-2@example.com"));
+    }
+
+    [Fact]
+    public async Task CreateUserAsync_With_Duplicate_Email_Throws()
+    {
+        await _repository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");
+        await _repository.CreateUserAsync("reader-one", isAdmin: false, email: "shared@example.com");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _repository.CreateUserAsync("reader-two", isAdmin: false, email: "Shared@example.com"));
+    }
+
+    [Fact]
+    public async Task CreateUserAsync_Allows_Multiple_Accounts_With_No_Email()
+    {
+        await _repository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");
+
+        var readerOne = await _repository.CreateUserAsync("reader-one", isAdmin: false, email: "reader-one@example.com");
+        var readerTwo = await _repository.CreateUserAsync("reader-two", isAdmin: false, email: "reader-two@example.com");
+        var updated = await _repository.UpdateUserAsync(readerOne.UserId, "reader-one", isAdmin: false, isDisabled: false, forcePasswordReset: false, isLocked: false, email: null);
+        var updatedTwo = await _repository.UpdateUserAsync(readerTwo.UserId, "reader-two", isAdmin: false, isDisabled: false, forcePasswordReset: false, isLocked: false, email: null);
+
+        Assert.Null(updated.Email);
+        Assert.Null(updatedTwo.Email);
+    }
+
+    [Fact]
+    public async Task FindByUsernameAsync_Returns_Record_With_Email()
+    {
+        await _repository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");
+
+        var found = await _repository.FindByUsernameAsync("admin-one");
+
+        Assert.NotNull(found);
+        Assert.Equal("admin-one@example.com", found!.Email);
+    }
+
+    [Fact]
+    public async Task FindByUsernameAsync_Returns_Null_For_Unknown_Username()
+    {
+        var found = await _repository.FindByUsernameAsync("nobody");
+
+        Assert.Null(found);
+    }
+
+    [Fact]
+    public async Task FindUsernameByEmailAsync_Returns_Matching_Username_Case_Insensitively()
+    {
+        await _repository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");
+
+        var username = await _repository.FindUsernameByEmailAsync("Admin-One@example.com");
+
+        Assert.Equal("admin-one", username);
+    }
+
+    [Fact]
+    public async Task FindUsernameByEmailAsync_Returns_Null_For_Disabled_Account()
+    {
+        await _repository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");
+        var reader = await _repository.CreateUserAsync("reader-one", isAdmin: false, email: "reader-one@example.com");
+        await _repository.UpdateUserAsync(reader.UserId, "reader-one", isAdmin: false, isDisabled: true, forcePasswordReset: false, isLocked: false, email: "reader-one@example.com");
+
+        var username = await _repository.FindUsernameByEmailAsync("reader-one@example.com");
+
+        Assert.Null(username);
     }
 
     [Fact]
     public async Task UpdateUserAsync_Demoting_Last_Admin_Throws()
     {
-        var admin = await _repository.CreateInitialAccountAsync("admin-one", "correct-password");
+        var admin = await _repository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => _repository.UpdateUserAsync(admin.UserId, admin.Username, isAdmin: false));
     }
 
     [Fact]
+    public async Task UpdateUserAsync_ThreeArg_Overload_Leaves_Email_Unchanged()
+    {
+        // The 3-arg overload (username/isAdmin only, used by callers that never touch
+        // email) must not wipe the existing Email out from under the account — that
+        // was backend drift versus the in-memory repository, which never touched
+        // Email for this overload.
+        await _repository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");
+        var reader = await _repository.CreateUserAsync("reader-one", isAdmin: false, email: "reader-one@example.com");
+
+        await _repository.UpdateUserAsync(reader.UserId, "reader-one-renamed", isAdmin: false);
+
+        var found = await _repository.FindByUsernameAsync("reader-one-renamed");
+        Assert.NotNull(found);
+        Assert.Equal("reader-one@example.com", found!.Email);
+    }
+
+    [Fact]
     public async Task DeleteUserAsync_Removes_NonFirst_User()
     {
-        await _repository.CreateInitialAccountAsync("admin-one", "correct-password");
-        var reader = await _repository.CreateUserAsync("reader-one", isAdmin: false);
+        await _repository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");
+        var reader = await _repository.CreateUserAsync("reader-one", isAdmin: false, email: "reader-one@example.com");
 
         var deleted = await _repository.DeleteUserAsync(reader.UserId);
 
@@ -113,7 +195,7 @@ public sealed class PostgresCredentialRepositoryTests : IAsyncLifetime
     [Fact]
     public async Task DeleteUserAsync_On_First_Account_Throws()
     {
-        var admin = await _repository.CreateInitialAccountAsync("admin-one", "correct-password");
+        var admin = await _repository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => _repository.DeleteUserAsync(admin.UserId));
@@ -122,7 +204,7 @@ public sealed class PostgresCredentialRepositoryTests : IAsyncLifetime
     [Fact]
     public async Task MarkForPasswordResetAsync_Sets_ForcePasswordReset_And_Clears_Lock()
     {
-        var admin = await _repository.CreateInitialAccountAsync("admin-one", "correct-password");
+        var admin = await _repository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");
 
         var marked = await _repository.MarkForPasswordResetAsync(admin.UserId);
 
@@ -133,7 +215,7 @@ public sealed class PostgresCredentialRepositoryTests : IAsyncLifetime
     [Fact]
     public async Task SetPasswordAsync_Updates_Password_And_Clears_ForcePasswordReset()
     {
-        var admin = await _repository.CreateInitialAccountAsync("admin-one", "correct-password");
+        var admin = await _repository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");
         await _repository.MarkForPasswordResetAsync(admin.UserId);
 
         var username = await _repository.SetPasswordAsync(admin.UserId, "new-password");

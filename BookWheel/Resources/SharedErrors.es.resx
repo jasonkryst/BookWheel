@@ -120,4 +120,19 @@
   <data name="ResetTokenRequired" xml:space="preserve">
     <value>Se requiere un token de restablecimiento.</value>
   </data>
+  <data name="EmailRequired" xml:space="preserve">
+    <value>El correo electrónico es obligatorio.</value>
+  </data>
+  <data name="InvalidEmailFormat" xml:space="preserve">
+    <value>El correo electrónico debe ser una dirección válida.</value>
+  </data>
+  <data name="EmailAlreadyExists" xml:space="preserve">
+    <value>El correo electrónico ya existe.</value>
+  </data>
+  <data name="EmailLength" xml:space="preserve">
+    <value>El correo electrónico debe tener 256 caracteres o menos.</value>
+  </data>
+  <data name="AdminsCanOnlySelfUpdateEmail" xml:space="preserve">
+    <value>Los administradores solo pueden actualizar su propio correo electrónico.</value>
+  </data>
 </root>

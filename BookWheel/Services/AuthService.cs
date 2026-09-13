@@ -12,6 +12,9 @@ public sealed class AuthService
     private readonly SecurityOptions _securityOptions;
     private readonly ConcurrentDictionary<string, SessionRecord> _sessions = new();
     private readonly ConcurrentDictionary<string, FailedLoginRecord> _failedLogins = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, RateLimitRecord> _passwordResetRequests = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, RateLimitRecord> _forgottenUsernameRequests = new(StringComparer.OrdinalIgnoreCase);
+    private readonly AccountEmailService _accountEmailService;
     private readonly TimeSpan _sessionLifetime = TimeSpan.FromHours(8);
 
     private sealed class FailedLoginRecord
@@ -20,17 +23,24 @@ public sealed class AuthService
         public DateTimeOffset? LockedUntilUtc { get; set; }
     }
 
+    private sealed class RateLimitRecord
+    {
+        public int Count { get; set; }
+        public DateTimeOffset WindowStartUtc { get; set; }
+    }
+
     private sealed class SessionRecord
     {
         public AuthenticatedUser User { get; set; } = new();
         public DateTimeOffset ExpiresAtUtc { get; set; }
     }
 
-    public AuthService(ICredentialRepository credentialRepository, IPasswordResetTokenRepository resetTokenRepository, IOptions<SecurityOptions> securityOptions)
+    public AuthService(ICredentialRepository credentialRepository, IPasswordResetTokenRepository resetTokenRepository, IOptions<SecurityOptions> securityOptions, AccountEmailService accountEmailService)
     {
         _credentialRepository = credentialRepository;
         _resetTokenRepository = resetTokenRepository;
         _securityOptions = securityOptions.Value;
+        _accountEmailService = accountEmailService;
     }
 
     public Task<bool> HasAccountAsync()
@@ -38,9 +48,9 @@ public sealed class AuthService
         return _credentialRepository.HasAccountAsync();
     }
 
-    public async Task<AuthenticatedUser> CreateAccountAsync(string username, string password)
+    public async Task<AuthenticatedUser> CreateAccountAsync(string username, string password, string email)
     {
-        var user = await _credentialRepository.CreateInitialAccountAsync(username, password);
+        var user = await _credentialRepository.CreateInitialAccountAsync(username, password, email);
         return ToAuthenticatedUser(user);
     }
 
@@ -104,6 +114,103 @@ public sealed class AuthService
         return new LoginValidationResult { User = ToAuthenticatedUser(user) };
     }
 
+    private const int RateLimitSweepBatchSize = 20;
+
+    private static bool TryConsumeRateLimit(ConcurrentDictionary<string, RateLimitRecord> store, string key)
+    {
+        const int maxRequestsPerWindow = 3;
+        var window = TimeSpan.FromMinutes(15);
+        var now = DateTimeOffset.UtcNow;
+        var normalizedKey = key.Trim();
+
+        var record = store.AddOrUpdate(
+            normalizedKey,
+            _ => new RateLimitRecord { Count = 1, WindowStartUtc = now },
+            (_, existing) =>
+            {
+                if (now - existing.WindowStartUtc > window)
+                {
+                    existing.WindowStartUtc = now;
+                    existing.Count = 1;
+                }
+                else
+                {
+                    existing.Count += 1;
+                }
+
+                return existing;
+            });
+
+        SweepExpiredEntries(store, window, now);
+
+        return record.Count <= maxRequestsPerWindow;
+    }
+
+    // These dictionaries have no other eviction mechanism (they live for the lifetime
+    // of the singleton AuthService), so every distinct username/email ever probed would
+    // otherwise accumulate forever. This is a small self-hosted app rather than an
+    // internet-scale target, so a bounded, opportunistic sweep on every call — checking
+    // only a small batch of entries rather than the whole dictionary — is enough to keep
+    // memory bounded without needing a background timer.
+    private static void SweepExpiredEntries(ConcurrentDictionary<string, RateLimitRecord> store, TimeSpan window, DateTimeOffset now)
+    {
+        var staleThreshold = window + window;
+        foreach (var entry in store.Take(RateLimitSweepBatchSize))
+        {
+            if (now - entry.Value.WindowStartUtc > staleThreshold)
+            {
+                store.TryRemove(entry.Key, out _);
+            }
+        }
+    }
+
+    public async Task RequestPasswordResetAsync(string username, string appBaseUrl)
+    {
+        if (!TryConsumeRateLimit(_passwordResetRequests, username))
+        {
+            return;
+        }
+
+        var account = await _credentialRepository.FindByUsernameAsync(username);
+        if (account is null || account.IsDisabled || account.IsLocked || string.IsNullOrWhiteSpace(account.Email) || string.IsNullOrWhiteSpace(appBaseUrl))
+        {
+            return;
+        }
+
+        // Deliberately does NOT call CreatePasswordResetLinkAsync/MarkForPasswordResetAsync:
+        // that would set ForcePasswordReset (killing the account's current password
+        // immediately, before the caller even opens the email) and clear IsLocked
+        // (silently undoing an administrator's deliberate lock) — both unauthenticated,
+        // anonymous-caller side effects that a plain "I forgot my password" request has
+        // no business triggering. The reset token itself is the security gate here
+        // (validated in CompletePasswordResetAsync); ForcePasswordReset is a separate,
+        // admin-only signal reserved for the admin-triggered flow in UsersController.
+        var (rawToken, expiresAtUtc) = await _resetTokenRepository.CreateAsync(account.UserId);
+        var trimmedBaseUrl = appBaseUrl.TrimEnd('/');
+        var resetLink = $"{trimmedBaseUrl}/?resetToken={Uri.EscapeDataString(rawToken)}";
+
+        // Fire-and-forget for the same anti-enumeration timing reason documented on
+        // CreatePasswordResetLinkAsync below.
+        _ = _accountEmailService.SendPasswordResetEmailAsync(account.Email, account.Username, resetLink, expiresAtUtc, CancellationToken.None);
+    }
+
+    public async Task RequestForgottenUsernameAsync(string email)
+    {
+        if (!TryConsumeRateLimit(_forgottenUsernameRequests, email))
+        {
+            return;
+        }
+
+        var username = await _credentialRepository.FindUsernameByEmailAsync(email);
+        if (username is null)
+        {
+            return;
+        }
+
+        // Fire-and-forget for the same timing reason as CreatePasswordResetLinkAsync below.
+        _ = _accountEmailService.SendForgottenUsernameEmailAsync(email, username, CancellationToken.None);
+    }
+
     public async Task<(string ResetLink, DateTimeOffset ExpiresAtUtc, string Username)> CreatePasswordResetLinkAsync(Guid userId, string appBaseUrl)
     {
         var user = await _credentialRepository.MarkForPasswordResetAsync(userId);
@@ -111,6 +218,21 @@ public sealed class AuthService
 
         var trimmedBaseUrl = appBaseUrl.TrimEnd('/');
         var resetLink = $"{trimmedBaseUrl}/?resetToken={Uri.EscapeDataString(rawToken)}";
+
+        if (!string.IsNullOrWhiteSpace(user.Email))
+        {
+            // Fire-and-forget: awaiting a live SMTP round trip here would make "account
+            // exists and has an email" measurably slower than every other outcome for
+            // RequestPasswordResetAsync's self-service caller, defeating the anti-
+            // enumeration guarantee that method exists to provide. SendAsync never
+            // throws (see SmtpEmailSender), so there's nothing to await for error
+            // handling, and AccountEmailService/IEmailSender are both registered as
+            // singletons, so this detached task safely outlives the HTTP request.
+            // CancellationToken.None is deliberate — the send must not be cut short
+            // by the request's own lifetime.
+            _ = _accountEmailService.SendPasswordResetEmailAsync(user.Email, user.Username, resetLink, expiresAtUtc, CancellationToken.None);
+        }
+
         return (resetLink, expiresAtUtc, user.Username);
     }
 
@@ -227,7 +349,8 @@ public sealed class AuthService
         {
             UserId = credential.UserId,
             Username = credential.Username,
-            IsAdmin = credential.IsAdmin
+            IsAdmin = credential.IsAdmin,
+            Email = credential.Email
         };
     }
 }

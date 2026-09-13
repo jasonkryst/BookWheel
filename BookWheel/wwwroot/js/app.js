@@ -7,6 +7,19 @@ const authMessage = document.getElementById('authMessage');
 const authSubmitBtn = document.getElementById('authSubmitBtn');
 const usernameInput = document.getElementById('username');
 const passwordInput = document.getElementById('password');
+const setupEmailLabel = document.getElementById('setupEmailLabel');
+const setupEmailInput = document.getElementById('setupEmail');
+const authHelperLinks = document.getElementById('authHelperLinks');
+const forgotPasswordLinkBtn = document.getElementById('forgotPasswordLinkBtn');
+const forgotUsernameLinkBtn = document.getElementById('forgotUsernameLinkBtn');
+const forgotPasswordForm = document.getElementById('forgotPasswordForm');
+const forgotPasswordUsername = document.getElementById('forgotPasswordUsername');
+const forgotPasswordMessage = document.getElementById('forgotPasswordMessage');
+const cancelForgotPasswordBtn = document.getElementById('cancelForgotPasswordBtn');
+const forgotUsernameForm = document.getElementById('forgotUsernameForm');
+const forgotUsernameEmail = document.getElementById('forgotUsernameEmail');
+const forgotUsernameMessage = document.getElementById('forgotUsernameMessage');
+const cancelForgotUsernameBtn = document.getElementById('cancelForgotUsernameBtn');
 const resetPasswordForm = document.getElementById('resetPasswordForm');
 const resetPassword = document.getElementById('resetPassword');
 const resetPasswordConfirm = document.getElementById('resetPasswordConfirm');
@@ -71,6 +84,10 @@ const resetLinkValue = document.getElementById('resetLinkValue');
 const resetLinkError = document.getElementById('resetLinkError');
 const copyResetLinkBtn = document.getElementById('copyResetLinkBtn');
 const closeResetLinkBtn = document.getElementById('closeResetLinkBtn');
+const emailRequiredDialog = document.getElementById('emailRequiredDialog');
+const emailRequiredForm = document.getElementById('emailRequiredForm');
+const emailRequiredInput = document.getElementById('emailRequiredInput');
+const emailRequiredError = document.getElementById('emailRequiredError');
 const importTabBtn = document.getElementById('importTabBtn');
 const exportTabBtn = document.getElementById('exportTabBtn');
 const importPanel = document.getElementById('importPanel');
@@ -86,6 +103,7 @@ const userDirectoryPanel = document.getElementById('userDirectoryPanel');
 const userCreatePanel = document.getElementById('userCreatePanel');
 const createUserForm = document.getElementById('createUserForm');
 const createUserUsername = document.getElementById('createUserUsername');
+const createUserEmail = document.getElementById('createUserEmail');
 const createUserIsAdmin = document.getElementById('createUserIsAdmin');
 const userSearchInput = document.getElementById('userSearchInput');
 const userStatusFilter = document.getElementById('userStatusFilter');
@@ -470,11 +488,32 @@ function applyCurrentUser(user) {
   if (settingsImportExportTabBtn) {
     settingsImportExportTabBtn.classList.toggle('hidden', !isLoggedIn);
   }
+
+  if (needsEmail(currentUser)) {
+    showEmailRequiredDialog();
+  } else if (emailRequiredDialog && emailRequiredDialog.open) {
+    closeDialog(emailRequiredDialog);
+  }
+}
+
+function needsEmail(user) {
+  return Boolean(user && user.isAdmin && !user.email);
+}
+
+function showEmailRequiredDialog() {
+  if (!emailRequiredDialog || emailRequiredDialog.open) {
+    return;
+  }
+
+  emailRequiredError.textContent = '';
+  emailRequiredInput.value = '';
+  openDialog(emailRequiredDialog, emailRequiredInput);
 }
 
 function resetAuthForm() {
   usernameInput.value = '';
   passwordInput.value = '';
+  setupEmailInput.value = '';
   usernameInput.setAttribute('aria-invalid', 'false');
   passwordInput.setAttribute('aria-invalid', 'false');
   loginError.textContent = '';
@@ -488,6 +527,9 @@ function setAuthMode(mode) {
     authTitle.textContent = t('auth.setPasswordTitle');
     authMessage.textContent = t('auth.setPasswordSubtitle');
     loginForm.classList.add('hidden');
+    authHelperLinks.classList.add('hidden');
+    forgotPasswordForm.classList.add('hidden');
+    forgotUsernameForm.classList.add('hidden');
     resetPasswordForm.classList.remove('hidden');
     return;
   }
@@ -499,12 +541,18 @@ function setAuthMode(mode) {
     authTitle.textContent = t('auth.setupTitle');
     authMessage.textContent = t('auth.setupSubtitle');
     authSubmitBtn.textContent = t('auth.setupSubmit');
+    setupEmailLabel.classList.remove('hidden');
+    setupEmailInput.setAttribute('required', 'required');
+    authHelperLinks.classList.add('hidden');
     return;
   }
 
   authTitle.textContent = t('auth.loginTitle');
   authMessage.textContent = t('auth.loginSubtitle');
   authSubmitBtn.textContent = t('auth.loginSubmit');
+  setupEmailLabel.classList.add('hidden');
+  setupEmailInput.removeAttribute('required');
+  authHelperLinks.classList.remove('hidden');
 }
 
 function openResetLinkDialog(result) {
@@ -763,6 +811,15 @@ function renderUserRows(users) {
     usernameLabel.textContent = t('auth.usernameLabel');
     usernameLabel.appendChild(username);
 
+    const email = document.createElement('input');
+    email.type = 'email';
+    email.className = 'user-input';
+    email.value = user.email || '';
+
+    const emailLabel = document.createElement('label');
+    emailLabel.textContent = t('users.emailLabel');
+    emailLabel.appendChild(email);
+
     const adminLabel = document.createElement('label');
     adminLabel.className = 'checkbox-row';
     const adminCheckbox = document.createElement('input');
@@ -823,7 +880,7 @@ function renderUserRows(users) {
 
     const editGrid = document.createElement('div');
     editGrid.className = 'user-edit-grid';
-    editGrid.append(usernameLabel, adminLabel, disabledLabel, forceResetLabel, lockLabel);
+    editGrid.append(usernameLabel, emailLabel, adminLabel, disabledLabel, forceResetLabel, lockLabel);
 
     const controls = document.createElement('div');
     controls.className = 'user-row-controls';
@@ -843,6 +900,7 @@ function renderUserRows(users) {
 
       const hasChanges =
         username.value.trim() !== user.username ||
+        email.value.trim() !== (user.email || '') ||
         adminCheckbox.checked !== Boolean(user.isAdmin) ||
         disabledCheckbox.checked !== Boolean(user.isDisabled) ||
         forceResetCheckbox.checked !== Boolean(user.forcePasswordReset) ||
@@ -856,6 +914,7 @@ function renderUserRows(users) {
     if (isCurrentUser || isFirstUser) {
       row.classList.add('user-row-disabled');
       username.disabled = true;
+      email.disabled = true;
       adminCheckbox.disabled = true;
       disabledCheckbox.disabled = true;
       forceResetCheckbox.disabled = true;
@@ -882,6 +941,7 @@ function renderUserRows(users) {
     const togglePendingState = pending => {
       locked = pending;
       username.disabled = pending;
+      email.disabled = pending;
       adminCheckbox.disabled = pending;
       disabledCheckbox.disabled = pending;
       forceResetCheckbox.disabled = pending;
@@ -893,6 +953,7 @@ function renderUserRows(users) {
     };
 
     username.addEventListener('input', evaluateDirty);
+    email.addEventListener('input', evaluateDirty);
     adminCheckbox.addEventListener('change', evaluateDirty);
     disabledCheckbox.addEventListener('change', evaluateDirty);
     forceResetCheckbox.addEventListener('change', evaluateDirty);
@@ -917,7 +978,8 @@ function renderUserRows(users) {
             isAdmin: adminCheckbox.checked,
             isDisabled: disabledCheckbox.checked,
             forcePasswordReset: forceResetCheckbox.checked,
-            isLocked: lockCheckbox.checked
+            isLocked: lockCheckbox.checked,
+            email: email.value.trim() || null
           })
         });
         userManagementMessage.textContent = t('users.updatedUserMessage', { username: trimmedUsername });
@@ -1792,6 +1854,7 @@ loginForm.addEventListener('submit', async event => {
   const originalButtonText = authSubmitBtn.textContent;
   const username = usernameInput.value.trim();
   const password = passwordInput.value;
+  const email = setupEmailInput.value.trim();
 
   if (!username || !password) {
     usernameInput.setAttribute('aria-invalid', 'true');
@@ -1800,8 +1863,15 @@ loginForm.addEventListener('submit', async event => {
     return;
   }
 
+  if (authMode === 'setup' && !email) {
+    setupEmailInput.setAttribute('aria-invalid', 'true');
+    loginError.textContent = t('auth.emailRequiredError');
+    return;
+  }
+
   usernameInput.setAttribute('aria-invalid', 'false');
   passwordInput.setAttribute('aria-invalid', 'false');
+  setupEmailInput.setAttribute('aria-invalid', 'false');
 
   authSubmitBtn.disabled = true;
   authSubmitBtn.textContent = authMode === 'setup' ? t('auth.creatingAccountBusy') : t('auth.loggingInBusy');
@@ -1811,10 +1881,11 @@ loginForm.addEventListener('submit', async event => {
   try {
     const authResult = await requestJson(authMode === 'setup' ? '/api/auth/setup' : '/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({
-        username,
-        password
-      })
+      body: JSON.stringify(
+        authMode === 'setup'
+          ? { username, password, email }
+          : { username, password }
+      )
     });
     applyCurrentUser(authResult.user || null);
     await loadAndApplyPreferences();
@@ -1832,6 +1903,76 @@ loginForm.addEventListener('submit', async event => {
     authSubmitBtn.textContent = originalButtonText;
     usernameInput.disabled = false;
     passwordInput.disabled = false;
+  }
+});
+
+forgotPasswordLinkBtn.addEventListener('click', () => {
+  forgotPasswordMessage.textContent = '';
+  forgotPasswordUsername.value = '';
+  loginForm.classList.add('hidden');
+  authHelperLinks.classList.add('hidden');
+  forgotPasswordForm.classList.remove('hidden');
+});
+
+cancelForgotPasswordBtn.addEventListener('click', () => {
+  forgotPasswordForm.classList.add('hidden');
+  loginForm.classList.remove('hidden');
+  authHelperLinks.classList.remove('hidden');
+});
+
+forgotPasswordForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  const { t } = window.BookWheelI18n;
+  const username = forgotPasswordUsername.value.trim();
+  if (!username) {
+    return;
+  }
+
+  const submitBtn = forgotPasswordForm.querySelector('button[type="submit"]');
+  setButtonBusy(submitBtn, true, t('auth.forgotPasswordSendingBusy'), t('auth.forgotPasswordSubmit'));
+  try {
+    await requestJson('/api/auth/password-reset/request', {
+      method: 'POST',
+      body: JSON.stringify({ username })
+    });
+    forgotPasswordMessage.textContent = t('auth.forgotPasswordSentMessage');
+  } finally {
+    setButtonBusy(submitBtn, false, t('auth.forgotPasswordSendingBusy'), t('auth.forgotPasswordSubmit'));
+  }
+});
+
+forgotUsernameLinkBtn.addEventListener('click', () => {
+  forgotUsernameMessage.textContent = '';
+  forgotUsernameEmail.value = '';
+  loginForm.classList.add('hidden');
+  authHelperLinks.classList.add('hidden');
+  forgotUsernameForm.classList.remove('hidden');
+});
+
+cancelForgotUsernameBtn.addEventListener('click', () => {
+  forgotUsernameForm.classList.add('hidden');
+  loginForm.classList.remove('hidden');
+  authHelperLinks.classList.remove('hidden');
+});
+
+forgotUsernameForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  const { t } = window.BookWheelI18n;
+  const email = forgotUsernameEmail.value.trim();
+  if (!email) {
+    return;
+  }
+
+  const submitBtn = forgotUsernameForm.querySelector('button[type="submit"]');
+  setButtonBusy(submitBtn, true, t('auth.forgotUsernameSendingBusy'), t('auth.forgotUsernameSubmit'));
+  try {
+    await requestJson('/api/auth/forgot-username', {
+      method: 'POST',
+      body: JSON.stringify({ email })
+    });
+    forgotUsernameMessage.textContent = t('auth.forgotUsernameSentMessage');
+  } finally {
+    setButtonBusy(submitBtn, false, t('auth.forgotUsernameSendingBusy'), t('auth.forgotUsernameSubmit'));
   }
 });
 
@@ -2008,6 +2149,7 @@ if (createUserForm) {
     const { t } = window.BookWheelI18n;
 
     const username = createUserUsername.value.trim();
+    const email = createUserEmail.value.trim();
 
     if (!username) {
       createUserUsername.setAttribute('aria-invalid', 'true');
@@ -2015,11 +2157,19 @@ if (createUserForm) {
       return;
     }
 
+    if (!email) {
+      createUserEmail.setAttribute('aria-invalid', 'true');
+      userManagementError.textContent = t('users.emailRequiredError');
+      return;
+    }
+
     createUserUsername.setAttribute('aria-invalid', 'false');
+    createUserEmail.setAttribute('aria-invalid', 'false');
 
     const createUserSubmitButton = createUserForm.querySelector('button[type="submit"]');
     setButtonBusy(createUserSubmitButton, true, t('common.creating'), t('users.createUserBtn'));
     createUserUsername.disabled = true;
+    createUserEmail.disabled = true;
     createUserIsAdmin.disabled = true;
 
     try {
@@ -2027,7 +2177,8 @@ if (createUserForm) {
         method: 'POST',
         body: JSON.stringify({
           username,
-          isAdmin: createUserIsAdmin.checked
+          isAdmin: createUserIsAdmin.checked,
+          email
         })
       });
 
@@ -2046,6 +2197,7 @@ if (createUserForm) {
     } finally {
       setButtonBusy(createUserSubmitButton, false, t('common.creating'), t('users.createUserBtn'));
       createUserUsername.disabled = false;
+      createUserEmail.disabled = false;
       createUserIsAdmin.disabled = false;
     }
   });
@@ -2072,6 +2224,51 @@ if (copyResetLinkBtn) {
 if (closeResetLinkBtn) {
   closeResetLinkBtn.addEventListener('click', () => {
     closeResetLinkDialog();
+  });
+}
+
+if (emailRequiredDialog) {
+  // Deliberately non-dismissible: no close/cancel button in the markup, and
+  // the native <dialog> ESC-to-close gesture is blocked here too. An admin
+  // with no email on file has no self-service password-reset/forgot-username
+  // path for their own account, so this stays up until they supply one.
+  emailRequiredDialog.addEventListener('cancel', event => {
+    event.preventDefault();
+  });
+}
+
+if (emailRequiredForm) {
+  emailRequiredForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    const { t } = window.BookWheelI18n;
+    const email = emailRequiredInput.value.trim();
+    if (!email) {
+      emailRequiredError.textContent = t('auth.emailRequiredError');
+      return;
+    }
+
+    const submitBtn = emailRequiredForm.querySelector('button[type="submit"]');
+    setButtonBusy(submitBtn, true, t('common.saving'), t('common.save'));
+    try {
+      await requestJson(`/api/users/${currentUser.userId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          username: currentUser.username,
+          isAdmin: true,
+          isDisabled: false,
+          forcePasswordReset: false,
+          isLocked: false,
+          email
+        })
+      });
+      currentUser.email = email;
+      closeDialog(emailRequiredDialog);
+      showToast(t('auth.emailRequiredSavedToast'), 'success');
+    } catch (error) {
+      emailRequiredError.textContent = error.message;
+    } finally {
+      setButtonBusy(submitBtn, false, t('common.saving'), t('common.save'));
+    }
   });
 }
 
@@ -2733,7 +2930,8 @@ syncLangSelect();
     applyCurrentUser({
       userId: me.userId,
       username: me.username,
-      isAdmin: me.isAdmin
+      isAdmin: me.isAdmin,
+      email: me.email
     });
     await loadAndApplyPreferences();
     showApp(true);

@@ -120,4 +120,19 @@
   <data name="ResetTokenRequired" xml:space="preserve">
     <value>Wymagany jest token resetowania.</value>
   </data>
+  <data name="EmailRequired" xml:space="preserve">
+    <value>Adres e-mail jest wymagany.</value>
+  </data>
+  <data name="InvalidEmailFormat" xml:space="preserve">
+    <value>Adres e-mail musi być prawidłowym adresem.</value>
+  </data>
+  <data name="EmailAlreadyExists" xml:space="preserve">
+    <value>Adres e-mail już istnieje.</value>
+  </data>
+  <data name="EmailLength" xml:space="preserve">
+    <value>Adres e-mail musi mieć maksymalnie 256 znaków.</value>
+  </data>
+  <data name="AdminsCanOnlySelfUpdateEmail" xml:space="preserve">
+    <value>Administratorzy mogą aktualizować tylko własny adres e-mail.</value>
+  </data>
 </root>

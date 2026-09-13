@@ -1,6 +1,8 @@
 using BookWheel.Models;
 using BookWheel.Services;
+using BookWheel.Storage;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace BookWheel.Controllers;
 
@@ -12,13 +14,17 @@ public sealed class AuthController : ControllerBase
     private readonly AppMetricsService _metricsService;
     private readonly ILogger<AuthController> _logger;
     private readonly ApiMessageLocalizer _errors;
+    private readonly AppOptions _appOptions;
+    private readonly ICredentialRepository _credentialRepository;
 
-    public AuthController(AuthService authService, AppMetricsService metricsService, ILogger<AuthController> logger, ApiMessageLocalizer errors)
+    public AuthController(AuthService authService, AppMetricsService metricsService, ILogger<AuthController> logger, ApiMessageLocalizer errors, IOptions<AppOptions> appOptions, ICredentialRepository credentialRepository)
     {
         _authService = authService;
         _metricsService = metricsService;
         _logger = logger;
         _errors = errors;
+        _appOptions = appOptions.Value;
+        _credentialRepository = credentialRepository;
     }
 
     [HttpGet("status")]
@@ -29,7 +35,7 @@ public sealed class AuthController : ControllerBase
     }
 
     [HttpPost("setup")]
-    public async Task<IActionResult> Setup([FromBody] LoginRequest request)
+    public async Task<IActionResult> Setup([FromBody] SetupAccountRequest request)
     {
         var hasAccount = await _authService.HasAccountAsync();
         if (hasAccount)
@@ -44,7 +50,7 @@ public sealed class AuthController : ControllerBase
             return Conflict(new { message = _errors.Localize("An account already exists.") });
         }
 
-        var user = await _authService.CreateAccountAsync(request.Username, request.Password);
+        var user = await _authService.CreateAccountAsync(request.Username, request.Password, request.Email);
         _logger.LogInformation(
             "Initial account created for username {Username} from {ClientIp} path {Path} request {RequestId} user agent {UserAgent}",
             request.Username,
@@ -60,7 +66,8 @@ public sealed class AuthController : ControllerBase
             {
                 userId = user.UserId,
                 username = user.Username,
-                isAdmin = user.IsAdmin
+                isAdmin = user.IsAdmin,
+                email = user.Email
             }
         });
     }
@@ -158,7 +165,8 @@ public sealed class AuthController : ControllerBase
                 {
                     userId = user.UserId,
                     username = user.Username,
-                    isAdmin = user.IsAdmin
+                    isAdmin = user.IsAdmin,
+                    email = user.Email
                 }
             });
         }
@@ -208,6 +216,38 @@ public sealed class AuthController : ControllerBase
         }
     }
 
+    [HttpPost("password-reset/request")]
+    public async Task<IActionResult> RequestPasswordReset([FromBody] RequestPasswordResetRequest request)
+    {
+        // Deliberately NOT derived from Request.Scheme/Request.Host: that header is
+        // attacker-controlled (AllowedHosts is "*"), and this link is mailed blind to
+        // whoever owns the account, not just returned to the caller who set the header.
+        // Use the operator-configured App:BaseUrl instead — see AppOptions.
+        var appBaseUrl = _appOptions.BaseUrl.TrimEnd('/');
+        await _authService.RequestPasswordResetAsync(request.Username, appBaseUrl);
+        _logger.LogInformation(
+            "Password reset requested. Username {Username} from {ClientIp} path {Path} request {RequestId} user agent {UserAgent}",
+            request.Username,
+            GetClientIp(),
+            GetRequestPath(),
+            GetRequestId(),
+            GetUserAgent());
+        return Ok(new { message = "If that account exists and has an email on file, a reset link has been sent." });
+    }
+
+    [HttpPost("forgot-username")]
+    public async Task<IActionResult> ForgotUsername([FromBody] ForgotUsernameRequest request)
+    {
+        await _authService.RequestForgottenUsernameAsync(request.Email);
+        _logger.LogInformation(
+            "Forgotten-username requested from {ClientIp} path {Path} request {RequestId} user agent {UserAgent}",
+            GetClientIp(),
+            GetRequestPath(),
+            GetRequestId(),
+            GetUserAgent());
+        return Ok(new { message = "If that email is on file, we've sent the associated username." });
+    }
+
     [HttpPost("password-reset/validate")]
     public async Task<IActionResult> ValidatePasswordResetToken([FromBody] ValidatePasswordResetTokenRequest request)
     {
@@ -218,7 +258,7 @@ public sealed class AuthController : ControllerBase
     }
 
     [HttpGet("me")]
-    public IActionResult Me()
+    public async Task<IActionResult> Me()
     {
         var user = _authService.GetAuthenticatedUser(HttpContext);
         if (user is null)
@@ -226,12 +266,19 @@ public sealed class AuthController : ControllerBase
             return Unauthorized();
         }
 
+        // Looked up fresh rather than read from the cached session record: Email can
+        // change mid-session (e.g. an admin just used the self-service "add your
+        // email" flow), and the session cache otherwise wouldn't reflect that until
+        // the next login.
+        var current = await _credentialRepository.FindByUsernameAsync(user.Username);
+
         return Ok(new
         {
             authenticated = true,
             userId = user.UserId,
             username = user.Username,
-            isAdmin = user.IsAdmin
+            isAdmin = user.IsAdmin,
+            email = current?.Email
         });
     }
 

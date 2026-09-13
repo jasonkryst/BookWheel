@@ -66,7 +66,7 @@ public sealed class UsersController : ControllerBase
 
         try
         {
-            var user = await _credentialRepository.CreateUserAsync(request.Username, request.IsAdmin);
+            var user = await _credentialRepository.CreateUserAsync(request.Username, request.IsAdmin, request.Email);
             var appBaseUrl = $"{Request.Scheme}://{Request.Host}{Request.PathBase}";
             var setupLink = await _authService.CreatePasswordResetLinkAsync(user.UserId, appBaseUrl);
             _logger.LogInformation(
@@ -111,13 +111,24 @@ public sealed class UsersController : ControllerBase
 
         if (id == currentUser.UserId)
         {
-            return BadRequest(new { message = _errors.Localize("Administrators can only update other user accounts.") });
+            var self = (await _credentialRepository.GetUsersAsync()).FirstOrDefault(user => user.UserId == id);
+            var onlyEmailChanging = self is not null &&
+                string.Equals(request.Username, self.Username, StringComparison.Ordinal) &&
+                request.IsAdmin == self.IsAdmin &&
+                request.IsDisabled == self.IsDisabled &&
+                request.ForcePasswordReset == self.ForcePasswordReset &&
+                request.IsLocked == self.IsLocked;
+
+            if (!onlyEmailChanging)
+            {
+                return BadRequest(new { message = _errors.Localize("Administrators can only update their own email address.") });
+            }
         }
 
         try
         {
             var before = (await _credentialRepository.GetUsersAsync()).FirstOrDefault(user => user.UserId == id);
-            var user = await _credentialRepository.UpdateUserAsync(id, request.Username, request.IsAdmin, request.IsDisabled, request.ForcePasswordReset, request.IsLocked);
+            var user = await _credentialRepository.UpdateUserAsync(id, request.Username, request.IsAdmin, request.IsDisabled, request.ForcePasswordReset, request.IsLocked, request.Email);
             if (before is not null)
             {
                 if (before.IsAdmin != user.IsAdmin)
