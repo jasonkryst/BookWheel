@@ -2402,17 +2402,23 @@ function handleSettingsTabKeydown(event) {
   }
 }
 
-function openSettingsDialog() {
+function openSettingsDialog(updateUrl = true) {
   setSettingsTab('preferences');
   openDialog(settingsDialog, settingsPreferencesTabBtn);
+  if (updateUrl) {
+    setRequestedView('preferences');
+  }
 }
 
-function closeSettingsDialog() {
+function closeSettingsDialog(updateUrl = true) {
   transferMessage.textContent = '';
   transferError.textContent = '';
   resetUserManagementState();
 
   closeDialog(settingsDialog);
+  if (updateUrl) {
+    setRequestedView(null);
+  }
 }
 
 if (settingsBtnLoggedOut) {
@@ -2729,14 +2735,51 @@ async function fetchAndRenderStats() {
   }
 }
 
-function openStatsDialog() {
+function openStatsDialog(updateUrl = true) {
   setStatsTab('summary');
   openDialog(statsDialog, closeStatsBtn);
   fetchAndRenderStats();
+  if (updateUrl) {
+    setRequestedView('stats');
+  }
 }
 
-function closeStatsDialog() {
+function closeStatsDialog(updateUrl = true) {
   closeDialog(statsDialog);
+  if (updateUrl) {
+    setRequestedView(null);
+  }
+}
+
+function setRequestedView(view) {
+  const url = new URL(window.location.href);
+  if (view) {
+    url.searchParams.set('view', view);
+  } else {
+    url.searchParams.delete('view');
+  }
+  window.history.pushState({}, document.title, url.pathname + url.search + url.hash);
+}
+
+function applyRequestedView() {
+  const view = new URLSearchParams(window.location.search).get('view');
+  const targets = {
+    wheel: document.getElementById('wheel'),
+    books: document.getElementById('books')
+  };
+
+  if (view === 'stats') {
+    openStatsDialog(false);
+  } else if (view === 'preferences') {
+    openSettingsDialog(false);
+  } else if (targets[view]) {
+    closeStatsDialog(false);
+    closeSettingsDialog(false);
+    targets[view].scrollIntoView({ block: 'start' });
+  } else {
+    closeStatsDialog(false);
+    closeSettingsDialog(false);
+  }
 }
 
 if (statsBtnLoggedIn) {
@@ -2823,6 +2866,7 @@ syncLangSelect();
     await loadAndApplyPreferences();
     showApp(true);
     await refreshBooks();
+    applyRequestedView();
   } catch {
     applyCurrentUser(null);
     showApp(false);
@@ -2832,6 +2876,12 @@ syncLangSelect();
     drawWheel();
   }
 })();
+
+window.addEventListener('popstate', () => {
+  if (!appView.classList.contains('hidden')) {
+    applyRequestedView();
+  }
+});
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

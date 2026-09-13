@@ -63,6 +63,8 @@ public sealed class BookWheelFrontendTests : IClassFixture<BookWheelWebAppFactor
         Assert.Contains("id=\"settingsBtnLoggedOut\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"settingsBtnLoggedIn\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"settingsDialog\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"wheel\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"books\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"langSelect\"", html, StringComparison.Ordinal);
         Assert.Contains("data-i18n=\"auth.loginSubmit\"", html, StringComparison.Ordinal);
         Assert.Contains("data-i18n=\"books.heading\"", html, StringComparison.Ordinal);
@@ -73,6 +75,23 @@ public sealed class BookWheelFrontendTests : IClassFixture<BookWheelWebAppFactor
         var i18nIndex = html.IndexOf("src=\"js/i18n.js", StringComparison.Ordinal);
         var appJsIndex = html.IndexOf("src=\"js/app.js", StringComparison.Ordinal);
         Assert.True(i18nIndex >= 0 && appJsIndex >= 0 && i18nIndex < appJsIndex);
+    }
+
+    [Fact]
+    public async Task Frontend_Script_Should_Support_Shareable_App_View_Routes()
+    {
+        using var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("setRequestedView('stats')", script, StringComparison.Ordinal);
+        Assert.Contains("setRequestedView('preferences')", script, StringComparison.Ordinal);
+        Assert.Contains("view === 'stats'", script, StringComparison.Ordinal);
+        Assert.Contains("view === 'preferences'", script, StringComparison.Ordinal);
+        Assert.Contains("wheel: document.getElementById('wheel')", script, StringComparison.Ordinal);
+        Assert.Contains("books: document.getElementById('books')", script, StringComparison.Ordinal);
+        Assert.Contains("window.addEventListener('popstate'", script, StringComparison.Ordinal);
     }
 
     [Fact]

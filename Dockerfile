@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 # Left unset by default so an unversioned `docker build` falls through to
 # BookWheel.csproj's own InformationalVersion default instead of a second,
@@ -15,7 +15,7 @@ RUN dotnet restore BookWheel/BookWheel.csproj
 COPY . .
 RUN dotnet publish BookWheel/BookWheel.csproj -c Release -o /app/publish /p:UseAppHost=false ${APP_VERSION:+/p:InformationalVersion=$APP_VERSION}
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 
 # Listen on HTTP only inside the container; TLS should terminate upstream.
