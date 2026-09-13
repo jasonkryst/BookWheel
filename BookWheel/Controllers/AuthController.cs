@@ -1,5 +1,6 @@
 using BookWheel.Models;
 using BookWheel.Services;
+using BookWheel.Storage;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
@@ -14,14 +15,16 @@ public sealed class AuthController : ControllerBase
     private readonly ILogger<AuthController> _logger;
     private readonly ApiMessageLocalizer _errors;
     private readonly AppOptions _appOptions;
+    private readonly ICredentialRepository _credentialRepository;
 
-    public AuthController(AuthService authService, AppMetricsService metricsService, ILogger<AuthController> logger, ApiMessageLocalizer errors, IOptions<AppOptions> appOptions)
+    public AuthController(AuthService authService, AppMetricsService metricsService, ILogger<AuthController> logger, ApiMessageLocalizer errors, IOptions<AppOptions> appOptions, ICredentialRepository credentialRepository)
     {
         _authService = authService;
         _metricsService = metricsService;
         _logger = logger;
         _errors = errors;
         _appOptions = appOptions.Value;
+        _credentialRepository = credentialRepository;
     }
 
     [HttpGet("status")]
@@ -63,7 +66,8 @@ public sealed class AuthController : ControllerBase
             {
                 userId = user.UserId,
                 username = user.Username,
-                isAdmin = user.IsAdmin
+                isAdmin = user.IsAdmin,
+                email = user.Email
             }
         });
     }
@@ -161,7 +165,8 @@ public sealed class AuthController : ControllerBase
                 {
                     userId = user.UserId,
                     username = user.Username,
-                    isAdmin = user.IsAdmin
+                    isAdmin = user.IsAdmin,
+                    email = user.Email
                 }
             });
         }
@@ -253,7 +258,7 @@ public sealed class AuthController : ControllerBase
     }
 
     [HttpGet("me")]
-    public IActionResult Me()
+    public async Task<IActionResult> Me()
     {
         var user = _authService.GetAuthenticatedUser(HttpContext);
         if (user is null)
@@ -261,12 +266,19 @@ public sealed class AuthController : ControllerBase
             return Unauthorized();
         }
 
+        // Looked up fresh rather than read from the cached session record: Email can
+        // change mid-session (e.g. an admin just used the self-service "add your
+        // email" flow), and the session cache otherwise wouldn't reflect that until
+        // the next login.
+        var current = await _credentialRepository.FindByUsernameAsync(user.Username);
+
         return Ok(new
         {
             authenticated = true,
             userId = user.UserId,
             username = user.Username,
-            isAdmin = user.IsAdmin
+            isAdmin = user.IsAdmin,
+            email = current?.Email
         });
     }
 

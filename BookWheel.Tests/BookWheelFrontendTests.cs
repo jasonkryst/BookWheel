@@ -1059,6 +1059,42 @@ public sealed class BookWheelFrontendTests : IClassFixture<BookWheelWebAppFactor
     }
 
     [Fact]
+    public async Task Home_Page_Should_Include_Non_Dismissible_Email_Required_Dialog()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("id=\"emailRequiredDialog\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"emailRequiredForm\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"emailRequiredInput\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-i18n=\"auth.emailRequiredDialogTitle\"", html, StringComparison.Ordinal);
+
+        // Negative: no close/cancel button in the dialog markup — it must not be
+        // dismissible without supplying an email.
+        var dialogStart = html.IndexOf("id=\"emailRequiredDialog\"", StringComparison.Ordinal);
+        var dialogEnd = html.IndexOf("</dialog>", dialogStart, StringComparison.Ordinal);
+        var dialogMarkup = html.Substring(dialogStart, dialogEnd - dialogStart);
+        Assert.DoesNotContain("type=\"button\"", dialogMarkup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Script_Should_Prompt_Admins_Missing_Email_And_Block_Dialog_Dismissal()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("function needsEmail(user)", script, StringComparison.Ordinal);
+        Assert.Contains("user.isAdmin && !user.email", script, StringComparison.Ordinal);
+        Assert.Contains("emailRequiredDialog.addEventListener('cancel'", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Home_Page_Should_Not_Load_Google_Tag_Script_When_Id_Is_Unconfigured()
     {
         // appsettings.json ships an empty Analytics:GoogleAnalyticsId by default, and this

@@ -111,7 +111,18 @@ public sealed class UsersController : ControllerBase
 
         if (id == currentUser.UserId)
         {
-            return BadRequest(new { message = _errors.Localize("Administrators can only update other user accounts.") });
+            var self = (await _credentialRepository.GetUsersAsync()).FirstOrDefault(user => user.UserId == id);
+            var onlyEmailChanging = self is not null &&
+                string.Equals(request.Username, self.Username, StringComparison.Ordinal) &&
+                request.IsAdmin == self.IsAdmin &&
+                request.IsDisabled == self.IsDisabled &&
+                request.ForcePasswordReset == self.ForcePasswordReset &&
+                request.IsLocked == self.IsLocked;
+
+            if (!onlyEmailChanging)
+            {
+                return BadRequest(new { message = _errors.Localize("Administrators can only update their own email address.") });
+            }
         }
 
         try

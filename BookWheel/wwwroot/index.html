@@ -387,6 +387,21 @@
     </form>
   </dialog>
 
+  <dialog id="emailRequiredDialog" class="modal">
+    <form id="emailRequiredForm" class="stack">
+      <h2 data-i18n="auth.emailRequiredDialogTitle">Add your email</h2>
+      <p class="message" data-i18n="auth.emailRequiredDialogDescription">Administrator accounts now need an email on file for password-reset and forgot-username recovery. Add yours to continue.</p>
+      <label>
+        <span data-i18n="auth.emailLabel">Email</span>
+        <input id="emailRequiredInput" type="email" autocomplete="email" required />
+      </label>
+      <div class="actions modal-actions">
+        <button type="submit" data-i18n="common.save">Save</button>
+      </div>
+      <p id="emailRequiredError" class="error" role="alert" aria-live="assertive" aria-atomic="true"></p>
+    </form>
+  </dialog>
+
   <dialog id="scannerDialog" class="modal scanner-modal">
     <div class="stack scanner-stack">
       <h2 data-i18n="scanner.heading">Scan barcode</h2>

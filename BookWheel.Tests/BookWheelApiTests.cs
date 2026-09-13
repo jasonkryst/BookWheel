@@ -326,6 +326,93 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
     }
 
     [Fact]
+    public async Task Admin_Can_Update_Own_Email()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var setupResponse = await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "original@example.com"
+        });
+        using var setupDoc = await ReadJsonAsync(setupResponse);
+        var adminId = setupDoc.RootElement.GetProperty("user").GetProperty("userId").GetGuid();
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/users/{adminId}", new
+        {
+            username = "test-admin",
+            isAdmin = true,
+            isDisabled = false,
+            forcePasswordReset = false,
+            isLocked = false,
+            email = "updated@example.com"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+        using var updatedDoc = await ReadJsonAsync(updateResponse);
+        Assert.Equal("updated@example.com", updatedDoc.RootElement.GetProperty("email").GetString());
+
+        var meResponse = await client.GetAsync("/api/auth/me");
+        using var meDoc = await ReadJsonAsync(meResponse);
+        Assert.Equal("updated@example.com", meDoc.RootElement.GetProperty("email").GetString());
+    }
+
+    [Fact]
+    public async Task Admin_Self_Update_Rejects_Changes_To_Other_Fields()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var setupResponse = await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "original@example.com"
+        });
+        using var setupDoc = await ReadJsonAsync(setupResponse);
+        var adminId = setupDoc.RootElement.GetProperty("user").GetProperty("userId").GetGuid();
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/users/{adminId}", new
+        {
+            username = "renamed-admin",
+            isAdmin = true,
+            isDisabled = false,
+            forcePasswordReset = false,
+            isLocked = false,
+            email = "updated@example.com"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, updateResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Setup_Login_And_Me_Responses_Include_Email()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var setupResponse = await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "admin@example.com"
+        });
+        using var setupDoc = await ReadJsonAsync(setupResponse);
+        Assert.Equal("admin@example.com", setupDoc.RootElement.GetProperty("user").GetProperty("email").GetString());
+
+        await client.PostAsync("/api/auth/logout", content: null);
+        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new { username = "test-admin", password = "test-password" });
+        using var loginDoc = await ReadJsonAsync(loginResponse);
+        Assert.Equal("admin@example.com", loginDoc.RootElement.GetProperty("user").GetProperty("email").GetString());
+
+        var meResponse = await client.GetAsync("/api/auth/me");
+        using var meDoc = await ReadJsonAsync(meResponse);
+        Assert.Equal("admin@example.com", meDoc.RootElement.GetProperty("email").GetString());
+    }
+
+    [Fact]
     public async Task Setup_Without_Email_Returns_BadRequest()
     {
         var factory = _factory;

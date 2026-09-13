@@ -349,7 +349,8 @@ public sealed class AuthService
         {
             UserId = credential.UserId,
             Username = credential.Username,
-            IsAdmin = credential.IsAdmin
+            IsAdmin = credential.IsAdmin,
+            Email = credential.Email
         };
     }
 }

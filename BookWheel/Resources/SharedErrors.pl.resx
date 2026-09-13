@@ -132,4 +132,7 @@
   <data name="EmailLength" xml:space="preserve">
     <value>Adres e-mail musi mieć maksymalnie 256 znaków.</value>
   </data>
+  <data name="AdminsCanOnlySelfUpdateEmail" xml:space="preserve">
+    <value>Administratorzy mogą aktualizować tylko własny adres e-mail.</value>
+  </data>
 </root>

@@ -102,6 +102,8 @@ In `docker-compose.yml`, set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PA
 
 Self-service password-reset emails also need `App:BaseUrl` / `App__BaseUrl` / `APP_BASE_URL` set to this deployment's public URL (e.g. `https://books.example.com`) so the link mailed to the user points somewhere real — it is deliberately never derived from the incoming request's `Host` header, since that header is attacker-controlled. It is empty by default, which silently disables the self-service "forgot my password" email (the admin-triggered reset-link flow in the Users admin page is unaffected, since it returns the link directly to the authenticated admin rather than emailing it).
 
+Any administrator account without an email on file is prompted for one immediately after login with a non-dismissible dialog — this covers accounts created before email became a required field, since an admin has no self-service recovery path without one. This is the one exception to the rule that administrators can't edit their own account: `PUT /api/users/{id}` allows an admin to change only their own `email` (any other field in that request is rejected); non-admin users cannot self-edit at all.
+
 ## Progressive Web App
 
 Book Wheel can be installed as a standalone app (desktop Chrome/Edge, Android, and — with reduced polish — iOS Safari) and its UI shell keeps working when the network drops.
@@ -471,6 +473,7 @@ User-management endpoints (administrator only):
 - Administrators do not provide a password when creating a user
 - Response includes `setupLink` and `setupLinkExpiresAtUtc` for secure account setup sharing
 - `email` must be unique across all accounts (case-insensitive); `PUT /api/users/{id}` can also set/clear/change an existing account's email
+- Administrators cannot update their own account via `PUT /api/users/{id}` except for `email` — a self-edit request is rejected unless every other field matches the caller's current values
 
 Password reset endpoint:
 

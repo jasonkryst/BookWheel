@@ -84,6 +84,10 @@ const resetLinkValue = document.getElementById('resetLinkValue');
 const resetLinkError = document.getElementById('resetLinkError');
 const copyResetLinkBtn = document.getElementById('copyResetLinkBtn');
 const closeResetLinkBtn = document.getElementById('closeResetLinkBtn');
+const emailRequiredDialog = document.getElementById('emailRequiredDialog');
+const emailRequiredForm = document.getElementById('emailRequiredForm');
+const emailRequiredInput = document.getElementById('emailRequiredInput');
+const emailRequiredError = document.getElementById('emailRequiredError');
 const importTabBtn = document.getElementById('importTabBtn');
 const exportTabBtn = document.getElementById('exportTabBtn');
 const importPanel = document.getElementById('importPanel');
@@ -484,6 +488,26 @@ function applyCurrentUser(user) {
   if (settingsImportExportTabBtn) {
     settingsImportExportTabBtn.classList.toggle('hidden', !isLoggedIn);
   }
+
+  if (needsEmail(currentUser)) {
+    showEmailRequiredDialog();
+  } else if (emailRequiredDialog && emailRequiredDialog.open) {
+    closeDialog(emailRequiredDialog);
+  }
+}
+
+function needsEmail(user) {
+  return Boolean(user && user.isAdmin && !user.email);
+}
+
+function showEmailRequiredDialog() {
+  if (!emailRequiredDialog || emailRequiredDialog.open) {
+    return;
+  }
+
+  emailRequiredError.textContent = '';
+  emailRequiredInput.value = '';
+  openDialog(emailRequiredDialog, emailRequiredInput);
 }
 
 function resetAuthForm() {
@@ -2203,6 +2227,51 @@ if (closeResetLinkBtn) {
   });
 }
 
+if (emailRequiredDialog) {
+  // Deliberately non-dismissible: no close/cancel button in the markup, and
+  // the native <dialog> ESC-to-close gesture is blocked here too. An admin
+  // with no email on file has no self-service password-reset/forgot-username
+  // path for their own account, so this stays up until they supply one.
+  emailRequiredDialog.addEventListener('cancel', event => {
+    event.preventDefault();
+  });
+}
+
+if (emailRequiredForm) {
+  emailRequiredForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    const { t } = window.BookWheelI18n;
+    const email = emailRequiredInput.value.trim();
+    if (!email) {
+      emailRequiredError.textContent = t('auth.emailRequiredError');
+      return;
+    }
+
+    const submitBtn = emailRequiredForm.querySelector('button[type="submit"]');
+    setButtonBusy(submitBtn, true, t('common.saving'), t('common.save'));
+    try {
+      await requestJson(`/api/users/${currentUser.userId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          username: currentUser.username,
+          isAdmin: true,
+          isDisabled: false,
+          forcePasswordReset: false,
+          isLocked: false,
+          email
+        })
+      });
+      currentUser.email = email;
+      closeDialog(emailRequiredDialog);
+      showToast(t('auth.emailRequiredSavedToast'), 'success');
+    } catch (error) {
+      emailRequiredError.textContent = error.message;
+    } finally {
+      setButtonBusy(submitBtn, false, t('common.saving'), t('common.save'));
+    }
+  });
+}
+
 if (resetPasswordForm) {
   resetPasswordForm.addEventListener('submit', async event => {
     event.preventDefault();
@@ -2861,7 +2930,8 @@ syncLangSelect();
     applyCurrentUser({
       userId: me.userId,
       username: me.username,
-      isAdmin: me.isAdmin
+      isAdmin: me.isAdmin,
+      email: me.email
     });
     await loadAndApplyPreferences();
     showApp(true);

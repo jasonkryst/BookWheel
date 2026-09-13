@@ -132,4 +132,7 @@
   <data name="EmailLength" xml:space="preserve">
     <value>El correo electrónico debe tener 256 caracteres o menos.</value>
   </data>
+  <data name="AdminsCanOnlySelfUpdateEmail" xml:space="preserve">
+    <value>Los administradores solo pueden actualizar su propio correo electrónico.</value>
+  </data>
 </root>
