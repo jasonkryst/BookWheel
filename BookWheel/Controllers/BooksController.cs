@@ -16,6 +16,7 @@ public sealed class BooksController : ControllerBase
     private readonly ISpinHistoryRepository _spinHistory;
     private readonly ApiMessageLocalizer _errors;
     private readonly BookMetadataLookupDispatcher _metadataLookup;
+    private readonly BookSearchLinksService _searchLinks;
     private readonly IUserPreferencesRepository _preferencesRepository;
     private readonly IOptionsSnapshot<BookMetadataOptions> _metadataOptions;
 
@@ -26,6 +27,7 @@ public sealed class BooksController : ControllerBase
         ISpinHistoryRepository spinHistory,
         ApiMessageLocalizer errors,
         BookMetadataLookupDispatcher metadataLookup,
+        BookSearchLinksService searchLinks,
         IUserPreferencesRepository preferencesRepository,
         IOptionsSnapshot<BookMetadataOptions> metadataOptions)
     {
@@ -35,6 +37,7 @@ public sealed class BooksController : ControllerBase
         _spinHistory = spinHistory;
         _errors = errors;
         _metadataLookup = metadataLookup;
+        _searchLinks = searchLinks;
         _preferencesRepository = preferencesRepository;
         _metadataOptions = metadataOptions;
     }
@@ -282,6 +285,64 @@ public sealed class BooksController : ControllerBase
         }
 
         return Ok(new { results });
+    }
+
+    [HttpGet("info")]
+    public async Task<IActionResult> GetBookInfo([FromQuery] string? isbn, [FromQuery] string? title, [FromQuery] string? author)
+    {
+        var user = _authService.GetAuthenticatedUser(HttpContext);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        if (string.IsNullOrWhiteSpace(isbn) && string.IsNullOrWhiteSpace(title))
+        {
+            return BadRequest(new { message = _errors.Localize("Provide an ISBN or a title to look up.") });
+        }
+
+        var preferences = await _preferencesRepository.GetAsync(user.UserId);
+
+        if (!string.IsNullOrWhiteSpace(isbn))
+        {
+            if (!IsbnValidator.TryNormalize(isbn, out var normalizedIsbn))
+            {
+                return BadRequest(new { message = _errors.Localize("The provided ISBN is not valid.") });
+            }
+
+            var metadata = await _metadataLookup.LookupByIsbnAsync(normalizedIsbn, preferences.PreferredBookInfoProviderId, HttpContext.RequestAborted);
+            return Ok(ToInfoResult(metadata, normalizedIsbn, author));
+        }
+
+        var maxResults = Math.Clamp(_metadataOptions.Value.TitleSearchResultLimit, 1, 25);
+        var results = await _metadataLookup.LookupByTitleAsync(title!.Trim(), maxResults, preferences.PreferredBookInfoProviderId, HttpContext.RequestAborted);
+
+        if (results.Count == 0)
+        {
+            return NotFound(new { message = _errors.Localize("No book metadata found for that title.") });
+        }
+
+        if (results.Count == 1)
+        {
+            return Ok(ToInfoResult(results[0], null, null));
+        }
+
+        return Ok(new { results = results.Select(r => ToInfoResult(r, null, null)).ToList() });
+    }
+
+    private BookInfoResult ToInfoResult(BookMetadataResult? metadata, string? fallbackIsbn, string? fallbackAuthor)
+    {
+        var isbn = metadata?.Isbn ?? fallbackIsbn;
+        var resolvedAuthor = metadata?.Author ?? fallbackAuthor;
+        return new BookInfoResult
+        {
+            Title = metadata?.Title,
+            Author = resolvedAuthor,
+            Isbn = isbn,
+            CoverUrl = metadata?.CoverUrl,
+            ProviderId = metadata?.ProviderId,
+            Links = _searchLinks.BuildLinks(isbn, metadata?.Title, resolvedAuthor)
+        };
     }
 
     private static string? NormalizeOptional(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

@@ -132,6 +132,31 @@ const cancelScannerBtn = document.getElementById('cancelScannerBtn');
 const bookScanBtn = document.getElementById('bookScanBtn');
 const editScanBtn = document.getElementById('editScanBtn');
 const bookType = document.getElementById('bookType');
+const bookInfoBtn = document.getElementById('bookInfoBtn');
+const bookInfoDialog = document.getElementById('bookInfoDialog');
+const bookInfoForm = document.getElementById('bookInfoForm');
+const bookInfoIsbn = document.getElementById('bookInfoIsbn');
+const bookInfoTitle = document.getElementById('bookInfoTitle');
+const bookInfoAuthor = document.getElementById('bookInfoAuthor');
+const bookInfoSearchMessage = document.getElementById('bookInfoSearchMessage');
+const bookInfoSearchPanel = document.getElementById('bookInfoSearchPanel');
+const bookInfoPickerPanel = document.getElementById('bookInfoPickerPanel');
+const bookInfoPickerList = document.getElementById('bookInfoPickerList');
+const bookInfoPickerBackBtn = document.getElementById('bookInfoPickerBackBtn');
+const bookInfoResultPanel = document.getElementById('bookInfoResultPanel');
+const bookInfoCoverImg = document.getElementById('bookInfoCoverImg');
+const bookInfoResultTitle = document.getElementById('bookInfoResultTitle');
+const bookInfoResultAuthor = document.getElementById('bookInfoResultAuthor');
+const bookInfoResultIsbn = document.getElementById('bookInfoResultIsbn');
+const bookInfoGoogleBooksLink = document.getElementById('bookInfoGoogleBooksLink');
+const bookInfoOpenLibraryLink = document.getElementById('bookInfoOpenLibraryLink');
+const bookInfoGoodreadsLink = document.getElementById('bookInfoGoodreadsLink');
+const bookInfoBnLink = document.getElementById('bookInfoBnLink');
+const bookInfoAmazonLink = document.getElementById('bookInfoAmazonLink');
+const bookInfoResultBackBtn = document.getElementById('bookInfoResultBackBtn');
+const bookInfoAddToWheelBtn = document.getElementById('bookInfoAddToWheelBtn');
+const cancelBookInfoBtn = document.getElementById('cancelBookInfoBtn');
+const bookInfoScanBtn = document.getElementById('bookInfoScanBtn');
 const editBookType = document.getElementById('editBookType');
 
 let activeBooks = [];
@@ -1524,7 +1549,11 @@ async function onBarcodeDetected(isbn) {
     addedByScanner = true;
   }
   showToast(window.BookWheelI18n.t('scanner.detectedToast'), 'success');
-  await runMetadataLookup(target);
+  if (target.onDetected) {
+    await target.onDetected(isbn);
+  } else {
+    await runMetadataLookup(target);
+  }
 }
 
 function closeBarcodeScanner() {
@@ -2968,3 +2997,169 @@ window.addEventListener('offline', () => {
 window.addEventListener('online', () => {
   showToast(window.BookWheelI18n.t('common.onlineToast'), 'success');
 });
+
+// ─── Book Info dialog ────────────────────────────────────────────────────────
+
+let bookInfoCurrentResult = null;
+
+function showBookInfoPanel(panelName) {
+  for (const panel of [bookInfoSearchPanel, bookInfoPickerPanel, bookInfoResultPanel]) {
+    panel.classList.add('hidden');
+  }
+  if (panelName === 'search') bookInfoSearchPanel.classList.remove('hidden');
+  if (panelName === 'picker') bookInfoPickerPanel.classList.remove('hidden');
+  if (panelName === 'result') bookInfoResultPanel.classList.remove('hidden');
+}
+
+function openBookInfoDialog() {
+  bookInfoIsbn.value = '';
+  bookInfoTitle.value = '';
+  bookInfoAuthor.value = '';
+  bookInfoSearchMessage.textContent = '';
+  bookInfoCurrentResult = null;
+  showBookInfoPanel('search');
+  openDialog(bookInfoDialog, bookInfoSearchBtn);
+}
+
+function renderBookInfoResult(result) {
+  const { t } = window.BookWheelI18n;
+  bookInfoCurrentResult = result;
+
+  bookInfoResultTitle.textContent = result.title || '';
+  bookInfoResultAuthor.textContent = result.author || '';
+  bookInfoResultIsbn.textContent = result.isbn ? t('bookInfo.isbnPrefix') + result.isbn : '';
+
+  if (result.coverUrl) {
+    bookInfoCoverImg.src = result.coverUrl;
+    bookInfoCoverImg.alt = result.title || '';
+    bookInfoCoverImg.hidden = false;
+  } else {
+    bookInfoCoverImg.hidden = true;
+  }
+
+  const links = result.links || {};
+  bookInfoGoogleBooksLink.href = links.googleBooks || '#';
+  bookInfoOpenLibraryLink.href = links.openLibrary || '#';
+  bookInfoGoodreadsLink.href = links.goodreads || '#';
+  bookInfoBnLink.href = links.barnesAndNoble || '#';
+  bookInfoAmazonLink.href = links.amazon || '#';
+
+  showBookInfoPanel('result');
+}
+
+function openBookInfoPicker(results) {
+  const { t } = window.BookWheelI18n;
+  bookInfoPickerList.innerHTML = '';
+
+  results.forEach(result => {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'book-row lookup-picker-row';
+
+    if (result.coverUrl) {
+      const img = document.createElement('img');
+      img.className = 'book-cover-thumb';
+      img.src = result.coverUrl;
+      img.alt = '';
+      img.loading = 'lazy';
+      row.appendChild(img);
+    }
+
+    const details = document.createElement('span');
+    details.className = 'book-row-details';
+
+    const titleEl = document.createElement('span');
+    titleEl.className = 'lookup-picker-row-title';
+    titleEl.textContent = result.title || '';
+    details.appendChild(titleEl);
+
+    if (result.author) {
+      const authorEl = document.createElement('span');
+      authorEl.className = 'book-row-author';
+      authorEl.textContent = result.author;
+      details.appendChild(authorEl);
+    }
+
+    row.appendChild(details);
+    row.addEventListener('click', () => renderBookInfoResult(result));
+    bookInfoPickerList.appendChild(row);
+  });
+
+  showBookInfoPanel('picker');
+}
+
+async function runBookInfoSearch() {
+  const { t } = window.BookWheelI18n;
+  const isbn = bookInfoIsbn.value.trim();
+  const title = bookInfoTitle.value.trim();
+  const author = bookInfoAuthor.value.trim();
+
+  bookInfoSearchMessage.textContent = '';
+
+  if (!isbn && !title) {
+    bookInfoSearchMessage.textContent = t('bookInfo.needsInputError');
+    return;
+  }
+
+  try {
+    const params = new URLSearchParams();
+    if (isbn) params.set('isbn', isbn);
+    if (title) params.set('title', title);
+    if (author) params.set('author', author);
+
+    const data = await requestJson(`/api/books/info?${params}`);
+
+    if (data.results) {
+      openBookInfoPicker(data.results);
+    } else {
+      renderBookInfoResult(data);
+    }
+  } catch (error) {
+    bookInfoSearchMessage.textContent = error.message || t('bookInfo.noResultsError');
+  }
+}
+
+bookInfoForm.addEventListener('submit', async e => {
+  e.preventDefault();
+  await runBookInfoSearch();
+});
+
+cancelBookInfoBtn.addEventListener('click', () => closeDialog(bookInfoDialog));
+
+bookInfoPickerBackBtn.addEventListener('click', () => showBookInfoPanel('search'));
+
+bookInfoResultBackBtn.addEventListener('click', () => {
+  if (bookInfoPickerList.childElementCount > 0) {
+    showBookInfoPanel('picker');
+  } else {
+    showBookInfoPanel('search');
+  }
+});
+
+bookInfoAddToWheelBtn.addEventListener('click', () => {
+  if (!bookInfoCurrentResult) return;
+  const r = bookInfoCurrentResult;
+  closeDialog(bookInfoDialog);
+  bookTitle.value = r.title || '';
+  bookIsbn.value = r.isbn || '';
+  bookAuthor.value = r.author || '';
+  bookCoverUrl.value = r.coverUrl || '';
+  bookAddLookupProviderId = typeof r.providerId === 'number' ? r.providerId : null;
+  renderMetadataPreview({
+    previewEl: bookAddPreview,
+    coverImgEl: bookAddCoverImg,
+    authorTextEl: bookAddAuthorText,
+    author: r.author,
+    coverUrl: r.coverUrl,
+    title: r.title || bookTitle.value
+  });
+  bookTitle.focus();
+});
+
+bookInfoScanBtn.addEventListener('click', () => openBarcodeScanner({
+  isbnInput: bookInfoIsbn,
+  messageEl: bookInfoSearchMessage,
+  onDetected: async () => runBookInfoSearch()
+}));
+
+bookInfoBtn.addEventListener('click', () => openBookInfoDialog());
