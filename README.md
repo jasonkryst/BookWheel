@@ -24,6 +24,7 @@ This solution is split into separate application and test projects:
 - New-user onboarding uses admin-shared setup links instead of admin-supplied passwords
 - Administrator-generated password reset links (24-hour expiry) instead of direct password setting
 - Email-based account recovery: users can request a password reset link (`POST /api/auth/password-reset/request`, by username) or a reminder of their username (`POST /api/auth/forgot-username`, by email) from the login screen; both always return the same generic confirmation regardless of whether the account/email exists, to prevent account enumeration. Email is now a required, admin-set, globally-unique field on every account created via setup or by an administrator (existing accounts created before this feature keep working with no email until an administrator backfills one). Outbound email is sent via SMTP — see "Email (SMTP)" below for configuration. (GH #115)
+- Book Search (🔍 in the header): scan a barcode or enter an ISBN or title to look up a book, see its cover/author/ISBN, and open it directly on Google Books, Open Library, Goodreads, Barnes & Noble, or Amazon (all links open in a new tab). Multi-result title searches show a picker; an "Add to Wheel" button pre-fills the add form from the result. (GH #123)
 - User management tab is visible only to administrators, inside the consolidated Settings dialog
 - Add, edit, and remove books
 - Optional ISBN tagging when adding or editing a book, with a Lookup action that queries the Open Library API to auto-fill author and cover art (GH #57)

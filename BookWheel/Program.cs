@@ -123,6 +123,7 @@ builder.Services.AddHttpClient<GoogleBooksBookMetadataLookupService>(client =>
 builder.Services.AddTransient(sp => new BookMetadataLookupDispatcher(
 	sp.GetRequiredService<OpenLibraryBookMetadataLookupService>(),
 	sp.GetRequiredService<GoogleBooksBookMetadataLookupService>()));
+builder.Services.AddSingleton<BookSearchLinksService>();
 builder.Services.AddHostedService<StartupDiagnosticsService>();
 builder.Services.AddHostedService<LogShippingService>();
 builder.Services.AddHealthChecks()

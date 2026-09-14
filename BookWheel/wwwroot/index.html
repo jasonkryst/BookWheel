@@ -88,6 +88,9 @@
         <div class="toolbar-meta">
           <p id="userGreeting" class="message user-greeting hidden" aria-live="polite"></p>
           <div class="toolbar-actions">
+            <button id="bookInfoBtn" type="button" class="secondary icon-btn" title="Book Search" aria-label="Book Search" data-i18n-title="bookInfo.openBtnTitle" data-i18n-aria-label="bookInfo.openBtnLabel">
+              <span class="icon-glyph" aria-hidden="true">🔍</span>
+            </button>
             <button id="statsBtnLoggedIn" type="button" class="secondary icon-btn" title="Stats" aria-label="Stats" data-i18n-title="stats.openBtnLabel" data-i18n-aria-label="stats.openBtnLabel">
               <span class="icon-glyph" aria-hidden="true">📊</span>
             </button>
@@ -333,6 +336,72 @@
       </div>
       <p id="editError" class="error" role="alert" aria-live="assertive" aria-atomic="true"></p>
     </form>
+  </dialog>
+
+  <dialog id="bookInfoDialog" class="modal transfer-modal">
+    <div class="stack book-info-shell">
+      <header class="book-info-header">
+        <h2 data-i18n="bookInfo.heading">Book Search</h2>
+      </header>
+
+      <!-- Step 1: search inputs -->
+      <div id="bookInfoSearchPanel" class="book-info-panel">
+        <form id="bookInfoForm" class="stack">
+          <div class="book-info-isbn-row">
+            <div class="book-info-isbn-field">
+              <label for="bookInfoIsbn" data-i18n="bookInfo.isbnLabel">ISBN</label>
+              <input id="bookInfoIsbn" maxlength="20" placeholder="ISBN or barcode" autocomplete="off" data-i18n-placeholder="bookInfo.isbnPlaceholder" />
+            </div>
+            <button type="button" id="bookInfoScanBtn" class="secondary icon-btn" title="Scan ISBN barcode" aria-label="Scan ISBN barcode" data-i18n-title="scanner.scanBtnTitle" data-i18n-aria-label="scanner.scanBtnLabel">
+              <span class="icon-glyph" aria-hidden="true">📷</span>
+            </button>
+          </div>
+          <p class="book-info-or-divider" data-i18n="bookInfo.orDivider">— or —</p>
+          <label for="bookInfoTitle" data-i18n="bookInfo.titleLabel">Title</label>
+          <input id="bookInfoTitle" maxlength="200" placeholder="Book title" autocomplete="off" data-i18n-placeholder="bookInfo.titlePlaceholder" />
+          <label for="bookInfoAuthor" data-i18n="bookInfo.authorLabel">Author</label>
+          <input id="bookInfoAuthor" maxlength="200" placeholder="Author name (optional)" autocomplete="off" data-i18n-placeholder="bookInfo.authorPlaceholder" />
+          <p id="bookInfoSearchMessage" class="message" role="status" aria-live="polite" aria-atomic="true"></p>
+          <div class="actions modal-actions">
+            <button type="button" id="cancelBookInfoBtn" class="secondary" data-i18n="common.cancel">Cancel</button>
+            <button type="submit" id="bookInfoSearchBtn" data-i18n="bookInfo.searchBtn">Search</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Step 2: multi-result picker -->
+      <div id="bookInfoPickerPanel" class="book-info-panel hidden">
+        <p class="message" data-i18n="bookInfo.pickHint">Multiple books matched. Pick one to see details.</p>
+        <div id="bookInfoPickerList" class="book-list book-info-picker-list"></div>
+        <div class="actions modal-actions">
+          <button type="button" id="bookInfoPickerBackBtn" class="secondary" data-i18n="bookInfo.backBtn">Back</button>
+        </div>
+      </div>
+
+      <!-- Step 3: result card -->
+      <div id="bookInfoResultPanel" class="book-info-panel hidden">
+        <div class="book-info-result-card">
+          <img id="bookInfoCoverImg" class="book-cover-thumb book-info-cover" alt="" hidden />
+          <div class="book-info-result-meta">
+            <h3 id="bookInfoResultTitle" class="book-info-result-title"></h3>
+            <p id="bookInfoResultAuthor" class="message book-info-result-author"></p>
+            <p id="bookInfoResultIsbn" class="message book-info-result-isbn"></p>
+          </div>
+        </div>
+        <p class="book-info-links-heading message" data-i18n="bookInfo.linksHeading">Find this book online</p>
+        <div class="book-info-links">
+          <a id="bookInfoGoogleBooksLink" href="#" target="_blank" rel="noopener noreferrer" class="secondary book-info-link-btn" data-i18n="bookInfo.googleBooksLink">Google Books</a>
+          <a id="bookInfoOpenLibraryLink" href="#" target="_blank" rel="noopener noreferrer" class="secondary book-info-link-btn" data-i18n="bookInfo.openLibraryLink">Open Library</a>
+          <a id="bookInfoGoodreadsLink" href="#" target="_blank" rel="noopener noreferrer" class="secondary book-info-link-btn" data-i18n="bookInfo.goodreadsLink">Goodreads</a>
+          <a id="bookInfoBnLink" href="#" target="_blank" rel="noopener noreferrer" class="secondary book-info-link-btn" data-i18n="bookInfo.bnLink">Barnes &amp; Noble</a>
+          <a id="bookInfoAmazonLink" href="#" target="_blank" rel="noopener noreferrer" class="secondary book-info-link-btn" data-i18n="bookInfo.amazonLink">Amazon</a>
+        </div>
+        <div class="actions modal-actions">
+          <button type="button" id="bookInfoResultBackBtn" class="secondary" data-i18n="bookInfo.backBtn">Back</button>
+          <button type="button" id="bookInfoAddToWheelBtn" data-i18n="bookInfo.addToWheelBtn">Add to Wheel</button>
+        </div>
+      </div>
+    </div>
   </dialog>
 
   <dialog id="lookupPickerDialog" class="modal">
