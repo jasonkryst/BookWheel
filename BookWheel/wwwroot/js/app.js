@@ -1227,7 +1227,7 @@ function renderSelectedBookResult(book) {
 
   const textEl = document.createElement('span');
   textEl.className = 'selected-book-text';
-  textEl.textContent = t('wheel.lastSelected', { title: book.title });
+  textEl.textContent = book.title;
   details.appendChild(textEl);
 
   if (book.author) {
@@ -1235,6 +1235,15 @@ function renderSelectedBookResult(book) {
     authorEl.className = 'book-author-text';
     authorEl.textContent = book.author;
     details.appendChild(authorEl);
+  }
+
+  if (book.bookTypeId) {
+    const mediaTypeEl = document.createElement('span');
+    mediaTypeEl.className = 'book-media-type-text';
+    const icon = BOOK_TYPE_ICONS[book.bookTypeId] || '';
+    const labelKey = BOOK_TYPE_I18N_KEYS[book.bookTypeId];
+    mediaTypeEl.textContent = icon && labelKey ? `${icon} ${t(labelKey)}` : (labelKey ? t(labelKey) : icon);
+    details.appendChild(mediaTypeEl);
   }
 
   selectedBookEl.appendChild(details);
@@ -2594,6 +2603,8 @@ const statsUniqueSpunList = document.getElementById('statsUniqueSpunList');
 const statsUniqueSpunEmpty = document.getElementById('statsUniqueSpunEmpty');
 const statsNeverSpunList = document.getElementById('statsNeverSpunList');
 const statsNeverSpunEmpty = document.getElementById('statsNeverSpunEmpty');
+const statsTypeBreakdownSection = document.getElementById('statsTypeBreakdownSection');
+const statsTypeBreakdownRow = document.getElementById('statsTypeBreakdownRow');
 
 function makeSummaryCard(value, labelKey) {
   const { t } = window.BookWheelI18n;
@@ -2707,7 +2718,9 @@ async function fetchAndRenderStats() {
   statsContent.classList.add('hidden');
   statsEmptyMsg.classList.add('hidden');
   statsAdminSection.classList.add('hidden');
+  statsTypeBreakdownSection.classList.add('hidden');
   statsSummaryRow.innerHTML = '';
+  statsTypeBreakdownRow.innerHTML = '';
   statsTableBody.innerHTML = '';
   statsAdminContent.innerHTML = '';
   statsUniqueSpunList.innerHTML = '';
@@ -2741,6 +2754,27 @@ async function fetchAndRenderStats() {
     if (stats.shortestOnWheel) {
       const dayLabel = `${stats.shortestOnWheel.daysOnWheel}d — ${stats.shortestOnWheel.title}`;
       statsSummaryRow.appendChild(makeSummaryCard(dayLabel, 'stats.shortestOnWheel'));
+    }
+
+    // Media type breakdown
+    if (stats.typeBreakdown?.length) {
+      stats.typeBreakdown.forEach(({ bookTypeId, spinCount }) => {
+        const icon = BOOK_TYPE_ICONS[bookTypeId] || '📖';
+        const labelKey = BOOK_TYPE_I18N_KEYS[bookTypeId];
+        const label = labelKey ? `${icon} ${t(labelKey)}` : icon;
+        const card = document.createElement('div');
+        card.className = 'stats-summary-card';
+        const val = document.createElement('div');
+        val.className = 'stat-value';
+        val.textContent = String(spinCount);
+        const labelEl = document.createElement('div');
+        labelEl.className = 'stat-label';
+        labelEl.textContent = label;
+        card.appendChild(val);
+        card.appendChild(labelEl);
+        statsTypeBreakdownRow.appendChild(card);
+      });
+      statsTypeBreakdownSection.classList.remove('hidden');
     }
 
     // Chart

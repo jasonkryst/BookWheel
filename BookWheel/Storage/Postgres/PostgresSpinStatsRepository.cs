@@ -70,6 +70,15 @@ public sealed class PostgresSpinStatsRepository : ISpinStatsRepository
             };
         }
 
+        // Spin counts by book type (using current book type; deleted books fall back to type 1)
+        var typeBreakdown = await (
+            from s in context.SpinSelections.Where(s => s.UserId == userId)
+            join b in context.Books.IgnoreQueryFilters() on s.BookId equals b.Id into books
+            from b in books.DefaultIfEmpty()
+            group s by (b != null ? b.BookTypeId : 1) into g
+            select new { BookTypeId = g.Key, Count = g.Count() }
+        ).ToListAsync();
+
         // Spin counts per book (including deleted books so history stays intact)
         var spinCounts = await (
             from s in context.SpinSelections.Where(s => s.UserId == userId)
@@ -95,7 +104,11 @@ public sealed class PostgresSpinStatsRepository : ISpinStatsRepository
             LongestOnWheel = longestOnWheel,
             ShortestOnWheel = shortestOnWheel,
             TopBooks = topBooks,
-            NeverSpunBooks = neverSpunBooks
+            NeverSpunBooks = neverSpunBooks,
+            TypeBreakdown = typeBreakdown
+                .OrderBy(x => x.BookTypeId)
+                .Select(x => new BookTypeSpinCountRecord { BookTypeId = x.BookTypeId, SpinCount = x.Count })
+                .ToList()
         };
     }
 

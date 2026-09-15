@@ -104,7 +104,6 @@
         emptyPrompt: 'Add your first book to begin spinning.',
         addBooksError: 'Add books to spin.',
         selectionNotFoundError: 'Selected book was not found on the current wheel.',
-        lastSelected: 'Last selected: {title}',
         selectedToast: 'Selected: {title}'
       },
       books: {
@@ -291,7 +290,8 @@
         uniqueSpunHeading: 'Unique Books Spun',
         uniqueSpunEmpty: 'No books have been spun yet.',
         neverSpunHeading: 'Never Spun',
-        neverSpunEmpty: 'All books have been spun at least once!'
+        neverSpunEmpty: 'All books have been spun at least once!',
+        typeBreakdownHeading: 'By Media Type'
       }
     },
     es: {
@@ -394,7 +394,6 @@
         emptyPrompt: 'Añade tu primer libro para empezar a girar.',
         addBooksError: 'Añade libros para girar.',
         selectionNotFoundError: 'El libro seleccionado no se encontró en la rueda actual.',
-        lastSelected: 'Última selección: {title}',
         selectedToast: 'Seleccionado: {title}'
       },
       books: {
@@ -581,7 +580,8 @@
         uniqueSpunHeading: 'Libros únicos girados',
         uniqueSpunEmpty: 'Aún no se ha girado ningún libro.',
         neverSpunHeading: 'Nunca girados',
-        neverSpunEmpty: '¡Todos los libros han sido girados al menos una vez!'
+        neverSpunEmpty: '¡Todos los libros han sido girados al menos una vez!',
+        typeBreakdownHeading: 'Por tipo de soporte'
       }
     },
     pl: {
@@ -684,7 +684,6 @@
         emptyPrompt: 'Dodaj pierwszą książkę, aby zacząć losowanie.',
         addBooksError: 'Dodaj książki, aby zakręcić.',
         selectionNotFoundError: 'Wybrana książka nie została znaleziona na bieżącym kole.',
-        lastSelected: 'Ostatnio wybrano: {title}',
         selectedToast: 'Wybrano: {title}'
       },
       books: {
@@ -871,7 +870,8 @@
         uniqueSpunHeading: 'Unikalnych książek wylosowanych',
         uniqueSpunEmpty: 'Żadna książka nie została jeszcze wylosowana.',
         neverSpunHeading: 'Nigdy nie losowane',
-        neverSpunEmpty: 'Wszystkie książki zostały wylosowane co najmniej raz!'
+        neverSpunEmpty: 'Wszystkie książki zostały wylosowane co najmniej raz!',
+        typeBreakdownHeading: 'Według formatu'
       }
     }
   };
