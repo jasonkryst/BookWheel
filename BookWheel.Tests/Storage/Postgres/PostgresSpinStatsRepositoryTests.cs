@@ -188,6 +188,38 @@ public sealed class PostgresSpinStatsRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task GetForUserAsync_TypeBreakdown_CountsSpinsByBookType()
+    {
+        var userId = Guid.NewGuid();
+        var physical = await _bookRepository.AddAsync(userId, "Physical Book", bookTypeId: 1);
+        var digital1 = await _bookRepository.AddAsync(userId, "Digital Book 1", bookTypeId: 2);
+        var digital2 = await _bookRepository.AddAsync(userId, "Digital Book 2", bookTypeId: 2);
+        await _spinHistoryRepository.RecordAsync(userId, physical.Id, DateTimeOffset.UtcNow);
+        await _spinHistoryRepository.RecordAsync(userId, digital1.Id, DateTimeOffset.UtcNow);
+        await _spinHistoryRepository.RecordAsync(userId, digital2.Id, DateTimeOffset.UtcNow);
+        await _spinHistoryRepository.RecordAsync(userId, digital2.Id, DateTimeOffset.UtcNow);
+
+        var stats = await _statsRepository.GetForUserAsync(userId);
+
+        Assert.Equal(2, stats.TypeBreakdown.Count);
+        var physicalEntry = stats.TypeBreakdown.Single(x => x.BookTypeId == 1);
+        Assert.Equal(1, physicalEntry.SpinCount);
+        var digitalEntry = stats.TypeBreakdown.Single(x => x.BookTypeId == 2);
+        Assert.Equal(3, digitalEntry.SpinCount);
+    }
+
+    [Fact]
+    public async Task GetForUserAsync_TypeBreakdown_EmptyWhenNoSpins()
+    {
+        var userId = Guid.NewGuid();
+        await _bookRepository.AddAsync(userId, "Unspun Book");
+
+        var stats = await _statsRepository.GetForUserAsync(userId);
+
+        Assert.Empty(stats.TypeBreakdown);
+    }
+
+    [Fact]
     public async Task GetForUserAsync_MixedSpunAndNeverSpun_CorrectSplit()
     {
         var userId = Guid.NewGuid();

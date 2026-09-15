@@ -9,6 +9,7 @@ public sealed class SpinStatsRecord
     public WheelDurationRecord? ShortestOnWheel { get; set; }
     public IReadOnlyList<BookSpinCountRecord> TopBooks { get; set; } = [];
     public IReadOnlyList<NeverSpunBookRecord> NeverSpunBooks { get; set; } = [];
+    public IReadOnlyList<BookTypeSpinCountRecord> TypeBreakdown { get; set; } = [];
 }
 
 public sealed class WheelDurationRecord
@@ -30,4 +31,10 @@ public sealed class NeverSpunBookRecord
 {
     public Guid BookId { get; set; }
     public string Title { get; set; } = string.Empty;
+}
+
+public sealed class BookTypeSpinCountRecord
+{
+    public int BookTypeId { get; set; }
+    public int SpinCount { get; set; }
 }

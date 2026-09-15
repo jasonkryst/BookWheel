@@ -453,6 +453,11 @@ button:disabled {
   opacity: 0.75;
 }
 
+.book-media-type-text {
+  font-size: 0.8rem;
+  opacity: 0.6;
+}
+
 .book-row {
   display: flex;
   align-items: center;

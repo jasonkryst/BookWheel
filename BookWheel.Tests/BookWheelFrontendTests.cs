@@ -38,7 +38,8 @@ public sealed class BookWheelFrontendTests : IClassFixture<BookWheelWebAppFactor
         Assert.Contains("Zaloguj się", script, StringComparison.Ordinal);
         Assert.Contains("Book title is required.", script, StringComparison.Ordinal);
         Assert.Contains("Create your Book Wheel account", script, StringComparison.Ordinal);
-        Assert.Contains("Last selected: {title}", script, StringComparison.Ordinal);
+        Assert.Contains("Selected: {title}", script, StringComparison.Ordinal);
+        Assert.Contains("By Media Type", script, StringComparison.Ordinal);
         Assert.Contains("Version: {version}", script, StringComparison.Ordinal);
         Assert.Contains("Page {current} of {total}", script, StringComparison.Ordinal);
         Assert.Contains("Generate reset link", script, StringComparison.Ordinal);
