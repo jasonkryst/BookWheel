@@ -302,22 +302,21 @@ Important:
 
 ## First-Run Account Setup
 
-On the first visit, the login screen switches into account-creation mode if no credential file exists yet.
+On the first visit, the login screen switches into account-creation mode if PostgreSQL has no user records yet.
 
 Flow:
 
 1. Open the app.
-2. If `BookWheel/App_Data/user.cred` does not exist, the UI prompts you to create the first account.
+2. If PostgreSQL has no user records, the UI prompts you to create the first account.
 3. Submitting the form creates the first user account as an administrator and signs the user in.
 4. Future visits use the normal login flow.
 
 Credential storage details:
 
-- Account records are stored in `BookWheel/App_Data/user.cred`
+- Account records are stored in PostgreSQL in the `users` table
 - Each record includes user id, username, password hash, admin flag, and created timestamp
-- The record is encrypted at rest with ASP.NET Core Data Protection
-- The password is hashed with `PasswordHasher<T>` before being written to disk
-- The credential file is created only when the user explicitly submits the setup form
+- Passwords are hashed with `PasswordHasher<T>` before being written to the database
+- The first account is created only when the user explicitly submits the setup form
 
 Administrator details:
 
@@ -338,7 +337,7 @@ Password reset link details:
 Important:
 
 - There is no default username/password in `appsettings.json`
-- If you delete `BookWheel/App_Data/user.cred`, the app will prompt for first-run setup again
+- Deleting files under `App_Data` does not reset accounts; use an intentional PostgreSQL database reset when required
 
 ## Data Storage
 
@@ -650,10 +649,10 @@ Startup diagnostics:
 ## Troubleshooting
 
 - If `dotnet test` reports file lock warnings from `testhost`, re-run the command; this is usually transient.
-- If authentication fails unexpectedly, verify whether `BookWheel/App_Data/user.cred` exists and whether the first-run setup was completed.
+- If authentication fails unexpectedly, verify PostgreSQL connectivity and whether the first-run setup was completed.
 - If a reset link does not work, verify the link has not expired (24 hours) and was not already used.
 - If the app starts but books/users are missing, verify PostgreSQL connectivity via `GET /health/ready` and check the `ConnectionStrings:BookWheel` value.
-- If you need to reset the account, delete `BookWheel/App_Data/user.cred` and create a new account on next launch.
+- If you need to reset the account, clear the PostgreSQL users through an intentional database reset, then create a new account on next launch.
 - If you need to inspect logs, open the current day file under `BookWheel/App_Data/logs/`.
 - If the container starts but auth sessions break after restarts, verify Data Protection keys are persisted (compose handles this via `bookwheel_dp_keys`).
 - If port `32700` is busy, change the host side mapping in `docker-compose.yml` (for example, `32701:8080`).
