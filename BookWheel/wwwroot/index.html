@@ -237,7 +237,7 @@
       </section>
 
       <section id="settingsImportExportPanel" class="tab-panel hidden" role="tabpanel" aria-labelledby="settingsImportExportTabBtn" tabindex="0" aria-hidden="true">
-        <div class="tab-row" role="tablist" aria-label="Import and export options">
+        <div class="tab-row" role="tablist" aria-label="Import and export options" data-i18n-aria-label="transfer.importExportOptionsLabel">
           <button type="button" id="importTabBtn" class="secondary tab-btn active" role="tab" tabindex="0" aria-controls="importPanel" aria-selected="true" data-i18n="transfer.importTab">Import</button>
           <button type="button" id="exportTabBtn" class="secondary tab-btn" role="tab" tabindex="-1" aria-controls="exportPanel" aria-selected="false" data-i18n="transfer.exportTab">Export</button>
         </div>
@@ -340,9 +340,9 @@
 
   <dialog id="bookInfoDialog" class="modal transfer-modal">
     <div class="stack book-info-shell">
-      <header class="book-info-header">
+      <div class="book-info-header">
         <h2 data-i18n="bookInfo.heading">Book Search</h2>
-      </header>
+      </div>
 
       <!-- Step 1: search inputs -->
       <div id="bookInfoSearchPanel" class="book-info-panel">
@@ -504,7 +504,7 @@
             <h3 class="stats-list-heading" data-i18n="stats.typeBreakdownHeading">By Media Type</h3>
             <div id="statsTypeBreakdownRow" class="stats-summary-row"></div>
           </section>
-          <canvas id="statsChartCanvas" class="stats-canvas" width="820" height="260" aria-label="Spin frequency bar chart" role="img"></canvas>
+          <canvas id="statsChartCanvas" class="stats-canvas" width="820" height="260" aria-label="Spin frequency bar chart" role="img" data-i18n-aria-label="stats.chartAriaLabel"></canvas>
           <div class="stats-table-wrapper">
             <table id="statsTable" class="stats-table">
               <thead>

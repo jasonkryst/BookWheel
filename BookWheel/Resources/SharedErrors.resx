@@ -135,4 +135,7 @@
   <data name="AdminsCanOnlySelfUpdateEmail" xml:space="preserve">
     <value>Administrators can only update their own email address.</value>
   </data>
+  <data name="NoBooksProvidedToImport" xml:space="preserve">
+    <value>No books were provided to import.</value>
+  </data>
 </root>

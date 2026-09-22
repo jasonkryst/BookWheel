@@ -74,7 +74,14 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
       - name: Test
-        run: dotnet test --verbosity normal
+        run: dotnet test --verbosity normal --collect:"XPlat Code Coverage" --results-directory coverage
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverage
+          path: coverage/**/coverage.cobertura.xml
+          if-no-files-found: ignore
 
   dependency-audit:
     runs-on: ubuntu-latest

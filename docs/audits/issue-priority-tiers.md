@@ -1,7 +1,7 @@
 # Open GitHub Issue Priority Tiers
 
 **Date:** 2026-09-22
-**Last updated:** 2026-09-22 (branch `feature/tier2-fixes`)
+**Last updated:** 2026-09-22 (branch `feature/tier3-fixes`)
 **Scope:** All 25 issues open at time of writing (`gh issue list --repo jasonkryst/BookWheel --state open`).
 
 This re-tiers the open issue backlog by actual functional/security impact rather than by each source label alone. Issues #136–#154 and #122 originate from the 2026-09-04/06 comprehensive audit (see [`SUMMARY.md`](SUMMARY.md)) and already carry that audit's own Medium/Low tags; a few are promoted or demoted here based on real-world consequence (e.g. #150's service-worker bug is more than cosmetic; #146 is a genuine security disclosure). Issues #45–#95 predate the audit and are unscoped roadmap ideas with little or no spec — they need product scoping, not estimation, so they're kept in their own tier rather than mixed into 1–3.
@@ -32,13 +32,13 @@ Re-run `gh issue list --repo jasonkryst/BookWheel --state open` periodically and
 
 ## Tier 3 — Low, polish/hardening
 
-15. **[#154](https://github.com/jasonkryst/BookWheel/issues/154)** — Wire `coverlet.collector` into CI + add concurrency tests (parallel spin, parallel lockout).
-16. **[#148](https://github.com/jasonkryst/BookWheel/issues/148)** — Align Action pinning/version drift between `ci.yml`/`codeql.yml`.
-17. **[#153](https://github.com/jasonkryst/BookWheel/issues/153)** — Stray `banner` landmark in Settings dialog; unverified badge `aria-label`.
-18. **[#152](https://github.com/jasonkryst/BookWheel/issues/152)** — Delete-confirmation dialog defaults focus to the destructive button; focus-order anomaly on 2-button dialogs.
-19. **[#151](https://github.com/jasonkryst/BookWheel/issues/151)** — Small i18n gaps (one hardcoded catch-block string, one uncataloged string, two hardcoded aria-labels, locale-inconsistent date formatting).
-20. **[#150](https://github.com/jasonkryst/BookWheel/issues/150)** (minification half only — the SW-precache half is Tier 2 above) — JS/CSS served unminified.
-21. **[#149](https://github.com/jasonkryst/BookWheel/issues/149)** — Log-shipping service has no offset tracking or backoff (duplicate delivery, retry storms).
+15. **[#154](https://github.com/jasonkryst/BookWheel/issues/154)** — Wire `coverlet.collector` into CI + add concurrency tests (parallel spin, parallel lockout). ✅ Fixed in `feature/tier3-fixes` (`--collect:"XPlat Code Coverage"` added to `ci.yml` `dotnet test` step with artifact upload; `BookWheelConcurrencyTests` class added with parallel-spin test).
+16. ~~**[#148](https://github.com/jasonkryst/BookWheel/issues/148)** — Align Action pinning/version drift between `ci.yml`/`codeql.yml`.~~ ✅ Already fixed on main before this branch — all three workflow files use consistent SHA-pinned actions.
+17. **[#153](https://github.com/jasonkryst/BookWheel/issues/153)** — Stray `banner` landmark in Settings dialog; unverified badge `aria-label`. ✅ Fixed in `feature/tier3-fixes` (changed `<header class="book-info-header">` inside `bookInfoDialog` to `<div>` — `<header>` inside `<dialog>` has implicit `role="banner"` since `<dialog>` is not an ARIA suppressing sectioning element).
+18. **[#152](https://github.com/jasonkryst/BookWheel/issues/152)** — Delete-confirmation dialog defaults focus to the destructive button; focus-order anomaly on 2-button dialogs. ✅ Fixed in `feature/tier3-fixes` (`openDialog` calls for both delete dialogs now pass `cancelDeleteBtn`/`cancelDeleteUserBtn` as preferred focus target instead of the destructive confirm button).
+19. **[#151](https://github.com/jasonkryst/BookWheel/issues/151)** — Small i18n gaps (one hardcoded catch-block string, one uncataloged string, two hardcoded aria-labels, locale-inconsistent date formatting). ✅ Fixed in `feature/tier3-fixes` (F2: `AuthController` CorruptedDataException handler now uses `_errors.Localize(ex.Message)`; F3: `NoBooksProvidedToImport` key added to all three resx files and `ApiMessageLocalizer`; F5: `transfer.importExportOptionsLabel` and `stats.chartAriaLabel` added to i18n.js for en/es/pl and wired via `data-i18n-aria-label` in index.html; F6: three `.toLocaleString()`/`.toLocaleDateString()` calls now pass `getCurrentLocale()` for locale-consistent date display).
+20. ~~**[#150](https://github.com/jasonkryst/BookWheel/issues/150)** (minification half only — the SW-precache half is Tier 2 above) — JS/CSS served unminified.~~ Issue was closed with the SW-precache fix in Tier 2 (#163); minification deferred indefinitely (no build step is a deliberate architectural choice per audit §9).
+21. **[#149](https://github.com/jasonkryst/BookWheel/issues/149)** — Log-shipping service has no offset tracking or backoff (duplicate delivery, retry storms). ✅ Fixed in `feature/tier3-fixes` (`LogShippingService` now persists `(file, linesShipped)` offset to `log-shipping-state.json` between passes; exponential backoff up to 300s on consecutive failures).
 
 ## Tier 4 — Unscoped roadmap ideas (need product scoping before engineering work)
 

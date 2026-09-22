@@ -217,6 +217,7 @@
       },
       transfer: {
         importExportLabel: 'Import or export books',
+        importExportOptionsLabel: 'Import and export options',
         dialogTitle: 'Import / Export books',
         importTab: 'Import',
         exportTab: 'Export',
@@ -295,7 +296,8 @@
         uniqueSpunEmpty: 'No books have been spun yet.',
         neverSpunHeading: 'Never Spun',
         neverSpunEmpty: 'All books have been spun at least once!',
-        typeBreakdownHeading: 'By Media Type'
+        typeBreakdownHeading: 'By Media Type',
+        chartAriaLabel: 'Spin frequency bar chart'
       }
     },
     es: {
@@ -511,6 +513,7 @@
       },
       transfer: {
         importExportLabel: 'Importar o exportar libros',
+        importExportOptionsLabel: 'Opciones de importación y exportación',
         dialogTitle: 'Importar / Exportar libros',
         importTab: 'Importar',
         exportTab: 'Exportar',
@@ -589,7 +592,8 @@
         uniqueSpunEmpty: 'Aún no se ha girado ningún libro.',
         neverSpunHeading: 'Nunca girados',
         neverSpunEmpty: '¡Todos los libros han sido girados al menos una vez!',
-        typeBreakdownHeading: 'Por tipo de soporte'
+        typeBreakdownHeading: 'Por tipo de soporte',
+        chartAriaLabel: 'Gráfico de barras de frecuencia de giro'
       }
     },
     pl: {
@@ -805,6 +809,7 @@
       },
       transfer: {
         importExportLabel: 'Importuj lub eksportuj książki',
+        importExportOptionsLabel: 'Opcje importu i eksportu',
         dialogTitle: 'Importuj / eksportuj książki',
         importTab: 'Import',
         exportTab: 'Eksport',
@@ -883,7 +888,8 @@
         uniqueSpunEmpty: 'Żadna książka nie została jeszcze wylosowana.',
         neverSpunHeading: 'Nigdy nie losowane',
         neverSpunEmpty: 'Wszystkie książki zostały wylosowane co najmniej raz!',
-        typeBreakdownHeading: 'Według formatu'
+        typeBreakdownHeading: 'Według formatu',
+        chartAriaLabel: 'Wykres słupkowy częstotliwości losowania'
       }
     }
   };

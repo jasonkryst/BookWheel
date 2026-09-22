@@ -585,7 +585,7 @@ function openResetLinkDialog(result) {
   const { t } = window.BookWheelI18n;
   const expiresAt = result.expiresAtUtc ? new Date(result.expiresAtUtc) : null;
   const expiryText = expiresAt && !Number.isNaN(expiresAt.getTime())
-    ? t('users.linkExpiresAt', { datetime: expiresAt.toLocaleString() })
+    ? t('users.linkExpiresAt', { datetime: expiresAt.toLocaleString(window.BookWheelI18n.getCurrentLocale()) })
     : t('users.linkExpires24h');
 
   resetLinkMessage.textContent = t('users.resetLinkCreated', { username: result.username, expiryText });
@@ -739,7 +739,7 @@ function openDeleteUserDialog(user) {
   deleteUserError.textContent = '';
   deleteUserConfirmMessage.textContent = window.BookWheelI18n.t('users.deleteConfirmMessage', { username: user.username });
 
-  openDialog(deleteUserDialog, confirmDeleteUserBtn);
+  openDialog(deleteUserDialog, cancelDeleteUserBtn);
 }
 
 async function confirmDeleteUser() {
@@ -824,7 +824,7 @@ function renderUserRows(users) {
 
     const createdDate = user.createdAtUtc ? new Date(user.createdAtUtc) : null;
     metaLine.textContent = createdDate && !Number.isNaN(createdDate.getTime())
-      ? t('users.createdOn', { date: createdDate.toLocaleDateString() })
+      ? t('users.createdOn', { date: createdDate.toLocaleDateString(window.BookWheelI18n.getCurrentLocale()) })
       : t('users.createdUnavailable');
 
     const username = document.createElement('input');
@@ -1606,7 +1606,7 @@ async function removeBook(book) {
   pendingDeleteBook = book;
   deleteError.textContent = '';
   deleteConfirmMessage.textContent = window.BookWheelI18n.t('books.removeConfirmMessage', { title: book.title });
-  openDialog(deleteDialog, confirmDeleteBtn);
+  openDialog(deleteDialog, cancelDeleteBtn);
 }
 
 function closeDeleteDialog() {
@@ -2959,7 +2959,7 @@ syncLangSelect();
 
       const expiresAt = validation.expiresAtUtc ? new Date(validation.expiresAtUtc) : null;
       const expiryText = expiresAt && !Number.isNaN(expiresAt.getTime())
-        ? t('auth.linkExpiresAt', { datetime: expiresAt.toLocaleString() })
+        ? t('auth.linkExpiresAt', { datetime: expiresAt.toLocaleString(window.BookWheelI18n.getCurrentLocale()) })
         : t('auth.linkExpires24h');
 
       authTitle.textContent = t('auth.setPasswordForUser', { username: validation.username || t('auth.defaultAccountName') });
