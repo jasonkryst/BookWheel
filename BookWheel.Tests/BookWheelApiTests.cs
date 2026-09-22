@@ -2169,7 +2169,80 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         await client.PostAsync("/api/auth/logout", content: null);
         var loginResponse = await PostLoginAsync(client, "reader-one", "reader-pass-1");
 
-        Assert.Equal(HttpStatusCode.Locked, loginResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, loginResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Force_Password_Reset_User_Cannot_Log_In()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "test-setup@example.com"
+        });
+
+        var (readerUserId, readerSetupLink) = await CreateUserAsync(client, "reader-one");
+        await SetPasswordFromSetupLinkAsync(client, readerSetupLink, "reader-pass-1");
+
+        var forceResetResponse = await client.PutAsJsonAsync($"/api/users/{readerUserId}", new
+        {
+            username = "reader-one",
+            isAdmin = false,
+            isDisabled = false,
+            forcePasswordReset = true,
+            isLocked = false
+        });
+
+        Assert.Equal(HttpStatusCode.OK, forceResetResponse.StatusCode);
+
+        await client.PostAsync("/api/auth/logout", content: null);
+        var loginResponse = await PostLoginAsync(client, "reader-one", "reader-pass-1");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, loginResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Delete_User_Removes_Books_And_Spin_History_Atomically()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "test-setup@example.com"
+        });
+
+        var (readerUserId, readerSetupLink) = await CreateUserAsync(client, "reader-one");
+        await SetPasswordFromSetupLinkAsync(client, readerSetupLink, "reader-pass-1");
+
+        await client.PostAsync("/api/auth/logout", content: null);
+        await LoginAsync(client, "reader-one", "reader-pass-1");
+        await AddBookAsync(client, "Reader Book A");
+        await AddBookAsync(client, "Reader Book B");
+        await client.PostAsync("/api/books/spin", null);
+
+        await client.PostAsync("/api/auth/logout", content: null);
+        await LoginAsync(client);
+
+        var deleteResponse = await client.DeleteAsync($"/api/users/{readerUserId}");
+        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
+
+        using var deleteDoc = await ReadJsonAsync(deleteResponse);
+        Assert.Equal("reader-one", deleteDoc.RootElement.GetProperty("username").GetString());
+        Assert.Equal(2, deleteDoc.RootElement.GetProperty("removedBooks").GetInt32());
+
+        // Confirm the user is actually gone from the user list
+        var usersResponse = await client.GetAsync("/api/users");
+        Assert.Equal(HttpStatusCode.OK, usersResponse.StatusCode);
+        using var usersDoc = await ReadJsonAsync(usersResponse);
+        var users = usersDoc.RootElement.GetProperty("users").EnumerateArray().ToList();
+        Assert.DoesNotContain(users, u => u.GetProperty("userId").GetGuid() == readerUserId);
     }
 
     // ── Stats: positive cases ────────────────────────────────────────────────

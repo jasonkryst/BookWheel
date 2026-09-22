@@ -1,3 +1,4 @@
+using BookWheel.Logging;
 using BookWheel.Models;
 using MailKit.Net.Smtp;
 using MailKit.Security;
@@ -21,7 +22,7 @@ public sealed class SmtpEmailSender : IEmailSender
     {
         if (string.IsNullOrWhiteSpace(_options.Host))
         {
-            _logger.LogWarning("Email send skipped because Smtp:Host is not configured. Intended recipient {ToAddress}.", toAddress);
+            _logger.LogWarning("Email send skipped because Smtp:Host is not configured. Intended recipient {ToAddress}.", LogSanitizer.Sanitize(toAddress));
             return;
         }
 
@@ -50,7 +51,7 @@ public sealed class SmtpEmailSender : IEmailSender
             // Deliberately broad: an SMTP failure (bad config, network outage,
             // auth failure, rejected recipient) must never propagate into a
             // caller's HTTP response — see Global Constraints. Logged, not rethrown.
-            _logger.LogError(ex, "Failed to send email to {ToAddress}.", toAddress);
+            _logger.LogError(ex, "Failed to send email to {ToAddress}.", LogSanitizer.Sanitize(toAddress));
         }
     }
 }

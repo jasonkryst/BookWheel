@@ -1,3 +1,4 @@
+using BookWheel.Logging;
 using BookWheel.Models;
 using BookWheel.Services;
 using BookWheel.Storage;
@@ -42,7 +43,7 @@ public sealed class AuthController : ControllerBase
         {
             _logger.LogWarning(
                 "Account setup rejected because an account already exists. Username {Username} from {ClientIp} path {Path} request {RequestId} user agent {UserAgent}",
-                request.Username,
+                LogSanitizer.Sanitize(request.Username),
                 GetClientIp(),
                 GetRequestPath(),
                 GetRequestId(),
@@ -53,7 +54,7 @@ public sealed class AuthController : ControllerBase
         var user = await _authService.CreateAccountAsync(request.Username, request.Password, request.Email);
         _logger.LogInformation(
             "Initial account created for username {Username} from {ClientIp} path {Path} request {RequestId} user agent {UserAgent}",
-            request.Username,
+            LogSanitizer.Sanitize(request.Username),
             GetClientIp(),
             GetRequestPath(),
             GetRequestId(),
@@ -81,7 +82,7 @@ public sealed class AuthController : ControllerBase
             {
                 _logger.LogWarning(
                     "Login rejected because setup is required. Username {Username} from {ClientIp} path {Path} request {RequestId} user agent {UserAgent}",
-                    request.Username,
+                    LogSanitizer.Sanitize(request.Username),
                     GetClientIp(),
                     GetRequestPath(),
                     GetRequestId(),
@@ -95,12 +96,12 @@ public sealed class AuthController : ControllerBase
                 _metricsService.IncrementLoginFailure();
                 _logger.LogWarning(
                     "Login rejected because account is disabled. Username {Username} from {ClientIp} path {Path} request {RequestId} user agent {UserAgent}",
-                    request.Username,
+                    LogSanitizer.Sanitize(request.Username),
                     GetClientIp(),
                     GetRequestPath(),
                     GetRequestId(),
                     GetUserAgent());
-                return StatusCode(StatusCodes.Status423Locked, new { message = "This account is disabled. Contact an administrator." });
+                return Unauthorized(new { message = _errors.Localize("Invalid username or password.") });
             }
 
             if (validationResult.RequiresPasswordReset)
@@ -108,12 +109,12 @@ public sealed class AuthController : ControllerBase
                 _metricsService.IncrementLoginFailure();
                 _logger.LogWarning(
                     "Login rejected because password reset is required. Username {Username} from {ClientIp} path {Path} request {RequestId} user agent {UserAgent}",
-                    request.Username,
+                    LogSanitizer.Sanitize(request.Username),
                     GetClientIp(),
                     GetRequestPath(),
                     GetRequestId(),
                     GetUserAgent());
-                return StatusCode(StatusCodes.Status423Locked, new { message = "Password reset is required. Ask an administrator for a reset link." });
+                return Unauthorized(new { message = _errors.Localize("Invalid username or password.") });
             }
 
             if (validationResult.IsLockedOut)
@@ -122,7 +123,7 @@ public sealed class AuthController : ControllerBase
                 _metricsService.IncrementLoginLockout();
                 _logger.LogWarning(
                     "Login blocked by username lockout. Username {Username} until {LockoutUntilUtc} from {ClientIp} path {Path} request {RequestId} user agent {UserAgent}",
-                    request.Username,
+                    LogSanitizer.Sanitize(request.Username),
                     validationResult.LockoutEndsAtUtc,
                     GetClientIp(),
                     GetRequestPath(),
@@ -141,7 +142,7 @@ public sealed class AuthController : ControllerBase
                 _metricsService.IncrementLoginFailure();
                 _logger.LogWarning(
                     "Login failed for username {Username} from {ClientIp} path {Path} request {RequestId} user agent {UserAgent}",
-                    request.Username,
+                    LogSanitizer.Sanitize(request.Username),
                     GetClientIp(),
                     GetRequestPath(),
                     GetRequestId(),
@@ -151,7 +152,7 @@ public sealed class AuthController : ControllerBase
 
             _logger.LogInformation(
                 "Login succeeded for username {Username} from {ClientIp} path {Path} request {RequestId} user agent {UserAgent}",
-                request.Username,
+                LogSanitizer.Sanitize(request.Username),
                 GetClientIp(),
                 GetRequestPath(),
                 GetRequestId(),
@@ -227,7 +228,7 @@ public sealed class AuthController : ControllerBase
         await _authService.RequestPasswordResetAsync(request.Username, appBaseUrl);
         _logger.LogInformation(
             "Password reset requested. Username {Username} from {ClientIp} path {Path} request {RequestId} user agent {UserAgent}",
-            request.Username,
+            LogSanitizer.Sanitize(request.Username),
             GetClientIp(),
             GetRequestPath(),
             GetRequestId(),
