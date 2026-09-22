@@ -6,6 +6,6 @@ public sealed class MetricsSnapshot
     public long LoginFailureCount { get; set; }
     public long LoginLockoutCount { get; set; }
     public long SuccessfulLoginCount { get; set; }
-    public long SpinCount { get; set; }
+    public long SpinsSinceRestart { get; set; }
     public int TotalBookCount { get; set; }
 }

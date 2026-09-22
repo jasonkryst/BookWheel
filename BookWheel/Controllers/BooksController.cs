@@ -57,7 +57,7 @@ public sealed class BooksController : ControllerBase
             return Ok(new
             {
                 books,
-                activeBooks = books.ToList()
+                activeBooks = books
             });
         }
         catch (CorruptedDataException ex)
@@ -360,7 +360,7 @@ public sealed class BooksController : ControllerBase
         {
             var selected = await _store.SelectRandomAsync(user.UserId);
             await _spinHistory.RecordAsync(user.UserId, selected.Id, DateTimeOffset.UtcNow);
-            _metricsService.IncrementSpinCount();
+            _metricsService.IncrementSpinsSinceRestart();
             var books = await _store.GetAllAsync(user.UserId);
             return Ok(new
             {

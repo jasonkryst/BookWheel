@@ -8,7 +8,7 @@ public sealed class AppMetricsService
     private long _loginFailureCount;
     private long _loginLockoutCount;
     private long _successfulLoginCount;
-    private long _spinCount;
+    private long _spinsSinceRestart;
 
     public void IncrementLoginFailure()
     {
@@ -25,9 +25,9 @@ public sealed class AppMetricsService
         Interlocked.Increment(ref _successfulLoginCount);
     }
 
-    public void IncrementSpinCount()
+    public void IncrementSpinsSinceRestart()
     {
-        Interlocked.Increment(ref _spinCount);
+        Interlocked.Increment(ref _spinsSinceRestart);
     }
 
     public async Task<MetricsSnapshot> GetSnapshotAsync(IBookRepository bookRepository)
@@ -38,7 +38,7 @@ public sealed class AppMetricsService
             LoginFailureCount = Interlocked.Read(ref _loginFailureCount),
             LoginLockoutCount = Interlocked.Read(ref _loginLockoutCount),
             SuccessfulLoginCount = Interlocked.Read(ref _successfulLoginCount),
-            SpinCount = Interlocked.Read(ref _spinCount),
+            SpinsSinceRestart = Interlocked.Read(ref _spinsSinceRestart),
             TotalBookCount = await bookRepository.GetTotalBookCountAsync()
         };
     }

@@ -362,7 +362,7 @@ async Task WriteConfiguredServiceWorkerAsync(HttpContext context)
 	var webRootPath = app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
 	var swPath = Path.Combine(webRootPath, "sw.js");
 	var script = await File.ReadAllTextAsync(swPath);
-	script = script.Replace("__ASSET_VERSION__", appVersion, StringComparison.Ordinal);
+	script = script.Replace("__ASSET_VERSION__", Uri.EscapeDataString(appVersion), StringComparison.Ordinal);
 
 	context.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
 	context.Response.Headers.Pragma = "no-cache";

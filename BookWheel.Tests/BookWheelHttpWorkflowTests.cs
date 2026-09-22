@@ -4,11 +4,11 @@ using System.Text.Json;
 
 namespace BookWheel.Tests;
 
-public sealed class BookWheelBrowserWorkflowTests : IClassFixture<BookWheelWebAppFactory>, IAsyncLifetime
+public sealed class BookWheelHttpWorkflowTests : IClassFixture<BookWheelWebAppFactory>, IAsyncLifetime
 {
     private readonly BookWheelWebAppFactory _factory;
 
-    public BookWheelBrowserWorkflowTests(BookWheelWebAppFactory factory)
+    public BookWheelHttpWorkflowTests(BookWheelWebAppFactory factory)
     {
         _factory = factory;
     }
