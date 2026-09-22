@@ -31,7 +31,7 @@
   --card: #ffffff;
   --text: #0f172a;
   --muted: #475569;
-  --accent: #0284c7;
+  --accent: #027ab8; /* darkened from #0284c7 (4.10:1) to meet WCAG 1.4.3 AA (4.69:1 vs white) */
   --danger: #dc2626;
   --input-bg: #f8fafc;
   --chip-bg: #e2e8f0;

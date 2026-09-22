@@ -40,6 +40,7 @@ public sealed class BookWheelDbContext : DbContext
             entity.Property(b => b.Author).HasMaxLength(300);
             entity.Property(b => b.CoverUrl).HasMaxLength(2048);
             entity.HasIndex(b => b.UserId);
+            entity.HasIndex(b => new { b.UserId, b.DeletedAtUtc });
             entity.HasIndex(b => b.BookTypeId);
             entity.HasIndex(b => b.BookInfoProviderId);
             entity.Property(b => b.CreatedAtUtc).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
