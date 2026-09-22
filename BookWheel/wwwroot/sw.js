@@ -3,15 +3,15 @@ const CACHE_NAME = `bookwheel-shell-v${CACHE_VERSION}`;
 
 const SHELL_ASSETS = [
   '/',
-  '/css/site.css',
-  '/js/app.js',
-  '/js/i18n.js',
-  '/manifest.webmanifest',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  '/icons/icon-512-maskable.png',
-  '/icons/icon-180.png',
-  '/icons/favicon-32.png',
+  `/css/site.css?v=${CACHE_VERSION}`,
+  `/js/app.js?v=${CACHE_VERSION}`,
+  `/js/i18n.js?v=${CACHE_VERSION}`,
+  `/manifest.webmanifest?v=${CACHE_VERSION}`,
+  `/icons/icon-192.png?v=${CACHE_VERSION}`,
+  `/icons/icon-512.png?v=${CACHE_VERSION}`,
+  `/icons/icon-512-maskable.png?v=${CACHE_VERSION}`,
+  `/icons/icon-180.png?v=${CACHE_VERSION}`,
+  `/icons/favicon-32.png?v=${CACHE_VERSION}`,
   '/offline.html'
 ];
 

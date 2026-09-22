@@ -40,6 +40,44 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
     }
 
     [Fact]
+    public async Task Login_Cookie_Secure_Flag_Matches_Request_Scheme()
+    {
+        // Disable automatic cookie handling so the raw Set-Cookie header is
+        // visible in the response — this is required to inspect cookie attributes.
+        using var client = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+        {
+            HandleCookies = false,
+        });
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "cookie-secure-admin",
+            password = "test-password",
+            email = "cookie-test@example.com",
+        });
+
+        var counter = System.Threading.Interlocked.Increment(ref _loginRateLimitIpCounter);
+        var syntheticIp = $"10.{(counter >> 16) & 0xFF}.{(counter >> 8) & 0xFF}.{counter & 0xFF}";
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/login")
+        {
+            Content = JsonContent.Create(new { username = "cookie-secure-admin", password = "test-password" })
+        };
+        request.Headers.TryAddWithoutValidation("X-Forwarded-For", syntheticIp);
+
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var setCookie = response.Headers.GetValues("Set-Cookie").FirstOrDefault();
+        Assert.NotNull(setCookie);
+
+        // The test host runs over plain HTTP; Request.IsHttps = false, so the
+        // Secure attribute must not be present.  The old code forced Secure = true
+        // in non-Development environments regardless of scheme, which broke
+        // plain-HTTP/LAN deployments (GH #136).
+        Assert.DoesNotContain("Secure", setCookie, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Login_Before_Setup_Returns_Conflict()
     {
         var factory = _factory;

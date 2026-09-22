@@ -302,22 +302,21 @@ Important:
 
 ## First-Run Account Setup
 
-On the first visit, the login screen switches into account-creation mode if no credential file exists yet.
+On the first visit, the login screen switches into account-creation mode if no user account exists in the database yet.
 
 Flow:
 
 1. Open the app.
-2. If `BookWheel/App_Data/user.cred` does not exist, the UI prompts you to create the first account.
+2. If no user account exists in the database, the UI prompts you to create the first account.
 3. Submitting the form creates the first user account as an administrator and signs the user in.
 4. Future visits use the normal login flow.
 
 Credential storage details:
 
-- Account records are stored in `BookWheel/App_Data/user.cred`
-- Each record includes user id, username, password hash, admin flag, and created timestamp
-- The record is encrypted at rest with ASP.NET Core Data Protection
-- The password is hashed with `PasswordHasher<T>` before being written to disk
-- The credential file is created only when the user explicitly submits the setup form
+- Account records are stored in PostgreSQL (the `users` table), configured via `ConnectionStrings:BookWheel`
+- Each record includes user id, username, password hash, admin flag, email, and timestamps
+- The password is hashed with `PasswordHasher<T>` before being written to the database
+- The account row is created only when the user explicitly submits the setup form
 
 Administrator details:
 
@@ -338,7 +337,7 @@ Password reset link details:
 Important:
 
 - There is no default username/password in `appsettings.json`
-- If you delete `BookWheel/App_Data/user.cred`, the app will prompt for first-run setup again
+- To reset to first-run setup state, delete all rows from the `users` table in PostgreSQL; the app will prompt for account creation on the next visit
 
 ## Data Storage
 
@@ -458,7 +457,7 @@ Operational endpoint (admin only):
 
 - `GET /api/metrics`
 
-`GET /api/auth/status` returns whether first-run setup is required. `POST /api/auth/setup` creates the initial account when no credential file exists.
+`GET /api/auth/status` returns whether first-run setup is required. `POST /api/auth/setup` creates the initial account when no user account exists in the database.
 
 User-management endpoints (administrator only):
 
@@ -650,7 +649,7 @@ Startup diagnostics:
 ## Troubleshooting
 
 - If `dotnet test` reports file lock warnings from `testhost`, re-run the command; this is usually transient.
-- If authentication fails unexpectedly, verify whether `BookWheel/App_Data/user.cred` exists and whether the first-run setup was completed.
+- If authentication fails unexpectedly, verify that the database is reachable (`/health/ready`), that the `users` table contains at least one row, and that first-run setup was completed.
 - If a reset link does not work, verify the link has not expired (24 hours) and was not already used.
 - If the app starts but books/users are missing, verify PostgreSQL connectivity via `GET /health/ready` and check the `ConnectionStrings:BookWheel` value.
 - If you need to reset the account, delete `BookWheel/App_Data/user.cred` and create a new account on next launch.

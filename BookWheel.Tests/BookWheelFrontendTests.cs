@@ -693,6 +693,31 @@ public sealed class BookWheelFrontendTests : IClassFixture<BookWheelWebAppFactor
     }
 
     [Fact]
+    public async Task Settings_Dialog_Header_Should_Not_Use_Semantic_Header_Element()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var html = await response.Content.ReadAsStringAsync();
+
+        var dialogStart = html.IndexOf("id=\"settingsDialog\"", StringComparison.Ordinal);
+        Assert.True(dialogStart >= 0, "Expected settingsDialog to be present.");
+        var dialogEnd = html.IndexOf("</dialog>", dialogStart, StringComparison.Ordinal);
+        Assert.True(dialogEnd > dialogStart, "Expected a closing </dialog> tag after settingsDialog.");
+        var dialogMarkup = html.Substring(dialogStart, dialogEnd - dialogStart);
+
+        // Positive: the user-management-header is a <div>, which carries no
+        // landmark role — it exists only as a CSS hook (GH #153).
+        Assert.Contains("<div class=\"user-management-header\">", dialogMarkup, StringComparison.Ordinal);
+
+        // Negative: <header> inside <dialog> is still announced as a "banner"
+        // landmark by some assistive technologies despite the sectioning-ancestor
+        // rule, creating confusing navigation noise.
+        Assert.DoesNotContain("<header class=\"user-management-header\">", dialogMarkup, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Settings_Dialog_Should_Expose_Consolidated_Tab_Structure()
     {
         var factory = _factory;

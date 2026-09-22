@@ -285,16 +285,11 @@ public sealed class AuthController : ControllerBase
     private Task SignInAsync(AuthenticatedUser user)
     {
         var token = _authService.CreateSession(user);
-        var environment = HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>();
-        var secureCookie = !environment.IsDevelopment() && !environment.IsEnvironment("Testing")
-            ? true
-            : Request.IsHttps;
-
         Response.Cookies.Append("BookWheel.Auth", token, new CookieOptions
         {
             HttpOnly = true,
             SameSite = SameSiteMode.Strict,
-            Secure = secureCookie,
+            Secure = Request.IsHttps,
             IsEssential = true,
             Path = "/",
             Expires = DateTimeOffset.UtcNow.AddHours(8)
