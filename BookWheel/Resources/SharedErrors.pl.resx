@@ -135,4 +135,7 @@
   <data name="AdminsCanOnlySelfUpdateEmail" xml:space="preserve">
     <value>Administratorzy mogą aktualizować tylko własny adres e-mail.</value>
   </data>
+  <data name="NoBooksProvidedToImport" xml:space="preserve">
+    <value>Nie podano żadnych książek do zaimportowania.</value>
+  </data>
 </root>

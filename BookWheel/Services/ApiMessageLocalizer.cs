@@ -47,6 +47,7 @@ public sealed class ApiMessageLocalizer(IStringLocalizer<SharedErrors> localizer
 		["Email already exists."] = "EmailAlreadyExists",
 		["Email must be 256 characters or fewer."] = "EmailLength",
 		["Administrators can only update their own email address."] = "AdminsCanOnlySelfUpdateEmail",
+		["No books were provided to import."] = "NoBooksProvidedToImport",
 	};
 
 	public static IReadOnlyDictionary<string, string> KnownMessageKeys => KeysByEnglishMessage;

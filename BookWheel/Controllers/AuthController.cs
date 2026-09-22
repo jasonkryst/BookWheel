@@ -178,7 +178,7 @@ public sealed class AuthController : ControllerBase
                 GetClientIp(),
                 GetRequestPath(),
                 GetRequestId());
-            return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = _errors.Localize(ex.Message) });
         }
     }
 
