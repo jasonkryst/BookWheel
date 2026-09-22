@@ -1,4 +1,5 @@
 using System.Text.Json;
+using BookWheel.Logging;
 using BookWheel.Models;
 
 namespace BookWheel.Services;
@@ -47,7 +48,7 @@ public sealed class OpenLibraryBookMetadataLookupService : IBookMetadataLookupSe
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
-            _logger.LogWarning(ex, "ISBN metadata lookup failed for {Isbn}.", isbn);
+            _logger.LogWarning(ex, "ISBN metadata lookup failed for {Isbn}.", LogSanitizer.Sanitize(isbn));
             return null;
         }
     }
@@ -97,7 +98,7 @@ public sealed class OpenLibraryBookMetadataLookupService : IBookMetadataLookupSe
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
-            _logger.LogWarning(ex, "Title metadata lookup failed for {Title}.", title);
+            _logger.LogWarning(ex, "Title metadata lookup failed for {Title}.", LogSanitizer.Sanitize(title));
             return [];
         }
     }

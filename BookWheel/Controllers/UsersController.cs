@@ -11,23 +11,20 @@ public sealed class UsersController : ControllerBase
 {
     private readonly AuthService _authService;
     private readonly ICredentialRepository _credentialRepository;
-    private readonly IBookRepository _bookStore;
-    private readonly ISpinHistoryRepository _spinHistory;
+    private readonly UserManagementService _userManagement;
     private readonly ILogger<UsersController> _logger;
     private readonly ApiMessageLocalizer _errors;
 
     public UsersController(
         AuthService authService,
         ICredentialRepository credentialRepository,
-        IBookRepository bookStore,
-        ISpinHistoryRepository spinHistory,
+        UserManagementService userManagement,
         ILogger<UsersController> logger,
         ApiMessageLocalizer errors)
     {
         _authService = authService;
         _credentialRepository = credentialRepository;
-        _bookStore = bookStore;
-        _spinHistory = spinHistory;
+        _userManagement = userManagement;
         _logger = logger;
         _errors = errors;
     }
@@ -225,9 +222,7 @@ public sealed class UsersController : ControllerBase
 
         try
         {
-            var deletedUser = await _credentialRepository.DeleteUserAsync(id);
-            var removedBooks = await _bookStore.RemoveUserDataAsync(id);
-            await _spinHistory.RemoveUserDataAsync(id);
+            var (deletedUser, removedBooks) = await _userManagement.DeleteUserWithDataAsync(id);
             _authService.RemoveSessionsForUser(id);
             _logger.LogInformation(
                 "User account deleted. Actor {ActorUsername} target {TargetUsername} removed books {RemovedBooks} request {RequestId}",
