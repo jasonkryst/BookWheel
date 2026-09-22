@@ -652,7 +652,7 @@ Startup diagnostics:
 - If authentication fails unexpectedly, verify that the database is reachable (`/health/ready`), that the `users` table contains at least one row, and that first-run setup was completed.
 - If a reset link does not work, verify the link has not expired (24 hours) and was not already used.
 - If the app starts but books/users are missing, verify PostgreSQL connectivity via `GET /health/ready` and check the `ConnectionStrings:BookWheel` value.
-- If you need to reset the account, delete `BookWheel/App_Data/user.cred` and create a new account on next launch.
+- If you need to reset to first-run setup state, delete all rows from the `users` table in PostgreSQL and restart the app; the setup screen will appear on next visit.
 - If you need to inspect logs, open the current day file under `BookWheel/App_Data/logs/`.
 - If the container starts but auth sessions break after restarts, verify Data Protection keys are persisted (compose handles this via `bookwheel_dp_keys`).
 - If port `32700` is busy, change the host side mapping in `docker-compose.yml` (for example, `32701:8080`).

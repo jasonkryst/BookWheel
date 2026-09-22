@@ -124,6 +124,7 @@
         pageInfo: 'Page {current} of {total}',
         countOne: '1 book total',
         countOther: '{count} books total',
+        countFew: '{count} books total',
         editDialogTitle: 'Edit book title',
         deleteDialogTitle: 'Remove book',
         titleRequiredError: 'Book title is required.',
@@ -169,6 +170,9 @@
         needsAttention: 'Needs attention',
         zeroUsers: '0 users',
         totalUsers: '{count} users',
+        totalUsersOne: '1 user',
+        totalUsersOther: '{count} users',
+        totalUsersFew: '{count} users',
         filteredUsers: '{filtered} of {total} users',
         noMatchFilter: 'No users match this filter.',
         roleAdmin: 'Administrator',
@@ -414,6 +418,7 @@
         pageInfo: 'Página {current} de {total}',
         countOne: '1 libro en total',
         countOther: '{count} libros en total',
+        countFew: '{count} libros en total',
         editDialogTitle: 'Editar título del libro',
         deleteDialogTitle: 'Eliminar libro',
         titleRequiredError: 'El título del libro es obligatorio.',
@@ -459,6 +464,9 @@
         needsAttention: 'Requiere atención',
         zeroUsers: '0 usuarios',
         totalUsers: '{count} usuarios',
+        totalUsersOne: '1 usuario',
+        totalUsersOther: '{count} usuarios',
+        totalUsersFew: '{count} usuarios',
         filteredUsers: '{filtered} de {total} usuarios',
         noMatchFilter: 'Ningún usuario coincide con este filtro.',
         roleAdmin: 'Administrador',
@@ -703,6 +711,7 @@
         nextPage: 'Następna',
         pageInfo: 'Strona {current} z {total}',
         countOne: '1 książka łącznie',
+        countFew: '{count} książki łącznie',
         countOther: '{count} książek łącznie',
         editDialogTitle: 'Edytuj tytuł książki',
         deleteDialogTitle: 'Usuń książkę',
@@ -749,6 +758,9 @@
         needsAttention: 'Wymaga uwagi',
         zeroUsers: '0 użytkowników',
         totalUsers: '{count} użytkowników',
+        totalUsersOne: '1 użytkownik',
+        totalUsersFew: '{count} użytkownicy',
+        totalUsersOther: '{count} użytkowników',
         filteredUsers: '{filtered} z {total} użytkowników',
         noMatchFilter: 'Żaden użytkownik nie pasuje do tego filtra.',
         roleAdmin: 'Administrator',
@@ -919,9 +931,27 @@
     );
   }
 
+  const _pluralRulesCache = {};
+  function _getPluralRules(locale) {
+    if (!_pluralRulesCache[locale]) {
+      _pluralRulesCache[locale] = new Intl.PluralRules(locale);
+    }
+    return _pluralRulesCache[locale];
+  }
+
   function t(key, params) {
-    const value = resolveCatalogValue(currentLocale, key)
-      ?? resolveCatalogValue(DEFAULT_LOCALE, key)
+    let resolvedKey = key;
+    if (params && typeof params.count === 'number') {
+      const category = _getPluralRules(currentLocale).select(params.count);
+      const suffix = category.charAt(0).toUpperCase() + category.slice(1);
+      const candidate = key + suffix;
+      if (resolveCatalogValue(currentLocale, candidate) !== undefined
+          || resolveCatalogValue(DEFAULT_LOCALE, candidate) !== undefined) {
+        resolvedKey = candidate;
+      }
+    }
+    const value = resolveCatalogValue(currentLocale, resolvedKey)
+      ?? resolveCatalogValue(DEFAULT_LOCALE, resolvedKey)
       ?? key;
     return interpolate(value, params);
   }

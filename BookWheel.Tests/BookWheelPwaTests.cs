@@ -110,7 +110,7 @@ public sealed class BookWheelPwaTests : IClassFixture<BookWheelWebAppFactory>, I
 
         var script = await swResponse.Content.ReadAsStringAsync();
         Assert.Contains("CACHE_NAME", script, StringComparison.Ordinal);
-        Assert.Contains(version!, script, StringComparison.Ordinal);
+        Assert.Contains(Uri.EscapeDataString(version!), script, StringComparison.Ordinal);
         Assert.Contains("addEventListener('install'", script, StringComparison.Ordinal);
         Assert.Contains("addEventListener('activate'", script, StringComparison.Ordinal);
         Assert.Contains("addEventListener('fetch'", script, StringComparison.Ordinal);
@@ -157,7 +157,7 @@ public sealed class BookWheelPwaTests : IClassFixture<BookWheelWebAppFactory>, I
         // (the server substitutes __ASSET_VERSION__), and the precache list
         // references each asset as a JS template literal using that constant —
         // so the runtime URL matches what index.html actually requests (GH #150).
-        Assert.Contains($"const CACHE_VERSION = '{version}'", script, StringComparison.Ordinal);
+        Assert.Contains($"const CACHE_VERSION = '{Uri.EscapeDataString(version!)}'", script, StringComparison.Ordinal);
         Assert.Contains("`/css/site.css?v=${CACHE_VERSION}`", script, StringComparison.Ordinal);
         Assert.Contains("`/js/app.js?v=${CACHE_VERSION}`", script, StringComparison.Ordinal);
         Assert.Contains("`/js/i18n.js?v=${CACHE_VERSION}`", script, StringComparison.Ordinal);

@@ -2,11 +2,11 @@ using System.Net;
 
 namespace BookWheel.Tests;
 
-public sealed class BookWheelFrontendTests : IClassFixture<BookWheelWebAppFactory>, IAsyncLifetime
+public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppFactory>, IAsyncLifetime
 {
     private readonly BookWheelWebAppFactory _factory;
 
-    public BookWheelFrontendTests(BookWheelWebAppFactory factory)
+    public BookWheelStaticContentTests(BookWheelWebAppFactory factory)
     {
         _factory = factory;
     }
@@ -1147,5 +1147,95 @@ public sealed class BookWheelFrontendTests : IClassFixture<BookWheelWebAppFactor
         Assert.Contains("ANALYTICS_CONSENT_STORAGE_KEY", script, StringComparison.Ordinal);
         Assert.Contains("applyAnalyticsConsent", script, StringComparison.Ordinal);
         Assert.Contains("ga-disable-", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Home_Page_Should_Include_Stats_Button_And_Dialog_Structure()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var html = await client.GetStringAsync("/");
+
+        // Positive: stats entry point and dialog shell are present.
+        Assert.Contains("id=\"statsBtnLoggedIn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"statsDialog\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"statsDialogTitle\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-i18n=\"stats.dialogTitle\"", html, StringComparison.Ordinal);
+
+        // Positive: stats dialog uses a tabbed layout with Summary and Book Lists panels.
+        Assert.Contains("id=\"statsSummaryTabBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"statsBookListsTabBtn\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"statsSummaryPanel\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"statsBookListsPanel\"", html, StringComparison.Ordinal);
+
+        // Positive: summary panel has chart canvas and ranked table.
+        Assert.Contains("id=\"statsChartCanvas\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"statsTable\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"statsTableBody\"", html, StringComparison.Ordinal);
+
+        // Positive: book-lists panel has unique-spun and never-spun sections.
+        Assert.Contains("id=\"statsUniqueSpunList\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"statsNeverSpunList\"", html, StringComparison.Ordinal);
+
+        // Positive: admin aggregate section is present (hidden until admin unlocks it).
+        Assert.Contains("id=\"statsAdminSection\"", html, StringComparison.Ordinal);
+
+        // Positive: stats tabs are ARIA-wired (role, aria-controls).
+        var dialogStart = html.IndexOf("id=\"statsDialog\"", StringComparison.Ordinal);
+        var dialogMarkup = html.Substring(dialogStart, Math.Min(2000, html.Length - dialogStart));
+        Assert.Contains("role=\"tablist\"", dialogMarkup, StringComparison.Ordinal);
+        Assert.Contains("aria-controls=\"statsSummaryPanel\"", dialogMarkup, StringComparison.Ordinal);
+        Assert.Contains("aria-controls=\"statsBookListsPanel\"", dialogMarkup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Script_Should_Wire_Up_Stats_Dialog()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var script = await client.GetStringAsync("/js/app.js");
+
+        // Positive: the stats button opens the stats dialog.
+        Assert.Contains("statsBtnLoggedIn", script, StringComparison.Ordinal);
+        Assert.Contains("statsDialog", script, StringComparison.Ordinal);
+
+        // Positive: stat data is loaded from the stats API endpoints.
+        Assert.Contains("/api/stats", script, StringComparison.Ordinal);
+        Assert.Contains("statsContent", script, StringComparison.Ordinal);
+
+        // Positive: summary panel renders key stat tiles and the chart.
+        Assert.Contains("statsSummaryRow", script, StringComparison.Ordinal);
+        Assert.Contains("statsChartCanvas", script, StringComparison.Ordinal);
+        Assert.Contains("statsTableBody", script, StringComparison.Ordinal);
+
+        // Positive: book-list panel renders unique-spun and never-spun lists.
+        Assert.Contains("statsUniqueSpunList", script, StringComparison.Ordinal);
+        Assert.Contains("statsNeverSpunList", script, StringComparison.Ordinal);
+
+        // Positive: admin aggregate view is gated and displayed only for admins.
+        Assert.Contains("statsAdminSection", script, StringComparison.Ordinal);
+        Assert.Contains("/api/stats/aggregate", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_I18n_Should_Include_Stats_Strings_In_All_Locales()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var script = await client.GetStringAsync("/js/i18n.js");
+
+        // Positive: all three locales carry stats dialog strings.
+        Assert.Contains("dialogTitle: 'Wheel Stats'", script, StringComparison.Ordinal);
+        Assert.Contains("totalSpins: 'Total Spins'", script, StringComparison.Ordinal);
+        Assert.Contains("uniqueBooks: 'Unique Books Spun'", script, StringComparison.Ordinal);
+        Assert.Contains("neverSpun: 'Never Spun'", script, StringComparison.Ordinal);
+        Assert.Contains("typeBreakdownHeading: 'By Media Type'", script, StringComparison.Ordinal);
+
+        // Positive: Spanish and Polish stats sections are present and translated.
+        Assert.Contains("typeBreakdownHeading: 'Por tipo de soporte'", script, StringComparison.Ordinal);
+        Assert.Contains("typeBreakdownHeading: 'Według formatu'", script, StringComparison.Ordinal);
     }
 }

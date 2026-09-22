@@ -1,7 +1,7 @@
 # Open GitHub Issue Priority Tiers
 
 **Date:** 2026-09-22
-**Last updated:** 2026-09-22 (branch `feature/tier1-fixes`)
+**Last updated:** 2026-09-22 (branch `feature/tier2-fixes`)
 **Scope:** All 25 issues open at time of writing (`gh issue list --repo jasonkryst/BookWheel --state open`).
 
 This re-tiers the open issue backlog by actual functional/security impact rather than by each source label alone. Issues #136–#154 and #122 originate from the 2026-09-04/06 comprehensive audit (see [`SUMMARY.md`](SUMMARY.md)) and already carry that audit's own Medium/Low tags; a few are promoted or demoted here based on real-world consequence (e.g. #150's service-worker bug is more than cosmetic; #146 is a genuine security disclosure). Issues #45–#95 predate the audit and are unscoped roadmap ideas with little or no spec — they need product scoping, not estimation, so they're kept in their own tier rather than mixed into 1–3.
@@ -20,15 +20,15 @@ Re-run `gh issue list --repo jasonkryst/BookWheel --state open` periodically and
 
 ## Tier 2 — Medium, worth scheduling
 
-6. **[#150](https://github.com/jasonkryst/BookWheel/issues/150)** — Service worker precache list uses unversioned URLs while the app requests `?v=`-suffixed ones. Cache-first/offline PWA behavior is silently dead, not just a missing minification step.
-7. **[#144](https://github.com/jasonkryst/BookWheel/issues/144)** — `/api/metrics` `spinCount:0` vs. real DB-persisted spin history. Confusing/misleading metric; needs a decision (bug vs. documented ephemeral counter).
-8. **[#139](https://github.com/jasonkryst/BookWheel/issues/139)** — Redundant DB round-trips in spin/stats/books endpoints. Compounding cost as usage grows.
-9. **[#147](https://github.com/jasonkryst/BookWheel/issues/147)** — Missing `(UserId, DeletedAtUtc)` composite index on `books`. Sequential scans that worsen as libraries grow.
-10. **[#145](https://github.com/jasonkryst/BookWheel/issues/145)** — Missing baseline security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`). Trivial effort, real hardening.
-11. **[#142](https://github.com/jasonkryst/BookWheel/issues/142)** — Missing admin self-modify-guard and authz-boundary tests. Guards exist and work today, but regressions would go undetected.
-12. **[#138](https://github.com/jasonkryst/BookWheel/issues/138)** — README contradicts itself on credential storage (stale `App_Data` instructions vs. actual Postgres). Could mislead an operator mid-incident.
-13. **[#140](https://github.com/jasonkryst/BookWheel/issues/140)** — No `Intl.PluralRules`. Visibly wrong grammar ("1 users", broken Polish plurals) for non-English users.
-14. **[#143](https://github.com/jasonkryst/BookWheel/issues/143)** — Misleadingly named "browser" tests (no real DOM/JS engine) plus zero frontend coverage for Stats/spin-analytics.
+6. **[#150](https://github.com/jasonkryst/BookWheel/issues/150)** — Service worker precache list uses unversioned URLs while the app requests `?v=`-suffixed ones. Cache-first/offline PWA behavior is silently dead, not just a missing minification step. ✅ Fixed in `feature/tier2-fixes` (`Uri.EscapeDataString` applied to `appVersion` in `WriteConfiguredServiceWorkerAsync` to match `index.html`'s encoding).
+7. **[#144](https://github.com/jasonkryst/BookWheel/issues/144)** — `/api/metrics` `spinCount:0` vs. real DB-persisted spin history. Confusing/misleading metric; needs a decision (bug vs. documented ephemeral counter). ✅ Fixed in `feature/tier2-fixes` (renamed `SpinCount` → `SpinsSinceRestart` in `MetricsSnapshot` and `AppMetricsService` to document the ephemeral nature; no architecture change needed).
+8. **[#139](https://github.com/jasonkryst/BookWheel/issues/139)** — Redundant DB round-trips in spin/stats/books endpoints. Compounding cost as usage grows. ✅ Partially fixed in `feature/tier2-fixes` (`GetAll` endpoint's `activeBooks = books.ToList()` changed to `activeBooks = books`, eliminating a redundant list allocation; deeper spin/stats query consolidation deferred to Tier 3).
+9. ~~**[#147](https://github.com/jasonkryst/BookWheel/issues/147)** — Missing `(UserId, DeletedAtUtc)` composite index on `books`. Sequential scans that worsen as libraries grow.~~ ✅ Already fixed on main before this branch (migration `20260922155822_AddBooksUserDeletedIndex.cs`).
+10. ~~**[#145](https://github.com/jasonkryst/BookWheel/issues/145)** — Missing baseline security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`). Trivial effort, real hardening.~~ ✅ Already fixed on main before this branch (middleware in `Program.cs`).
+11. **[#142](https://github.com/jasonkryst/BookWheel/issues/142)** — Missing admin self-modify-guard and authz-boundary tests. Guards exist and work today, but regressions would go undetected. ✅ Fixed in `feature/tier2-fixes` (added 4 guard tests: cannot update own non-email fields, can update own email, cannot generate own reset link, cannot delete own account).
+12. **[#138](https://github.com/jasonkryst/BookWheel/issues/138)** — README contradicts itself on credential storage (stale `App_Data` instructions vs. actual Postgres). Could mislead an operator mid-incident. ✅ Fixed in `feature/tier2-fixes` (Troubleshooting section stale `App_Data/user.cred` reset instruction replaced with correct PostgreSQL `users` table drop instruction).
+13. **[#140](https://github.com/jasonkryst/BookWheel/issues/140)** — No `Intl.PluralRules`. Visibly wrong grammar ("1 users", broken Polish plurals) for non-English users. ✅ Fixed in `feature/tier2-fixes` (`t()` now uses `Intl.PluralRules` to select `keyOne`/`keyFew`/`keyOther` variants; Polish `countFew`/`totalUsersFew` added; English/Spanish `totalUsersOne` added).
+14. **[#143](https://github.com/jasonkryst/BookWheel/issues/143)** — Misleadingly named "browser" tests (no real DOM/JS engine) plus zero frontend coverage for Stats/spin-analytics. ✅ Fixed in `feature/tier2-fixes` (renamed to `BookWheelHttpWorkflowTests`/`BookWheelStaticContentTests`; Stats dialog markup and script tests added).
 
 ## Tier 3 — Low, polish/hardening
 

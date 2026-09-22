@@ -957,7 +957,7 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         using var metricsDoc = await ReadJsonAsync(metricsResponse);
         Assert.True(metricsDoc.RootElement.GetProperty("loginFailureCount").GetInt64() >= 1);
         Assert.True(metricsDoc.RootElement.GetProperty("successfulLoginCount").GetInt64() >= 1);
-        Assert.True(metricsDoc.RootElement.GetProperty("spinCount").GetInt64() >= 1);
+        Assert.True(metricsDoc.RootElement.GetProperty("spinsSinceRestart").GetInt64() >= 1);
         Assert.True(metricsDoc.RootElement.GetProperty("totalBookCount").GetInt32() >= 1);
     }
 
@@ -2467,6 +2467,120 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var topBooks = doc.RootElement.GetProperty("topBooks").EnumerateArray().ToList();
         Assert.Single(topBooks);
         Assert.Equal(100.0, topBooks[0].GetProperty("percentage").GetDouble());
+    }
+
+    // ── Admin self-modify guards ─────────────────────────────────────────────
+
+    [Fact]
+    public async Task Admin_Cannot_Update_Own_Non_Email_Fields()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "test-setup@example.com"
+        });
+
+        var usersResponse = await client.GetAsync("/api/users");
+        using var usersDoc = await ReadJsonAsync(usersResponse);
+        var adminId = usersDoc.RootElement.GetProperty("users").EnumerateArray()
+            .First(u => u.GetProperty("username").GetString() == "test-admin")
+            .GetProperty("userId").GetGuid();
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/users/{adminId}", new
+        {
+            username = "test-admin",
+            isAdmin = false,
+            isDisabled = false,
+            forcePasswordReset = false,
+            isLocked = false,
+            email = "test-setup@example.com"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, updateResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_Can_Update_Own_Email_Only()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "test-setup@example.com"
+        });
+
+        var usersResponse = await client.GetAsync("/api/users");
+        using var usersDoc = await ReadJsonAsync(usersResponse);
+        var adminUser = usersDoc.RootElement.GetProperty("users").EnumerateArray()
+            .First(u => u.GetProperty("username").GetString() == "test-admin");
+        var adminId = adminUser.GetProperty("userId").GetGuid();
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/users/{adminId}", new
+        {
+            username = "test-admin",
+            isAdmin = true,
+            isDisabled = false,
+            forcePasswordReset = false,
+            isLocked = false,
+            email = "new-email@example.com"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_Cannot_Generate_Own_Password_Reset_Link()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "test-setup@example.com"
+        });
+
+        var usersResponse = await client.GetAsync("/api/users");
+        using var usersDoc = await ReadJsonAsync(usersResponse);
+        var adminId = usersDoc.RootElement.GetProperty("users").EnumerateArray()
+            .First(u => u.GetProperty("username").GetString() == "test-admin")
+            .GetProperty("userId").GetGuid();
+
+        var resetResponse = await client.PostAsync($"/api/users/{adminId}/password-reset-link", content: null);
+
+        Assert.Equal(HttpStatusCode.BadRequest, resetResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_Cannot_Delete_Own_Account()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "test-setup@example.com"
+        });
+
+        var usersResponse = await client.GetAsync("/api/users");
+        using var usersDoc = await ReadJsonAsync(usersResponse);
+        var adminId = usersDoc.RootElement.GetProperty("users").EnumerateArray()
+            .First(u => u.GetProperty("username").GetString() == "test-admin")
+            .GetProperty("userId").GetGuid();
+
+        var deleteResponse = await client.DeleteAsync($"/api/users/{adminId}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, deleteResponse.StatusCode);
     }
 
     private static int _loginRateLimitIpCounter;
