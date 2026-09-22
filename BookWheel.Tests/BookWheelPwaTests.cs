@@ -140,6 +140,36 @@ public sealed class BookWheelPwaTests : IClassFixture<BookWheelWebAppFactory>, I
     }
 
     [Fact]
+    public async Task Service_Worker_Shell_Assets_Should_Use_Versioned_Urls()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var versionResponse = await client.GetAsync("/api/version");
+        using var versionDocument = JsonDocument.Parse(await versionResponse.Content.ReadAsStringAsync());
+        var version = versionDocument.RootElement.GetProperty("version").GetString();
+        Assert.NotNull(version);
+
+        var response = await client.GetAsync("/sw.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: CACHE_VERSION is set to the real app version at serve time
+        // (the server substitutes __ASSET_VERSION__), and the precache list
+        // references each asset as a JS template literal using that constant —
+        // so the runtime URL matches what index.html actually requests (GH #150).
+        Assert.Contains($"const CACHE_VERSION = '{version}'", script, StringComparison.Ordinal);
+        Assert.Contains("`/css/site.css?v=${CACHE_VERSION}`", script, StringComparison.Ordinal);
+        Assert.Contains("`/js/app.js?v=${CACHE_VERSION}`", script, StringComparison.Ordinal);
+        Assert.Contains("`/js/i18n.js?v=${CACHE_VERSION}`", script, StringComparison.Ordinal);
+
+        // Negative: bare (unversioned) paths for CSS/JS would be cached as separate
+        // entries from the versioned ones, silently defeating the cache-first strategy.
+        Assert.DoesNotContain("'/css/site.css'", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("'/js/app.js'", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("'/js/i18n.js'", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Frontend_Script_Should_Register_Service_Worker_With_Feature_Detection()
     {
         var factory = _factory;

@@ -21,7 +21,7 @@ This document outlines practical ways to improve Book Wheel across product exper
 - Persistent storage for books, credentials, logs, and Data Protection keys
 - Storage CRUD operations are abstracted behind repository interfaces, backed by PostgreSQL for books, credentials, and password-reset tokens (logs and Data Protection keys remain file-based)
 - Working Docker-based deployment path
-- Security hardening already in place for encrypted credential storage, HTTPS redirection, HSTS, and login rate limiting
+- Security hardening already in place for encrypted credential storage, HTTPS redirection, HSTS, login rate limiting, and HTTP security response headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`)
 - Forwarded headers are configured for reverse-proxy deployments
 - Health checks are available for storage, logging, and application readiness
 - Structured operational metrics are available for login outcomes, spin activity, and total books
@@ -51,6 +51,8 @@ These items provide the highest operational value and align with the latest secu
 7. [Done] Add Trivy container scanning with a hard failure gate for fixable CRITICAL/HIGH findings and SARIF upload to GitHub Security tab.
 8. [Done] Add CodeQL static analysis for .NET source-code SAST, feeding results to the GitHub Security → Code Scanning tab alongside Trivy.
 9. Pin an explicit `SSL Mode` (e.g. `Require` or `VerifyFull`) on the production PostgreSQL connection string; Npgsql's default (`Prefer`) does not guarantee encryption-in-transit (`SECURITY_AUDIT_REPORT.md`, 2026-08-19).
+14. [Done] Add `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, and `Referrer-Policy: strict-origin-when-cross-origin` headers to every response via middleware in `Program.cs` (GH #145).
+15. [Done] Auth cookie `Secure` flag now derived from `Request.IsHttps` rather than hardcoded `true` for non-Development environments; `UseForwardedHeaders` already handles the reverse-proxy case, so the prior forced-`true` path that broke plain-HTTP/LAN deployments is removed (GH #136).
 10. [Done] Split the runtime PostgreSQL role into a least-privilege `bookwheel_app` role (DML only) and a separate `bookwheel_migrator` role (schema owner, used only for startup migrations); the Postgres bootstrap role is no longer used by the app at all. The prior wording of this item understated the actual risk: the live runtime role was a full PostgreSQL **superuser**, not merely DDL-capable (`docs/audits/database.md`, 2026-09-04, Finding #12) — this is now fixed for fresh deployments, with a documented manual upgrade path for existing ones.
 11. [Done] SHA-pin all GitHub Actions in `docker-release.yml` — previously the only unpinned workflow despite holding `packages: write` and real Docker Hub/GHCR publish credentials (`docs/audits/other-areas.md`, 2026-09-04, §1).
 12. [Done] Add a `LICENSE` file — the project previously had no license anywhere in the repo despite publishing Docker images publicly, leaving redistribution rights ambiguous (`docs/audits/other-areas.md`, 2026-09-04, §7).
@@ -72,8 +74,10 @@ The current interface is usable, but still minimal. The next step is making the 
 4. [Done] Add keyboard accessibility improvements for dialogs, lists, and wheel actions.
 5. [Done] Improve mobile layout polish for the wheel and management area.
 6. [Done] Add a high-contrast theme option (dark/light/high-contrast cycle) so every theme meets A11Y contrast expectations.
-7. [Done] Add PWA support: installable manifest, app-shell service worker caching, and an offline fallback page (#33).
-8. Add optional categories, tags, or reading status to books.
+7. [Done] Add PWA support: installable manifest, app-shell service worker caching, and an offline fallback page (#33). Fixed the `SHELL_ASSETS` precache list to use versioned URLs (`?v=${CACHE_VERSION}`) matching what `index.html` actually requests; bare paths caused `cache.addAll()` to store unreachable entries, silently defeating the cache-first strategy (GH #150).
+8. [Done] Darkened light-theme `--accent` from `#0284c7` (4.10:1) to `#027ab8` (4.69:1) to meet the WCAG 1.4.3 AA 4.5:1 minimum contrast ratio against white primary-button text (GH #141).
+9. [Done] Changed `<header class="user-management-header">` to `<div>` inside the Settings dialog; some AT implementations announce `<header>` inside `<dialog>` as a `banner` landmark despite the sectioning-ancestor rule (GH #153).
+10. Add optional categories, tags, or reading status to books.
 9. Full offline data support (queuing book add/edit/delete/spin actions made while offline and syncing on reconnect) was evaluated for #33 and deferred. It needs a durable client-side write queue, conflict resolution for concurrent edits across devices, and offline-aware handling of the cookie-based auth session (which has no refresh/silent-reauth path today). Revisit as its own project rather than an extension of the PWA caching work.
 
 Expected outcome:
@@ -124,6 +128,7 @@ The current file-based approach is simple, but it will eventually become limitin
 1. [Done] Add backup and restore guidance for `App_Data`.
 2. [Done] Add file corruption handling and recovery messaging.
 3. [Done] Add versioned data schema support for future migrations.
+8. [Done] Add a composite `(UserId, DeletedAtUtc)` index on the `books` table to cover the common per-user soft-delete filter; the previous single-column `UserId` index forced full scans of a user's deleted rows on every active-book query (GH #147).
 4. [Done] Move book, credential, and password-reset-token storage from flat JSON files to PostgreSQL for stronger consistency and easier querying.
 5. [Done] Add health checks for storage, logging, and app readiness.
 6. [Done] Abstract storage CRUD operations behind repository interfaces so the JSON-file backend can be swapped for SQL/NoSQL without touching business logic (#14).

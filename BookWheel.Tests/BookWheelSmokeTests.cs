@@ -118,6 +118,29 @@ public sealed class BookWheelSmokeTests : IClassFixture<BookWheelWebAppFactory>,
     }
 
     [Fact]
+    public async Task Every_Response_Should_Include_Http_Security_Headers()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        // Hit three different response types to confirm the middleware fires for all of them.
+        var htmlResponse = await client.GetAsync("/");
+        var jsResponse = await client.GetAsync("/js/app.js?v=test");
+        var apiResponse = await client.GetAsync("/api/auth/status");
+
+        foreach (var response in new[] { htmlResponse, jsResponse, apiResponse })
+        {
+            // Positive: all three headers are present on every response (GH #145).
+            Assert.True(response.Headers.TryGetValues("X-Content-Type-Options", out var xct) && xct.Any(v => v == "nosniff"),
+                $"{response.RequestMessage?.RequestUri} missing X-Content-Type-Options: nosniff");
+            Assert.True(response.Headers.TryGetValues("X-Frame-Options", out var xfo) && xfo.Any(v => v == "DENY"),
+                $"{response.RequestMessage?.RequestUri} missing X-Frame-Options: DENY");
+            Assert.True(response.Headers.TryGetValues("Referrer-Policy", out var rp) && rp.Any(v => v == "strict-origin-when-cross-origin"),
+                $"{response.RequestMessage?.RequestUri} missing Referrer-Policy: strict-origin-when-cross-origin");
+        }
+    }
+
+    [Fact]
     public async Task Docker_Artifacts_Define_Persistent_Data_And_Runtime_Probe_Configuration()
     {
         var solutionRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
