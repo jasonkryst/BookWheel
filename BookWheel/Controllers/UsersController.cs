@@ -2,6 +2,7 @@ using BookWheel.Models;
 using BookWheel.Services;
 using BookWheel.Storage;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace BookWheel.Controllers;
 
@@ -14,19 +15,22 @@ public sealed class UsersController : ControllerBase
     private readonly UserManagementService _userManagement;
     private readonly ILogger<UsersController> _logger;
     private readonly ApiMessageLocalizer _errors;
+    private readonly AppOptions _appOptions;
 
     public UsersController(
         AuthService authService,
         ICredentialRepository credentialRepository,
         UserManagementService userManagement,
         ILogger<UsersController> logger,
-        ApiMessageLocalizer errors)
+        ApiMessageLocalizer errors,
+        IOptions<AppOptions> appOptions)
     {
         _authService = authService;
         _credentialRepository = credentialRepository;
         _userManagement = userManagement;
         _logger = logger;
         _errors = errors;
+        _appOptions = appOptions.Value;
     }
 
     [HttpGet]
@@ -64,7 +68,9 @@ public sealed class UsersController : ControllerBase
         try
         {
             var user = await _credentialRepository.CreateUserAsync(request.Username, request.IsAdmin, request.Email);
-            var appBaseUrl = $"{Request.Scheme}://{Request.Host}{Request.PathBase}";
+            // Deliberately NOT derived from Request.Scheme/Request.Host: AllowedHosts is "*",
+            // so that header is attacker-controlled. Use the operator-configured App:BaseUrl instead.
+            var appBaseUrl = _appOptions.BaseUrl.TrimEnd('/');
             var setupLink = await _authService.CreatePasswordResetLinkAsync(user.UserId, appBaseUrl);
             _logger.LogInformation(
                 "User account created with setup link. Actor {ActorUsername} target {TargetUsername} role {IsAdmin} request {RequestId}",
@@ -181,7 +187,9 @@ public sealed class UsersController : ControllerBase
 
         try
         {
-            var appBaseUrl = $"{Request.Scheme}://{Request.Host}{Request.PathBase}";
+            // Deliberately NOT derived from Request.Scheme/Request.Host: AllowedHosts is "*",
+            // so that header is attacker-controlled. Use the operator-configured App:BaseUrl instead.
+            var appBaseUrl = _appOptions.BaseUrl.TrimEnd('/');
             var result = await _authService.CreatePasswordResetLinkAsync(id, appBaseUrl);
             _logger.LogInformation(
                 "Forced password reset link generated. Actor {ActorUsername} target {TargetUsername} request {RequestId}",

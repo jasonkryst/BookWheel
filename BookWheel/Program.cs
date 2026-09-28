@@ -135,8 +135,10 @@ builder.Services.AddHealthChecks()
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
 	options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-	options.KnownIPNetworks.Clear();
-	options.KnownProxies.Clear();
+	// Do NOT call KnownIPNetworks.Clear() or KnownProxies.Clear() here.
+	// The defaults restrict header trust to loopback (127.0.0.1, ::1).
+	// Clearing them lets any client spoof X-Forwarded-For, bypassing the IP-keyed rate limiter.
+	// If a reverse proxy is in use, add only its IP: options.KnownProxies.Add(IPAddress.Parse("..."));
 });
 
 var securityOptions = builder.Configuration.GetSection(SecurityOptions.SectionName).Get<SecurityOptions>() ?? new SecurityOptions();
