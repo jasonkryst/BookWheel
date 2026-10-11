@@ -209,4 +209,19 @@ public sealed class PostgresLoginThrottleRepositoryTests : IAsyncLifetime
         Assert.False((await service.ValidateCredentialsAsync("reader", "bad-3")).IsLockedOut);
         Assert.False((await service.ValidateCredentialsAsync("reader", "bad-4")).IsLockedOut);
     }
+
+    [Fact]
+    public async Task AuthService_Lockout_Is_Keyed_By_Resolved_Account_Across_Spellings()
+    {
+        // The lockout protects an account, so failures spelled differently for the same
+        // account must share one bucket — not split across per-spelling buckets. Guards the
+        // fix for the citext-vs-ToLowerInvariant parser differential.
+        var credentials = new PostgresCredentialRepository(_contextFactory);
+        await credentials.CreateInitialAccountAsync("Reader", "correct-password", "reader@example.com");
+        var service = CreateAuthService(threshold: 2);
+
+        Assert.False((await service.ValidateCredentialsAsync("reader", "bad")).IsLockedOut);
+        Assert.True((await service.ValidateCredentialsAsync("READER", "bad")).LockoutTriggered);
+        Assert.True((await service.ValidateCredentialsAsync("ReAdEr", "correct-password")).IsLockedOut);
+    }
 }

@@ -45,9 +45,16 @@ public sealed class AuthService
 
     public async Task<LoginValidationResult> ValidateCredentialsAsync(string username, string password)
     {
-        // Lockout state is keyed by the normalized username and applies to unknown usernames
-        // too (anti-enumeration), so it is persisted independently of the users table.
-        var lockedUntil = await _loginThrottleRepository.GetActiveLockoutAsync(username);
+        // Derive the lockout key from the resolved account when the username matches one, so
+        // every spelling that maps to the same account shares a single lockout bucket. Keying
+        // on the raw submitted string would let an attacker split attempts across buckets using
+        // inputs that Postgres citext treats as the same account but C# case-folding does not
+        // (a parser differential → lockout bypass). Unknown usernames fall back to the submitted
+        // value and still lock, preserving the anti-enumeration behaviour.
+        var existingAccount = await _credentialRepository.FindByUsernameAsync(username);
+        var lockoutKey = existingAccount?.Username ?? username;
+
+        var lockedUntil = await _loginThrottleRepository.GetActiveLockoutAsync(lockoutKey);
         if (lockedUntil.HasValue)
         {
             return new LoginValidationResult
@@ -62,7 +69,7 @@ public sealed class AuthService
         {
             var threshold = Math.Max(2, _securityOptions.UsernameLockoutThreshold);
             var lockoutDuration = TimeSpan.FromMinutes(Math.Max(1, _securityOptions.UsernameLockoutMinutes));
-            var outcome = await _loginThrottleRepository.RegisterFailedAttemptAsync(username, threshold, lockoutDuration);
+            var outcome = await _loginThrottleRepository.RegisterFailedAttemptAsync(lockoutKey, threshold, lockoutDuration);
             if (outcome.IsLockedOut)
             {
                 return new LoginValidationResult
@@ -77,7 +84,7 @@ public sealed class AuthService
             return new LoginValidationResult { IsInvalidCredentials = true };
         }
 
-        await _loginThrottleRepository.ClearAsync(username);
+        await _loginThrottleRepository.ClearAsync(lockoutKey);
 
         if (user.IsDisabled)
         {
