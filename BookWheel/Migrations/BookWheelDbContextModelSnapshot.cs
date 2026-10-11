@@ -162,6 +162,27 @@ namespace BookWheel.Migrations
                         });
                 });
 
+            modelBuilder.Entity("BookWheel.Storage.Postgres.Entities.LoginThrottleEntity", b =>
+                {
+                    b.Property<string>("NormalizedUsername")
+                        .HasColumnType("text");
+
+                    b.Property<int>("FailedCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("LockedUntilUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("NormalizedUsername");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.ToTable("login_throttle", (string)null);
+                });
+
             modelBuilder.Entity("BookWheel.Storage.Postgres.Entities.PasswordResetTokenEntity", b =>
                 {
                     b.Property<Guid>("Id")

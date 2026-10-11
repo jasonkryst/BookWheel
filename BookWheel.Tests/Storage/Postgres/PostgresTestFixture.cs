@@ -40,7 +40,7 @@ public sealed class PostgresTestFixture : IAsyncLifetime
     {
         await using var context = CreateContext();
         await context.Database.ExecuteSqlRawAsync(
-            "TRUNCATE TABLE books, password_reset_tokens, users, spin_selections RESTART IDENTITY CASCADE;");
+            "TRUNCATE TABLE books, password_reset_tokens, users, spin_selections, login_throttle RESTART IDENTITY CASCADE;");
     }
 }
 

@@ -15,6 +15,7 @@ public sealed class BookWheelDbContext : DbContext
     public DbSet<BookInfoProviderEntity> BookInfoProviders => Set<BookInfoProviderEntity>();
     public DbSet<PasswordResetTokenEntity> PasswordResetTokens => Set<PasswordResetTokenEntity>();
     public DbSet<SpinSelectionEntity> SpinSelections => Set<SpinSelectionEntity>();
+    public DbSet<LoginThrottleEntity> LoginThrottles => Set<LoginThrottleEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -88,6 +89,13 @@ public sealed class BookWheelDbContext : DbContext
             entity.Property(t => t.TokenHash).IsRequired();
             entity.HasIndex(t => t.TokenHash).IsUnique();
             entity.HasIndex(t => t.UserId);
+        });
+
+        modelBuilder.Entity<LoginThrottleEntity>(entity =>
+        {
+            entity.ToTable("login_throttle");
+            entity.HasKey(x => x.NormalizedUsername);
+            entity.HasIndex(x => x.UpdatedAtUtc);
         });
     }
 }

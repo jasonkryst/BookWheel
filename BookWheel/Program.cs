@@ -85,6 +85,9 @@ builder.Services.AddSingleton<ICredentialRepository>(sp => sp.GetRequiredService
 builder.Services.AddSingleton<PostgresPasswordResetTokenRepository>();
 builder.Services.AddSingleton<IPasswordResetTokenRepository>(sp => sp.GetRequiredService<PostgresPasswordResetTokenRepository>());
 
+builder.Services.AddSingleton<PostgresLoginThrottleRepository>();
+builder.Services.AddSingleton<ILoginThrottleRepository>(sp => sp.GetRequiredService<PostgresLoginThrottleRepository>());
+
 builder.Services.AddSingleton<PostgresUserPreferencesRepository>();
 builder.Services.AddSingleton<IUserPreferencesRepository>(sp => sp.GetRequiredService<PostgresUserPreferencesRepository>());
 
@@ -198,6 +201,7 @@ builder.Services.AddTransient(sp => new BookMetadataLookupDispatcher(
 builder.Services.AddSingleton<BookSearchLinksService>();
 builder.Services.AddHostedService<StartupDiagnosticsService>();
 builder.Services.AddHostedService<LogShippingService>();
+builder.Services.AddHostedService<LoginThrottleCleanupService>();
 builder.Services.AddHealthChecks()
 	.AddCheck<DatabaseHealthCheck>("database", tags: ["ready"])
 	.AddCheck<LoggingHealthCheck>("logging", tags: ["ready"])
