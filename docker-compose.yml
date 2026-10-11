@@ -86,6 +86,13 @@ services:
       # Optional override when the proxy cannot forward X-Forwarded-Proto (HTTPS only):
       #   Security__AlwaysSecureCookie: "true"
       FORWARDED_KNOWN_NETWORKS: "${FORWARDED_KNOWN_NETWORKS:-}"
+      # Host-header filtering. Defaults to "*" (accept any Host). For a public deployment,
+      # set ALLOWED_HOSTS in your .env to the hostname(s) this instance serves so the app
+      # rejects requests with a forged Host header (e.g. ALLOWED_HOSTS=books.example.com).
+      # Semicolon-separate multiple hosts, and include "localhost" if an in-container health
+      # probe hits the app directly (e.g. ALLOWED_HOSTS=books.example.com;localhost). This
+      # maps to ASP.NET Core's "AllowedHosts" config key.
+      AllowedHosts: "${ALLOWED_HOSTS:-*}"
     volumes:
       - bookwheel_app_data:/app/App_Data
       - bookwheel_dp_keys:/home/app/.aspnet/DataProtection-Keys

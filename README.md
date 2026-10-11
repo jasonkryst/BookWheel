@@ -344,6 +344,17 @@ Setups by proxy — put the proxy and BookWheel on one dedicated Docker network 
 
 If your proxy cannot forward `X-Forwarded-Proto`, set `Security:AlwaysSecureCookie` to `true` (env `Security__AlwaysSecureCookie=true`) to always mark the auth cookie `Secure`. Only do this when users reach the app over HTTPS, since browsers will not send a `Secure` cookie over plain HTTP.
 
+### Allowed hosts
+
+BookWheel uses ASP.NET Core host filtering, controlled by the `AllowedHosts` configuration key. The default is `*` (accept any `Host` header), which is fine for local use. For a public deployment, restrict it to the hostname(s) this instance serves so the app rejects requests with a forged `Host` header:
+
+- `docker-compose.yml` reads it from `ALLOWED_HOSTS` in your `.env`: `ALLOWED_HOSTS=books.example.com`.
+- Or set the container env var `AllowedHosts` directly (same name as the config key).
+- Semicolon-separate multiple hosts, e.g. `ALLOWED_HOSTS=books.example.com;www.books.example.com`.
+- If you add an in-container health probe that hits the app directly (see the self-hosting kit), include `localhost`: `ALLOWED_HOSTS=books.example.com;localhost`.
+
+This is defense in depth. The main host-header risk — password-reset links built from the request `Host` — is already closed separately: those links come only from `App:BaseUrl`, never the incoming `Host` header.
+
 ## First-Run Account Setup
 
 On the first visit, the login screen switches into account-creation mode if no user account exists in the database yet.
