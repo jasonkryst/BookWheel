@@ -248,6 +248,30 @@ public sealed class AuthService
         return username;
     }
 
+    public async Task<AuthenticatedUser> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword)
+    {
+        var account = await _credentialRepository.FindByIdAsync(userId)
+            ?? throw new InvalidOperationException("User not found.");
+
+        var verified = await _credentialRepository.ValidateCredentialsAsync(account.Username, currentPassword);
+        if (verified is null)
+        {
+            throw new InvalidOperationException("The current password is incorrect.");
+        }
+
+        if (string.Equals(newPassword, currentPassword, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("The new password must be different from your current password.");
+        }
+
+        // Rotates the security stamp, which invalidates every existing session cookie.
+        // The caller re-issues the current session's cookie with the fresh stamp.
+        await _credentialRepository.SetPasswordAsync(userId, newPassword);
+
+        var updated = await _credentialRepository.FindByIdAsync(userId);
+        return ToAuthenticatedUser(updated!);
+    }
+
     public async Task<PasswordResetTokenValidationResult> ValidatePasswordResetTokenAsync(string token)
     {
         var lookup = await _resetTokenRepository.ValidateAsync(token);

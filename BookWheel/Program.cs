@@ -314,6 +314,27 @@ builder.Services.AddRateLimiter(options =>
 				});
 		}
 
+		if (context.Request.Path.Equals("/api/auth/password", StringComparison.OrdinalIgnoreCase))
+		{
+			// Self-service password change verifies the current password, so bound
+			// guesses per user (a stolen cookie must not allow brute-forcing it).
+			// Falls back to client IP when the auth cookie is missing/unreadable.
+			var authenticatedUserId = TryGetUserIdFromAuthCookie(context);
+			var keyMaterial = authenticatedUserId is not null
+				? $"user:{authenticatedUserId}"
+				: $"ip:{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}";
+
+			return RateLimitPartition.GetFixedWindowLimiter(
+				$"password-change:{keyMaterial}",
+				_ => new FixedWindowRateLimiterOptions
+				{
+					PermitLimit = 5,
+					Window = TimeSpan.FromMinutes(1),
+					QueueLimit = 0,
+					AutoReplenishment = true
+				});
+		}
+
 		return RateLimitPartition.GetNoLimiter("default");
 	});
 });

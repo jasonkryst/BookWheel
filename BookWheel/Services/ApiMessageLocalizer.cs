@@ -48,6 +48,8 @@ public sealed class ApiMessageLocalizer(IStringLocalizer<SharedErrors> localizer
 		["Email must be 256 characters or fewer."] = "EmailLength",
 		["Administrators can only update their own email address."] = "AdminsCanOnlySelfUpdateEmail",
 		["No books were provided to import."] = "NoBooksProvidedToImport",
+		["The current password is incorrect."] = "CurrentPasswordIncorrect",
+		["The new password must be different from your current password."] = "NewPasswordMustDiffer",
 	};
 
 	public static IReadOnlyDictionary<string, string> KnownMessageKeys => KeysByEnglishMessage;

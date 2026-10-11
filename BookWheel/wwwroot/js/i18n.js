@@ -91,7 +91,14 @@
         tabsLabel: 'Settings sections',
         manageUsersTab: 'Manage users',
         importExportTab: 'Import / Export',
-        preferencesTab: 'Preferences'
+        preferencesTab: 'Preferences',
+        changePasswordHeading: 'Change password',
+        currentPasswordLabel: 'Current password',
+        newPasswordLabel: 'New password',
+        confirmNewPasswordLabel: 'Confirm new password',
+        changePasswordSubmit: 'Update password',
+        passwordChangedMessage: 'Your password has been updated.',
+        passwordsMismatchError: 'The new passwords do not match.'
       },
       wheel: {
         heading: 'Spin wheel',
@@ -387,7 +394,14 @@
         tabsLabel: 'Secciones de configuración',
         manageUsersTab: 'Gestionar usuarios',
         importExportTab: 'Importar / Exportar',
-        preferencesTab: 'Preferencias'
+        preferencesTab: 'Preferencias',
+        changePasswordHeading: 'Cambiar contraseña',
+        currentPasswordLabel: 'Contraseña actual',
+        newPasswordLabel: 'Nueva contraseña',
+        confirmNewPasswordLabel: 'Confirmar nueva contraseña',
+        changePasswordSubmit: 'Actualizar contraseña',
+        passwordChangedMessage: 'Tu contraseña se ha actualizado.',
+        passwordsMismatchError: 'Las nuevas contraseñas no coinciden.'
       },
       wheel: {
         heading: 'Rueda giratoria',
@@ -683,7 +697,14 @@
         tabsLabel: 'Sekcje ustawień',
         manageUsersTab: 'Zarządzaj użytkownikami',
         importExportTab: 'Importuj / Eksportuj',
-        preferencesTab: 'Preferencje'
+        preferencesTab: 'Preferencje',
+        changePasswordHeading: 'Zmień hasło',
+        currentPasswordLabel: 'Bieżące hasło',
+        newPasswordLabel: 'Nowe hasło',
+        confirmNewPasswordLabel: 'Potwierdź nowe hasło',
+        changePasswordSubmit: 'Zaktualizuj hasło',
+        passwordChangedMessage: 'Twoje hasło zostało zaktualizowane.',
+        passwordsMismatchError: 'Nowe hasła nie są zgodne.'
       },
       wheel: {
         heading: 'Koło losujące',

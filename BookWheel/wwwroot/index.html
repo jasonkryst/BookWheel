@@ -290,6 +290,24 @@
             <option value="2">Google Books</option>
           </select>
         </label>
+        <form id="changePasswordForm" class="stack">
+          <h3 data-i18n="settings.changePasswordHeading">Change password</h3>
+          <label>
+            <span data-i18n="settings.currentPasswordLabel">Current password</span>
+            <input id="changePasswordCurrent" type="password" maxlength="128" autocomplete="current-password" aria-describedby="changePasswordError" required />
+          </label>
+          <label>
+            <span data-i18n="settings.newPasswordLabel">New password</span>
+            <input id="changePasswordNew" type="password" maxlength="128" minlength="8" autocomplete="new-password" aria-describedby="changePasswordError" required />
+          </label>
+          <label>
+            <span data-i18n="settings.confirmNewPasswordLabel">Confirm new password</span>
+            <input id="changePasswordConfirm" type="password" maxlength="128" minlength="8" autocomplete="new-password" aria-describedby="changePasswordError" required />
+          </label>
+          <button id="changePasswordSubmitBtn" type="submit" data-i18n="settings.changePasswordSubmit">Update password</button>
+          <p id="changePasswordMessage" class="message" role="status" aria-live="polite"></p>
+          <p id="changePasswordError" class="error" role="alert" aria-live="assertive" aria-atomic="true"></p>
+        </form>
       </section>
 
       <div class="actions modal-actions">

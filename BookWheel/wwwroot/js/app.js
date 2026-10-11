@@ -2380,6 +2380,72 @@ if (resetPasswordForm) {
   });
 }
 
+const changePasswordForm = document.getElementById('changePasswordForm');
+if (changePasswordForm) {
+  const changePasswordCurrent = document.getElementById('changePasswordCurrent');
+  const changePasswordNew = document.getElementById('changePasswordNew');
+  const changePasswordConfirm = document.getElementById('changePasswordConfirm');
+  const changePasswordSubmitBtn = document.getElementById('changePasswordSubmitBtn');
+  const changePasswordMessage = document.getElementById('changePasswordMessage');
+  const changePasswordError = document.getElementById('changePasswordError');
+
+  changePasswordForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    changePasswordError.textContent = '';
+    changePasswordMessage.textContent = '';
+    const { t } = window.BookWheelI18n;
+
+    const currentPassword = changePasswordCurrent.value;
+    const newPassword = changePasswordNew.value;
+    const confirmPassword = changePasswordConfirm.value;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      changePasswordError.textContent = t('auth.bothPasswordsRequiredError');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      changePasswordNew.setAttribute('aria-invalid', 'true');
+      changePasswordConfirm.setAttribute('aria-invalid', 'true');
+      changePasswordError.textContent = t('auth.passwordTooShortError');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      changePasswordNew.setAttribute('aria-invalid', 'true');
+      changePasswordConfirm.setAttribute('aria-invalid', 'true');
+      changePasswordError.textContent = t('settings.passwordsMismatchError');
+      return;
+    }
+
+    changePasswordNew.setAttribute('aria-invalid', 'false');
+    changePasswordConfirm.setAttribute('aria-invalid', 'false');
+
+    changePasswordSubmitBtn.disabled = true;
+    const originalText = changePasswordSubmitBtn.textContent;
+    changePasswordSubmitBtn.textContent = t('common.saving');
+
+    try {
+      // The server re-issues this session's cookie, so no re-login is needed;
+      // the user's other sessions are signed out.
+      await requestJson('/api/auth/password', {
+        method: 'POST',
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+
+      changePasswordForm.reset();
+      changePasswordMessage.textContent = t('settings.passwordChangedMessage');
+      showToast(t('settings.passwordChangedMessage'), 'success');
+    } catch (error) {
+      changePasswordError.textContent = error.message;
+      showToast(error.message, 'error');
+    } finally {
+      changePasswordSubmitBtn.disabled = false;
+      changePasswordSubmitBtn.textContent = originalText;
+    }
+  });
+}
+
 if (userSearchInput) {
   userSearchInput.addEventListener('input', () => {
     renderUserRows(allUsers);
