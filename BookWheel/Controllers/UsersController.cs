@@ -1,6 +1,7 @@
 using BookWheel.Models;
 using BookWheel.Services;
 using BookWheel.Storage;
+using BookWheel.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -54,8 +55,8 @@ public sealed class UsersController : ControllerBase
             var setupLink = await _authService.CreatePasswordResetLinkAsync(user.UserId, appBaseUrl);
             _logger.LogInformation(
                 "User account created with setup link. Actor {ActorUsername} target {TargetUsername} role {IsAdmin} request {RequestId}",
-                User.GetUsername(),
-                user.Username,
+                LogSanitizer.Sanitize(User.GetUsername()),
+                LogSanitizer.Sanitize(user.Username),
                 user.IsAdmin,
                 HttpContext.TraceIdentifier);
             return Ok(new
@@ -107,8 +108,8 @@ public sealed class UsersController : ControllerBase
                 {
                     _logger.LogInformation(
                         "Role changed. Actor {ActorUsername} target {TargetUsername} from {OldIsAdmin} to {NewIsAdmin} request {RequestId}",
-                        User.GetUsername(),
-                        user.Username,
+                        LogSanitizer.Sanitize(User.GetUsername()),
+                        LogSanitizer.Sanitize(user.Username),
                         before.IsAdmin,
                         user.IsAdmin,
                         HttpContext.TraceIdentifier);
@@ -118,8 +119,8 @@ public sealed class UsersController : ControllerBase
                 {
                     _logger.LogInformation(
                         "Account security state changed. Actor {ActorUsername} target {TargetUsername} disabled {IsDisabled} locked {IsLocked} forceReset {ForcePasswordReset} request {RequestId}",
-                        User.GetUsername(),
-                        user.Username,
+                        LogSanitizer.Sanitize(User.GetUsername()),
+                        LogSanitizer.Sanitize(user.Username),
                         user.IsDisabled,
                         user.IsLocked,
                         user.ForcePasswordReset,
@@ -151,8 +152,8 @@ public sealed class UsersController : ControllerBase
             var result = await _authService.CreatePasswordResetLinkAsync(id, appBaseUrl);
             _logger.LogInformation(
                 "Forced password reset link generated. Actor {ActorUsername} target {TargetUsername} request {RequestId}",
-                User.GetUsername(),
-                result.Username,
+                LogSanitizer.Sanitize(User.GetUsername()),
+                LogSanitizer.Sanitize(result.Username),
                 HttpContext.TraceIdentifier);
             return Ok(new
             {
@@ -180,8 +181,8 @@ public sealed class UsersController : ControllerBase
             var (deletedUser, removedBooks) = await _userManagement.DeleteUserWithDataAsync(id);
             _logger.LogInformation(
                 "User account deleted. Actor {ActorUsername} target {TargetUsername} removed books {RemovedBooks} request {RequestId}",
-                User.GetUsername(),
-                deletedUser.Username,
+                LogSanitizer.Sanitize(User.GetUsername()),
+                LogSanitizer.Sanitize(deletedUser.Username),
                 removedBooks,
                 HttpContext.TraceIdentifier);
             return Ok(new
