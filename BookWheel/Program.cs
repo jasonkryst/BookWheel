@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Reflection;
 using System.Threading.RateLimiting;
@@ -122,9 +123,11 @@ builder.Services.AddHttpClient<GoogleBooksBookMetadataLookupService>(client =>
 	client.Timeout = TimeSpan.FromSeconds(8);
 	client.DefaultRequestHeaders.UserAgent.ParseAdd("BookWheel/1.0 (+https://github.com/jasonkryst/BookWheel)");
 });
+builder.Services.AddMemoryCache(options => options.SizeLimit = 2048);
 builder.Services.AddTransient(sp => new BookMetadataLookupDispatcher(
 	sp.GetRequiredService<OpenLibraryBookMetadataLookupService>(),
-	sp.GetRequiredService<GoogleBooksBookMetadataLookupService>()));
+	sp.GetRequiredService<GoogleBooksBookMetadataLookupService>(),
+	sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>()));
 builder.Services.AddSingleton<BookSearchLinksService>();
 builder.Services.AddHostedService<StartupDiagnosticsService>();
 builder.Services.AddHostedService<LogShippingService>();
@@ -206,6 +209,28 @@ builder.Services.AddRateLimiter(options =>
 				_ => new FixedWindowRateLimiterOptions
 				{
 					PermitLimit = 5,
+					Window = TimeSpan.FromMinutes(1),
+					QueueLimit = 0,
+					AutoReplenishment = true
+				});
+		}
+
+		if (context.Request.Path.Equals("/api/books/lookup", StringComparison.OrdinalIgnoreCase)
+			|| context.Request.Path.Equals("/api/books/info", StringComparison.OrdinalIgnoreCase))
+		{
+			// Metadata lookups fan out to third-party APIs; bound them per session
+			// (auth cookie) and fall back to per-IP for unauthenticated callers.
+			var keyMaterial = context.Request.Cookies["BookWheel.Auth"];
+			if (string.IsNullOrEmpty(keyMaterial))
+			{
+				keyMaterial = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+			}
+
+			return RateLimitPartition.GetFixedWindowLimiter(
+				$"lookup:{keyMaterial}",
+				_ => new FixedWindowRateLimiterOptions
+				{
+					PermitLimit = Math.Max(1, securityOptions.MetadataLookupRateLimitPerMinute),
 					Window = TimeSpan.FromMinutes(1),
 					QueueLimit = 0,
 					AutoReplenishment = true
@@ -362,10 +387,18 @@ if (observabilityOptions.EnableRequestCorrelationLogging)
 
 app.Use(async (context, next) =>
 {
-    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
-    context.Response.Headers["X-Frame-Options"] = "DENY";
-    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
-    await next();
+	var nonce = Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
+	context.Items["csp-nonce"] = nonce;
+
+	context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+	context.Response.Headers["X-Frame-Options"] = "DENY";
+	context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+	context.Response.Headers["Permissions-Policy"] = "camera=(self), microphone=(), geolocation=(), browsing-topics=()";
+	var cspHeaderName = securityOptions.ContentSecurityPolicyReportOnly
+		? "Content-Security-Policy-Report-Only"
+		: "Content-Security-Policy";
+	context.Response.Headers[cspHeaderName] = BuildContentSecurityPolicy(nonce, !string.IsNullOrWhiteSpace(googleAnalyticsId));
+	await next();
 });
 app.UseRateLimiter();
 app.UseResponseCompression();
@@ -378,6 +411,18 @@ app.UseRequestLocalization(new RequestLocalizationOptions
 	SupportedUICultures = supportedCultures
 });
 
+static string BuildContentSecurityPolicy(string nonce, bool googleAnalyticsEnabled)
+{
+	var analyticsConnect = googleAnalyticsEnabled
+		? " https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com"
+		: string.Empty;
+	var analyticsScript = googleAnalyticsEnabled ? " https://www.googletagmanager.com" : string.Empty;
+	return "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; "
+		+ "img-src 'self' https: data:; font-src 'self'; style-src 'self'; manifest-src 'self'; worker-src 'self'; "
+		+ $"connect-src 'self'{analyticsConnect}; "
+		+ $"script-src 'self' 'nonce-{nonce}'{analyticsScript}";
+}
+
 async Task WriteConfiguredIndexAsync(HttpContext context)
 {
 	var webRootPath = app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
@@ -385,6 +430,8 @@ async Task WriteConfiguredIndexAsync(HttpContext context)
 	var html = await File.ReadAllTextAsync(indexPath);
 	html = GoogleAnalyticsHtmlInjector.Apply(html, googleAnalyticsId);
 	html = html.Replace("__ASSET_VERSION__", Uri.EscapeDataString(appVersion), StringComparison.Ordinal);
+	var cspNonce = context.Items["csp-nonce"] as string ?? Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
+	html = html.Replace("__CSP_NONCE__", cspNonce, StringComparison.Ordinal);
 
 	context.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
 	context.Response.Headers.Pragma = "no-cache";

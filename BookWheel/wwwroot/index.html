@@ -553,12 +553,12 @@
   <script src="js/app.js?v=__ASSET_VERSION__"></script>
 
   <!-- Google tag (gtag.js) -->
-  <script>
+  <script nonce="__CSP_NONCE__">
     window.__BOOKWHEEL_GA_ID__ = "__GOOGLE_ANALYTICS_ID__";
   </script>
   <!--GOOGLE_ANALYTICS_SCRIPT_START-->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=__GOOGLE_ANALYTICS_ID__"></script>
-  <script>
+  <script async nonce="__CSP_NONCE__" src="https://www.googletagmanager.com/gtag/js?id=__GOOGLE_ANALYTICS_ID__"></script>
+  <script nonce="__CSP_NONCE__">
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
