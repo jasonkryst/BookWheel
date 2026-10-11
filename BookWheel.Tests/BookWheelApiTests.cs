@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using BookWheel.Tests.Services;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -2581,6 +2582,162 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         var deleteResponse = await client.DeleteAsync($"/api/users/{adminId}");
 
         Assert.Equal(HttpStatusCode.BadRequest, deleteResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Disabling_A_User_Revokes_Their_Active_Session()
+    {
+        using var adminClient = _factory.CreateClient();
+        using var readerClient = _factory.CreateClient();
+        var readerId = await SetUpAdminAndLoggedInReaderAsync(adminClient, readerClient);
+
+        var update = await UpdateUserStateAsync(adminClient, readerId, "reader-one", isAdmin: false, isDisabled: true, isLocked: false);
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+
+        var after = await readerClient.GetAsync("/api/books");
+        Assert.Equal(HttpStatusCode.Unauthorized, after.StatusCode);
+    }
+
+    [Fact]
+    public async Task Locking_A_User_Revokes_Their_Active_Session()
+    {
+        using var adminClient = _factory.CreateClient();
+        using var readerClient = _factory.CreateClient();
+        var readerId = await SetUpAdminAndLoggedInReaderAsync(adminClient, readerClient);
+
+        var update = await UpdateUserStateAsync(adminClient, readerId, "reader-one", isAdmin: false, isDisabled: false, isLocked: true);
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+
+        var after = await readerClient.GetAsync("/api/books");
+        Assert.Equal(HttpStatusCode.Unauthorized, after.StatusCode);
+    }
+
+    [Fact]
+    public async Task Demoting_An_Admin_Revokes_Their_Existing_Admin_Session()
+    {
+        using var adminClient = _factory.CreateClient();
+        using var secondAdminClient = _factory.CreateClient();
+        await adminClient.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
+        var (secondAdminId, setupLink) = await CreateUserAsync(adminClient, "second-admin", isAdmin: true);
+        await SetPasswordFromSetupLinkAsync(secondAdminClient, setupLink, "second-pass-1");
+        await LoginAsync(secondAdminClient, "second-admin", "second-pass-1");
+
+        var before = await secondAdminClient.GetAsync("/api/users");
+        Assert.Equal(HttpStatusCode.OK, before.StatusCode);
+
+        var update = await UpdateUserStateAsync(adminClient, secondAdminId, "second-admin", isAdmin: false, isDisabled: false, isLocked: false);
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+
+        // The stale admin snapshot must be gone: the old cookie no longer works at all
+        // (401), so it can never reach the admin-only endpoint.
+        var after = await secondAdminClient.GetAsync("/api/users");
+        Assert.Equal(HttpStatusCode.Unauthorized, after.StatusCode);
+    }
+
+    [Fact]
+    public async Task Completing_A_Password_Reset_Revokes_The_Users_Other_Sessions()
+    {
+        using var adminClient = _factory.CreateClient();
+        using var readerClient = _factory.CreateClient();
+        using var anonymousClient = _factory.CreateClient();
+        var readerId = await SetUpAdminAndLoggedInReaderAsync(adminClient, readerClient);
+
+        // Mint the token straight from the service (not the admin endpoint) so the
+        // reader's session is still live and completion is the only thing that can evict it.
+        var authService = _factory.Services.GetRequiredService<BookWheel.Services.AuthService>();
+        var link = await authService.CreatePasswordResetLinkAsync(readerId, "https://bookwheel.test");
+        var token = ExtractResetToken(link.ResetLink);
+        Assert.Equal(HttpStatusCode.OK, (await readerClient.GetAsync("/api/books")).StatusCode);
+
+        var complete = await anonymousClient.PostAsJsonAsync("/api/auth/password-reset/complete", new { token, newPassword = "reader-pass-2" });
+        Assert.Equal(HttpStatusCode.OK, complete.StatusCode);
+
+        var after = await readerClient.GetAsync("/api/books");
+        Assert.Equal(HttpStatusCode.Unauthorized, after.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_Editing_Only_Own_Email_Keeps_Their_Session()
+    {
+        using var client = _factory.CreateClient();
+        var setupResponse = await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "original@example.com" });
+        using var setupDoc = await ReadJsonAsync(setupResponse);
+        var adminId = setupDoc.RootElement.GetProperty("user").GetProperty("userId").GetGuid();
+
+        var update = await client.PutAsJsonAsync($"/api/users/{adminId}", new
+        {
+            username = "test-admin",
+            isAdmin = true,
+            isDisabled = false,
+            forcePasswordReset = false,
+            isLocked = false,
+            email = "changed@example.com"
+        });
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+
+        var after = await client.GetAsync("/api/books");
+        Assert.Equal(HttpStatusCode.OK, after.StatusCode);
+    }
+
+    [Fact]
+    public async Task Login_Cookie_Is_Secure_When_Forwarded_Proto_Is_Https()
+    {
+        using var client = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { HandleCookies = false });
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "proto-admin", password = "test-password", email = "proto@example.com" });
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/login")
+        {
+            Content = JsonContent.Create(new { username = "proto-admin", password = "test-password" })
+        };
+        request.Headers.TryAddWithoutValidation("X-Forwarded-For", NextSyntheticIp());
+        request.Headers.TryAddWithoutValidation("X-Forwarded-Proto", "https");
+
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var setCookie = response.Headers.GetValues("Set-Cookie").First(c => c.StartsWith("BookWheel.Auth=", StringComparison.Ordinal));
+        Assert.Contains("secure", setCookie, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Login_Cookie_Is_Secure_When_AlwaysSecureCookie_Is_Enabled()
+    {
+        using var derivedFactory = _factory.WithWebHostBuilder(b => b.UseSetting("Security:AlwaysSecureCookie", "true"));
+        using var client = derivedFactory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { HandleCookies = false });
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "always-secure-admin", password = "test-password", email = "always@example.com" });
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/login")
+        {
+            Content = JsonContent.Create(new { username = "always-secure-admin", password = "test-password" })
+        };
+        request.Headers.TryAddWithoutValidation("X-Forwarded-For", NextSyntheticIp());
+
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var setCookie = response.Headers.GetValues("Set-Cookie").First(c => c.StartsWith("BookWheel.Auth=", StringComparison.Ordinal));
+        Assert.Contains("secure", setCookie, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task<Guid> SetUpAdminAndLoggedInReaderAsync(HttpClient adminClient, HttpClient readerClient)
+    {
+        await adminClient.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
+        var (readerId, setupLink) = await CreateUserAsync(adminClient, "reader-one");
+        await SetPasswordFromSetupLinkAsync(readerClient, setupLink, "reader-pass-1");
+        await LoginAsync(readerClient, "reader-one", "reader-pass-1");
+        Assert.Equal(HttpStatusCode.OK, (await readerClient.GetAsync("/api/books")).StatusCode);
+        return readerId;
+    }
+
+    private static Task<HttpResponseMessage> UpdateUserStateAsync(HttpClient adminClient, Guid userId, string username, bool isAdmin, bool isDisabled, bool isLocked)
+    {
+        return adminClient.PutAsJsonAsync($"/api/users/{userId}", new
+        {
+            username,
+            isAdmin,
+            isDisabled,
+            forcePasswordReset = false,
+            isLocked,
+            email = $"{username}@example.com"
+        });
     }
 
     private static int _loginRateLimitIpCounter;

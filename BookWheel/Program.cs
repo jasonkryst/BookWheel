@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using System.Globalization;
 using System.Text.Json;
 using System.Reflection;
@@ -138,7 +139,14 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 	// Do NOT call KnownIPNetworks.Clear() or KnownProxies.Clear() here.
 	// The defaults restrict header trust to loopback (127.0.0.1, ::1).
 	// Clearing them lets any client spoof X-Forwarded-For, bypassing the IP-keyed rate limiter.
-	// If a reverse proxy is in use, add only its IP: options.KnownProxies.Add(IPAddress.Parse("..."));
+	// If a reverse proxy is in use, opt in explicitly via ForwardedHeaders:KnownNetworks / KnownProxies
+	// (or the FORWARDED_KNOWN_NETWORKS env, comma-separated CIDRs). These are ADDED to the loopback defaults.
+	var forwardedSettings = builder.Configuration.GetSection(ForwardedHeadersSettings.SectionName).Get<ForwardedHeadersSettings>() ?? new ForwardedHeadersSettings();
+	ForwardedHeadersConfigurator.Apply(
+		options,
+		forwardedSettings.KnownNetworks,
+		forwardedSettings.KnownProxies,
+		Environment.GetEnvironmentVariable("FORWARDED_KNOWN_NETWORKS"));
 });
 
 var securityOptions = builder.Configuration.GetSection(SecurityOptions.SectionName).Get<SecurityOptions>() ?? new SecurityOptions();
@@ -282,6 +290,33 @@ migrationLogger.LogInformation(
 	startupMigrationReport.BooksAffected,
 	startupMigrationReport.BooksOwnerUserId);
 
+// Must run first so Request.IsHttps / RemoteIpAddress reflect the proxy headers for all later middleware.
+app.UseForwardedHeaders();
+
+{
+	var forwardedLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("ForwardedHeaders");
+	// Count only operator-configured entries (parsed into a throwaway options instance).
+	var forwardedLogSettings = builder.Configuration.GetSection(ForwardedHeadersSettings.SectionName).Get<ForwardedHeadersSettings>() ?? new ForwardedHeadersSettings();
+	var (configuredNetworks, configuredProxies, _) = ForwardedHeadersConfigurator.Apply(
+		new ForwardedHeadersOptions(),
+		forwardedLogSettings.KnownNetworks,
+		forwardedLogSettings.KnownProxies,
+		Environment.GetEnvironmentVariable("FORWARDED_KNOWN_NETWORKS"));
+	if (configuredNetworks + configuredProxies > 0)
+	{
+		forwardedLogger.LogInformation(
+			"Forwarded headers trusted from {NetworkCount} configured network(s) and {ProxyCount} configured proxy(ies) in addition to loopback.",
+			configuredNetworks,
+			configuredProxies);
+	}
+	else if (!app.Environment.IsDevelopment())
+	{
+		forwardedLogger.LogWarning(
+			"No ForwardedHeaders:KnownNetworks or KnownProxies configured. Forwarded headers are trusted only from loopback. " +
+			"If this app runs behind a reverse proxy, set ForwardedHeaders:KnownNetworks (or FORWARDED_KNOWN_NETWORKS) so client IPs, rate limiting and the Secure cookie work correctly.");
+	}
+}
+
 if (!app.Environment.IsDevelopment())
 {
 	app.UseHsts();
@@ -325,7 +360,6 @@ if (observabilityOptions.EnableRequestCorrelationLogging)
 	});
 }
 
-app.UseForwardedHeaders();
 app.Use(async (context, next) =>
 {
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";

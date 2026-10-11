@@ -8,4 +8,5 @@ public sealed class SecurityOptions
     public int LogMaxFileSizeMb { get; set; } = 5;
     public int UsernameLockoutThreshold { get; set; } = 5;
     public int UsernameLockoutMinutes { get; set; } = 3;
+    public bool AlwaysSecureCookie { get; set; }
 }

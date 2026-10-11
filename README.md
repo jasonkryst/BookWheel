@@ -65,6 +65,8 @@ This solution is split into separate application and test projects:
 - Book type classification: each book has a type — Physical 📖, Digital 📱, or Nook Only 🔖 — selected from a dropdown when adding or editing; the type is backed by a `book_types` reference table in the database with a foreign-key index from `books`, seeded with the three initial types for future extensibility; the selected type icon appears in the book list alongside the title; type is included in the JSON export and respected on import (GH #73)
 - Book info providers: book lookups can be served by Open Library or Google Books, selectable per-user from Settings → Preferences ("Book info source"); if the preferred provider has no match, the other provider is tried automatically before giving up. Available providers are backed by a `book_info_providers` reference table, and each book records which provider actually supplied its data (null for manually-entered books, or books added before this feature). Google Books calls the public keyless endpoint by default; set `BookMetadata:GoogleBooks:ApiKey` in `appsettings.json`, the `BookMetadata__GoogleBooks__ApiKey` environment variable, or `GOOGLE_BOOKS_API_KEY` in `docker-compose.yml`'s `.env` file, to use an API key for a higher request quota (GH #70)
 - Spin Wheel Stats 📊: a Stats button in the header opens a modal showing per-user spin history analytics — total spins, unique books spun, never-spun count, longest and shortest time a book has been on the wheel (derived from a new `CreatedAtUtc` column on books), and a canvas bar chart plus ranked table of top-selected books by spin count; administrators additionally see a cross-user aggregate view with total spins across all users, user count, and top users by spin count (GH #75); a "Book Lists" tab shows the full list of unique-spun books (sorted by spin count) and all never-spun active books (sorted alphabetically)
+- Session revocation: active sessions for a user are ended immediately when an administrator disables, locks, demotes, renames, or force-resets that account, and when a password reset is completed for it (editing only an email address does not sign anyone out)
+- Reverse-proxy trust configuration (`ForwardedHeaders:KnownNetworks` / `KnownProxies` or `FORWARDED_KNOWN_NETWORKS`, plus `Security:AlwaysSecureCookie`) so client IPs, per-IP rate limiting, and the `Secure` auth cookie behave correctly behind a TLS-terminating proxy; see "Reverse proxy and forwarded headers"
 
 ## Internationalization
 
@@ -158,7 +160,7 @@ dotnet build BookWheel.slnx
 
 `BookWheel/BookWheel.csproj`'s `InformationalVersion` is the single source of truth for the app version. The footer and `/api/version` read it from the built assembly's `AssemblyInformationalVersion` attribute at runtime; everything else derives from or is validated against this value:
 
-- Local default: `2.13.0` (set in `BookWheel/BookWheel.csproj`)
+- Local default: `3.8.0` (set in `BookWheel/BookWheel.csproj`)
 - CI builds (`.github/workflows/ci.yml`): read the csproj's `InformationalVersion`, strip any suffix, and append `-ci.<run>+<sha>` via `/p:InformationalVersion=...`
 - Docker builds (`Dockerfile`): accept an optional `ARG APP_VERSION`; when unset, the build falls through to the csproj default rather than a second hardcoded value
 - Release builds (`.github/workflows/docker-release.yml`): derive the version from the GitHub Release tag, but the workflow **fails** if that version doesn't match the csproj's `InformationalVersion`, so a release can't ship without bumping the csproj first
@@ -299,6 +301,45 @@ Important:
 - Do not use `docker compose down -v` unless you intentionally want to delete persisted volumes.
 - Do not mount the entire `/app` directory as a volume, because that can hide the application files shipped in the image.
 - Store any user-generated or persistent content under the existing mounted data paths, not elsewhere under `/app`.
+
+## Reverse proxy and forwarded headers
+
+By default BookWheel trusts `X-Forwarded-For` / `X-Forwarded-Proto` only from loopback (`127.0.0.1`, `::1`). This is the secure default: it stops an arbitrary client from spoofing its IP to dodge the per-IP login and password-reset rate limiters.
+
+If you terminate TLS at a reverse proxy that is **not** on loopback (typically another container on a Docker network such as `172.x.x.x`), you must tell BookWheel to trust it, otherwise:
+
+- every client appears to come from the proxy's IP, so the per-IP rate limiters collapse into one shared bucket and audit logs record the proxy address;
+- `X-Forwarded-Proto: https` is ignored, so the app thinks the request is plain HTTP and the auth cookie is issued **without** the `Secure` flag.
+
+Trust is opt-in and additive (loopback stays trusted). **Trust the narrowest scope that reaches your proxy — anything inside a trusted range can forge `X-Forwarded-For`, so an over-broad range re-opens the rate-limit bypass this setting exists to prevent.** In order of preference:
+
+1. **Pin the proxy's IP** (best). Give your proxy container a static address and trust only that:
+
+   ```yaml
+   environment:
+     ForwardedHeaders__KnownProxies__0: "172.18.0.5"   # the proxy's exact IP
+   ```
+
+2. **Trust the proxy's actual subnet** — the specific network your proxy and BookWheel share, not the whole private block. Find it with `docker network inspect <network> --format '{{(index .IPAM.Config 0).Subnet}}'` (typically a /16 or /24 such as `172.18.0.0/16`):
+
+   ```yaml
+   environment:
+     FORWARDED_KNOWN_NETWORKS: "172.18.0.0/16"          # comma-separated CIDRs
+     # or: ForwardedHeaders__KnownNetworks__0: "172.18.0.0/16"
+   ```
+
+> ⚠️ Do **not** blanket-trust `172.16.0.0/12` (the entire Docker private range). On a host that runs anything besides this stack, any other container in that range could then spoof client IPs and bypass the rate limiters. Only use the whole block on a single-tenant host you fully control, and prefer options 1–2 everywhere else.
+
+The same keys work in `appsettings.json` under `"ForwardedHeaders": { "KnownNetworks": [...], "KnownProxies": [...] }`. Invalid entries are ignored (not fatal). On startup a warning is logged outside Development when nothing is configured, and an information line with the counts when something is.
+
+Setups by proxy — put the proxy and BookWheel on one dedicated Docker network and trust that network's exact subnet (option 2) or the proxy's pinned IP (option 1):
+
+- **Caddy**: `reverse_proxy bookwheel:8080` forwards `X-Forwarded-For` and `X-Forwarded-Proto` automatically. Trust the shared network's subnet or pin Caddy's IP.
+- **Traefik**: forwarded headers are added by default for entrypoints you expose. Trust Traefik's network subnet, e.g. `ForwardedHeaders__KnownNetworks__0=172.18.0.0/16`. Do not enable `forwardedHeaders.insecure` on a public entrypoint.
+- **Nginx Proxy Manager**: it sets `X-Forwarded-For` / `X-Forwarded-Proto` for proxy hosts. Pin the NPM container's IP with `ForwardedHeaders__KnownProxies__0`, or trust its network's subnet.
+- **Cloudflare Tunnel (`cloudflared`)**: the tunnel connects from the `cloudflared` container to `http://bookwheel:8080`, so the source is that container's Docker IP. Pin it, or trust the shared network's subnet. Cloudflare sends the visitor address in `X-Forwarded-For` and `CF-Connecting-IP`; BookWheel reads `X-Forwarded-For`.
+
+If your proxy cannot forward `X-Forwarded-Proto`, set `Security:AlwaysSecureCookie` to `true` (env `Security__AlwaysSecureCookie=true`) to always mark the auth cookie `Secure`. Only do this when users reach the app over HTTPS, since browsers will not send a `Secure` cookie over plain HTTP.
 
 ## First-Run Account Setup
 
