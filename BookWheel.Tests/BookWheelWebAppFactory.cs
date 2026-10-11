@@ -63,7 +63,7 @@ public sealed class BookWheelWebAppFactory : WebApplicationFactory<Program>
         optionsBuilder.UseNpgsql(_postgresContainer.GetConnectionString());
         await using var context = new BookWheelDbContext(optionsBuilder.Options);
         await context.Database.ExecuteSqlRawAsync(
-            "TRUNCATE TABLE books, password_reset_tokens, users, spin_selections RESTART IDENTITY CASCADE;");
+            "TRUNCATE TABLE books, password_reset_tokens, users, spin_selections, login_throttle RESTART IDENTITY CASCADE;");
         _fakeEmailSender.SentEmails.Clear();
     }
 

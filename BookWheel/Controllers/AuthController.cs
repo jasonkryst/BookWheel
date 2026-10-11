@@ -224,6 +224,36 @@ public sealed class AuthController : ControllerBase
         }
     }
 
+    [HttpPost("password")]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+    {
+        var userId = User.GetUserId();
+        try
+        {
+            var updated = await _authService.ChangePasswordAsync(userId, request.CurrentPassword, request.NewPassword);
+
+            // The password change rotated the security stamp, so every existing cookie
+            // (including this one) is now stale. Re-issue the current session's cookie
+            // with the new stamp: this device stays signed in, all others are revoked.
+            await SignInAsync(updated);
+
+            _logger.LogInformation(
+                "Password changed by {Username} request {RequestId}",
+                LogSanitizer.Sanitize(User.GetUsername()),
+                GetRequestId());
+            return Ok(new { message = "Password updated." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(
+                "Password change rejected for {Username} request {RequestId}. Reason {Reason}",
+                LogSanitizer.Sanitize(User.GetUsername()),
+                GetRequestId(),
+                ex.Message);
+            return BadRequest(new { message = _errors.Localize(ex.Message) });
+        }
+    }
+
     [HttpPost("password-reset/request")]
     [AllowAnonymous]
     public async Task<IActionResult> RequestPasswordReset([FromBody] RequestPasswordResetRequest request)

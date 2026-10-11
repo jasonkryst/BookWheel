@@ -138,4 +138,13 @@
   <data name="NoBooksProvidedToImport" xml:space="preserve">
     <value>No se proporcionaron libros para importar.</value>
   </data>
+  <data name="TooManyFailedAttempts" xml:space="preserve">
+    <value>Demasiados intentos fallidos. Inténtalo de nuevo más tarde.</value>
+  </data>
+  <data name="CurrentPasswordIncorrect" xml:space="preserve">
+    <value>La contraseña actual es incorrecta.</value>
+  </data>
+  <data name="NewPasswordMustDiffer" xml:space="preserve">
+    <value>La nueva contraseña debe ser diferente de tu contraseña actual.</value>
+  </data>
 </root>

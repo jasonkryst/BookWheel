@@ -2700,6 +2700,103 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
     }
 
     [Fact]
+    public async Task ChangePassword_Keeps_Current_Session_And_Revokes_Other_Sessions()
+    {
+        using var clientA = _factory.CreateClient();
+        using var clientB = _factory.CreateClient();
+        using var anonymousClient = _factory.CreateClient();
+        await clientA.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
+        await LoginAsync(clientB);
+        Assert.Equal(HttpStatusCode.OK, (await clientA.GetAsync("/api/books")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await clientB.GetAsync("/api/books")).StatusCode);
+
+        var change = await clientA.PostAsJsonAsync("/api/auth/password", new { currentPassword = "test-password", newPassword = "brand-new-pass-1" });
+        Assert.Equal(HttpStatusCode.OK, change.StatusCode);
+
+        // The current device was re-issued a cookie carrying the new security stamp.
+        Assert.Equal(HttpStatusCode.OK, (await clientA.GetAsync("/api/books")).StatusCode);
+        // The other session still holds the old stamp and is revoked.
+        Assert.Equal(HttpStatusCode.Unauthorized, (await clientB.GetAsync("/api/books")).StatusCode);
+
+        Assert.Equal(HttpStatusCode.OK, (await PostLoginAsync(anonymousClient, "test-admin", "brand-new-pass-1")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await PostLoginAsync(anonymousClient, "test-admin", "test-password")).StatusCode);
+    }
+
+    [Fact]
+    public async Task ChangePassword_With_Wrong_Current_Password_Returns_BadRequest_And_Leaves_Password_Unchanged()
+    {
+        using var client = _factory.CreateClient();
+        using var anonymousClient = _factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
+
+        var change = await client.PostAsJsonAsync("/api/auth/password", new { currentPassword = "not-the-password", newPassword = "brand-new-pass-1" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, change.StatusCode);
+        using var doc = await ReadJsonAsync(change);
+        Assert.Equal("The current password is incorrect.", doc.RootElement.GetProperty("message").GetString());
+        Assert.Equal(HttpStatusCode.OK, (await PostLoginAsync(anonymousClient, "test-admin", "test-password")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/books")).StatusCode);
+    }
+
+    [Fact]
+    public async Task ChangePassword_Locks_Out_After_Repeated_Wrong_Current_Password()
+    {
+        // A stolen session must not be able to brute-force the current password here:
+        // wrong-current attempts count toward the same lockout as login.
+        using var factory = _factory.WithWebHostBuilder(b => b.UseSetting("Security:UsernameLockoutThreshold", "2"));
+        using var client = factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
+
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            var wrong = await client.PostAsJsonAsync("/api/auth/password", new { currentPassword = "nope", newPassword = "brand-new-pass-1" });
+            Assert.Equal(HttpStatusCode.BadRequest, wrong.StatusCode);
+        }
+
+        // Now locked out — even the correct current password is rejected until it expires.
+        var locked = await client.PostAsJsonAsync("/api/auth/password", new { currentPassword = "test-password", newPassword = "brand-new-pass-1" });
+        Assert.Equal(HttpStatusCode.BadRequest, locked.StatusCode);
+        using var doc = await ReadJsonAsync(locked);
+        Assert.Equal("Too many failed attempts. Please try again later.", doc.RootElement.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task ChangePassword_To_The_Same_Password_Returns_BadRequest()
+    {
+        using var client = _factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
+
+        var change = await client.PostAsJsonAsync("/api/auth/password", new { currentPassword = "test-password", newPassword = "test-password" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, change.StatusCode);
+        using var doc = await ReadJsonAsync(change);
+        Assert.Equal("The new password must be different from your current password.", doc.RootElement.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task ChangePassword_With_Too_Short_New_Password_Returns_BadRequest()
+    {
+        using var client = _factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
+
+        var change = await client.PostAsJsonAsync("/api/auth/password", new { currentPassword = "test-password", newPassword = "short" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, change.StatusCode);
+    }
+
+    [Fact]
+    public async Task ChangePassword_Without_A_Session_Returns_Unauthorized()
+    {
+        using var client = _factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
+        using var anonymousClient = _factory.CreateClient();
+
+        var change = await anonymousClient.PostAsJsonAsync("/api/auth/password", new { currentPassword = "test-password", newPassword = "brand-new-pass-1" });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, change.StatusCode);
+    }
+
+    [Fact]
     public async Task Admin_Editing_Only_Own_Email_Keeps_Their_Session()
     {
         using var client = _factory.CreateClient();

@@ -248,6 +248,45 @@ public sealed class AuthService
         return username;
     }
 
+    public async Task<AuthenticatedUser> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword)
+    {
+        var account = await _credentialRepository.FindByIdAsync(userId)
+            ?? throw new InvalidOperationException("User not found.");
+
+        // Subject the current-password check to the same lockout as login. Otherwise a
+        // stolen session cookie (session but not password) could brute-force the current
+        // password here, since this endpoint sits behind only a rate limit. Keyed by the
+        // resolved account username, consistent with the login throttle.
+        var lockedUntil = await _loginThrottleRepository.GetActiveLockoutAsync(account.Username);
+        if (lockedUntil.HasValue)
+        {
+            throw new InvalidOperationException("Too many failed attempts. Please try again later.");
+        }
+
+        var verified = await _credentialRepository.ValidateCredentialsAsync(account.Username, currentPassword);
+        if (verified is null)
+        {
+            var threshold = Math.Max(2, _securityOptions.UsernameLockoutThreshold);
+            var lockoutDuration = TimeSpan.FromMinutes(Math.Max(1, _securityOptions.UsernameLockoutMinutes));
+            await _loginThrottleRepository.RegisterFailedAttemptAsync(account.Username, threshold, lockoutDuration);
+            throw new InvalidOperationException("The current password is incorrect.");
+        }
+
+        await _loginThrottleRepository.ClearAsync(account.Username);
+
+        if (string.Equals(newPassword, currentPassword, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("The new password must be different from your current password.");
+        }
+
+        // Rotates the security stamp, which invalidates every existing session cookie.
+        // The caller re-issues the current session's cookie with the fresh stamp.
+        await _credentialRepository.SetPasswordAsync(userId, newPassword);
+
+        var updated = await _credentialRepository.FindByIdAsync(userId);
+        return ToAuthenticatedUser(updated!);
+    }
+
     public async Task<PasswordResetTokenValidationResult> ValidatePasswordResetTokenAsync(string token)
     {
         var lookup = await _resetTokenRepository.ValidateAsync(token);
