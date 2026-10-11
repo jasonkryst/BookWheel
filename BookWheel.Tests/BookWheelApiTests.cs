@@ -856,7 +856,13 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
     [Fact]
     public async Task Login_Is_Rate_Limited_After_Repeated_Failed_Attempts()
     {
-        var factory = _factory;
+        // Isolate on a dedicated host so this test's fixed-window login limiter starts
+        // fresh at the first attempt. On the shared host the six attempts can straddle a
+        // one-minute window boundary (the longer the suite runs, the likelier), which made
+        // this test intermittently flaky. The derived host gets its own rate limiter but
+        // still logs into the base factory's shared LoggerProvider, so the audit-log
+        // assertion below is unaffected.
+        using var factory = _factory.WithWebHostBuilder(_ => { });
         using var client = factory.CreateClient();
         client.DefaultRequestHeaders.UserAgent.ParseAdd("BookWheelTests/1.0");
 
@@ -882,7 +888,7 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
 
         Assert.Equal(HttpStatusCode.TooManyRequests, lastStatus);
 
-        var rateLimitLog = factory.LoggerProvider.Entries.LastOrDefault(entry =>
+        var rateLimitLog = _factory.LoggerProvider.Entries.LastOrDefault(entry =>
             entry.Category == "RateLimitAudit" &&
             entry.Level == Microsoft.Extensions.Logging.LogLevel.Warning &&
             entry.Message.Contains("Rate limit rejected", StringComparison.Ordinal));
@@ -1889,6 +1895,41 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, updateResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Lookup_Is_Rate_Limited_Per_User_Across_Sessions()
+    {
+        using var limitedFactory = _factory.WithWebHostBuilder(b => b.UseSetting("Security:MetadataLookupRateLimitPerMinute", "3"));
+
+        // Two separate sessions (two cookies) for the SAME user. The limit must apply to the
+        // user, not the session, so minting extra sessions can't multiply the budget.
+        using var sessionA = limitedFactory.CreateClient();
+        using var sessionB = limitedFactory.CreateClient();
+
+        await sessionA.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
+        await LoginAsync(sessionA);
+        await LoginAsync(sessionB);
+
+        // Three allowed across the user: two on session A, one on session B.
+        for (var i = 0; i < 2; i++)
+        {
+            var ok = await sessionA.GetAsync($"/api/books/lookup?isbn={FakeBookMetadataLookupService.KnownIsbn}");
+            Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+        }
+
+        var thirdOnOtherSession = await sessionB.GetAsync($"/api/books/lookup?isbn={FakeBookMetadataLookupService.KnownIsbn}");
+        Assert.Equal(HttpStatusCode.OK, thirdOnOtherSession.StatusCode);
+
+        // The fourth lookup — on the second session — is still rejected, because both
+        // sessions share the one per-user bucket.
+        var limited = await sessionB.GetAsync($"/api/books/lookup?isbn={FakeBookMetadataLookupService.KnownIsbn}");
+        Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+
+        // /api/books/info shares the same bucket.
+        var info = await sessionA.GetAsync($"/api/books/info?isbn={FakeBookMetadataLookupService.KnownIsbn}");
+        Assert.Equal(HttpStatusCode.TooManyRequests, info.StatusCode);
     }
 
     [Fact]

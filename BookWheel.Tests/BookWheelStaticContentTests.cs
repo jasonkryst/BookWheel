@@ -1120,6 +1120,96 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
         Assert.Contains("emailRequiredDialog.addEventListener('cancel'", script, StringComparison.Ordinal);
     }
 
+    private static string ExtractNonce(string csp)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(csp, "'nonce-([^']+)'");
+        Assert.True(match.Success, "CSP should contain a nonce token: " + csp);
+        return match.Groups[1].Value;
+    }
+
+    [Fact]
+    public async Task Home_Page_Should_Send_ReportOnly_Csp_With_Nonce_Matching_Inline_Scripts()
+    {
+        using var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var csp = Assert.Single(response.Headers.GetValues("Content-Security-Policy-Report-Only"));
+
+        Assert.Contains("default-src 'self'", csp, StringComparison.Ordinal);
+        Assert.Contains("object-src 'none'", csp, StringComparison.Ordinal);
+        Assert.Contains("frame-ancestors 'none'", csp, StringComparison.Ordinal);
+        Assert.Contains("img-src 'self' https: data:", csp, StringComparison.Ordinal);
+        Assert.False(response.Headers.Contains("Content-Security-Policy"));
+
+        var nonce = ExtractNonce(csp);
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains($"nonce=\"{nonce}\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("__CSP_NONCE__", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Home_Page_Csp_Nonce_Differs_Per_Request()
+    {
+        using var client = _factory.CreateClient();
+
+        var first = ExtractNonce((await client.GetAsync("/")).Headers.GetValues("Content-Security-Policy-Report-Only").Single());
+        var second = ExtractNonce((await client.GetAsync("/")).Headers.GetValues("Content-Security-Policy-Report-Only").Single());
+
+        Assert.NotEqual(first, second);
+    }
+
+    [Fact]
+    public async Task Responses_Should_Send_Permissions_Policy_Allowing_Camera_For_Self()
+    {
+        using var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var policy = Assert.Single(response.Headers.GetValues("Permissions-Policy"));
+
+        Assert.Contains("camera=(self)", policy, StringComparison.Ordinal);
+        Assert.Contains("microphone=()", policy, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Csp_Should_Not_Allow_Google_Tag_Manager_When_Analytics_Is_Unconfigured()
+    {
+        using var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var csp = Assert.Single(response.Headers.GetValues("Content-Security-Policy-Report-Only"));
+
+        Assert.DoesNotContain("googletagmanager.com", csp, StringComparison.Ordinal);
+        Assert.DoesNotContain("google-analytics.com", csp, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Csp_Should_Allow_Google_Tag_Manager_When_Analytics_Is_Configured()
+    {
+        using var gaFactory = _factory.WithWebHostBuilder(b => b.UseSetting("Analytics:GoogleAnalyticsId", "G-TEST123"));
+        using var client = gaFactory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var csp = Assert.Single(response.Headers.GetValues("Content-Security-Policy-Report-Only"));
+
+        Assert.Matches(@"script-src [^;]*https://www\.googletagmanager\.com", csp);
+        Assert.Contains("https://*.google-analytics.com", csp, StringComparison.Ordinal);
+        var nonce = ExtractNonce(csp);
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(html, $"nonce=\"{System.Text.RegularExpressions.Regex.Escape(nonce)}\"").Count);
+    }
+
+    [Fact]
+    public async Task Csp_Should_Be_Enforcing_When_ReportOnly_Is_Disabled()
+    {
+        using var enforcingFactory = _factory.WithWebHostBuilder(b => b.UseSetting("Security:ContentSecurityPolicyReportOnly", "false"));
+        using var client = enforcingFactory.CreateClient();
+
+        var response = await client.GetAsync("/");
+
+        Assert.True(response.Headers.Contains("Content-Security-Policy"));
+        Assert.False(response.Headers.Contains("Content-Security-Policy-Report-Only"));
+    }
+
     [Fact]
     public async Task Home_Page_Should_Not_Load_Google_Tag_Script_When_Id_Is_Unconfigured()
     {
