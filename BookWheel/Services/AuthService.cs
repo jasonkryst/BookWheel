@@ -10,16 +10,12 @@ public sealed class AuthService
     private readonly ICredentialRepository _credentialRepository;
     private readonly IPasswordResetTokenRepository _resetTokenRepository;
     private readonly SecurityOptions _securityOptions;
-    private readonly ConcurrentDictionary<string, FailedLoginRecord> _failedLogins = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ILoginThrottleRepository _loginThrottleRepository;
+    // Deferred follow-up: persisting these reset/forgot-username rate-limit windows (and
+    // distributed per-IP rate limiting) is not done yet; they remain per-instance in-memory.
     private readonly ConcurrentDictionary<string, RateLimitRecord> _passwordResetRequests = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, RateLimitRecord> _forgottenUsernameRequests = new(StringComparer.OrdinalIgnoreCase);
     private readonly AccountEmailService _accountEmailService;
-
-    private sealed class FailedLoginRecord
-    {
-        public int Count { get; set; }
-        public DateTimeOffset? LockedUntilUtc { get; set; }
-    }
 
     private sealed class RateLimitRecord
     {
@@ -27,10 +23,11 @@ public sealed class AuthService
         public DateTimeOffset WindowStartUtc { get; set; }
     }
 
-    public AuthService(ICredentialRepository credentialRepository, IPasswordResetTokenRepository resetTokenRepository, IOptions<SecurityOptions> securityOptions, AccountEmailService accountEmailService)
+    public AuthService(ICredentialRepository credentialRepository, IPasswordResetTokenRepository resetTokenRepository, ILoginThrottleRepository loginThrottleRepository, IOptions<SecurityOptions> securityOptions, AccountEmailService accountEmailService)
     {
         _credentialRepository = credentialRepository;
         _resetTokenRepository = resetTokenRepository;
+        _loginThrottleRepository = loginThrottleRepository;
         _securityOptions = securityOptions.Value;
         _accountEmailService = accountEmailService;
     }
@@ -48,41 +45,46 @@ public sealed class AuthService
 
     public async Task<LoginValidationResult> ValidateCredentialsAsync(string username, string password)
     {
-        var normalizedUsername = username.Trim();
-        var failedRecord = _failedLogins.GetOrAdd(normalizedUsername, _ => new FailedLoginRecord());
-        if (failedRecord.LockedUntilUtc.HasValue && failedRecord.LockedUntilUtc.Value > DateTimeOffset.UtcNow)
+        // Derive the lockout key from the resolved account when the username matches one, so
+        // every spelling that maps to the same account shares a single lockout bucket. Keying
+        // on the raw submitted string would let an attacker split attempts across buckets using
+        // inputs that Postgres citext treats as the same account but C# case-folding does not
+        // (a parser differential → lockout bypass). Unknown usernames fall back to the submitted
+        // value and still lock, preserving the anti-enumeration behaviour.
+        var existingAccount = await _credentialRepository.FindByUsernameAsync(username);
+        var lockoutKey = existingAccount?.Username ?? username;
+
+        var lockedUntil = await _loginThrottleRepository.GetActiveLockoutAsync(lockoutKey);
+        if (lockedUntil.HasValue)
         {
             return new LoginValidationResult
             {
                 IsLockedOut = true,
-                LockoutEndsAtUtc = failedRecord.LockedUntilUtc
+                LockoutEndsAtUtc = lockedUntil
             };
         }
 
         var user = await _credentialRepository.ValidateCredentialsAsync(username, password);
         if (user is null)
         {
-            failedRecord.Count += 1;
-            var count = failedRecord.Count;
             var threshold = Math.Max(2, _securityOptions.UsernameLockoutThreshold);
-            if (count >= threshold)
+            var lockoutDuration = TimeSpan.FromMinutes(Math.Max(1, _securityOptions.UsernameLockoutMinutes));
+            var outcome = await _loginThrottleRepository.RegisterFailedAttemptAsync(lockoutKey, threshold, lockoutDuration);
+            if (outcome.IsLockedOut)
             {
-                var lockoutDuration = TimeSpan.FromMinutes(Math.Max(1, _securityOptions.UsernameLockoutMinutes));
-                failedRecord.LockedUntilUtc = DateTimeOffset.UtcNow.Add(lockoutDuration);
-                failedRecord.Count = 0;
                 return new LoginValidationResult
                 {
                     IsLockedOut = true,
                     IsInvalidCredentials = true,
                     LockoutTriggered = true,
-                    LockoutEndsAtUtc = failedRecord.LockedUntilUtc
+                    LockoutEndsAtUtc = outcome.LockedUntilUtc
                 };
             }
 
             return new LoginValidationResult { IsInvalidCredentials = true };
         }
 
-        _failedLogins.TryRemove(normalizedUsername, out _);
+        await _loginThrottleRepository.ClearAsync(lockoutKey);
 
         if (user.IsDisabled)
         {
