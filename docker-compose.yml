@@ -71,12 +71,19 @@ services:
       # container from a non-loopback address. Without it, X-Forwarded-For / X-Forwarded-Proto
       # are ignored: every client shares one rate-limit bucket and the auth cookie is not
       # marked Secure. Leaving it empty keeps the secure default (trust loopback only).
-      # Flat form (comma-separated CIDRs), set FORWARDED_KNOWN_NETWORKS in your .env file:
-      #   FORWARDED_KNOWN_NETWORKS=172.16.0.0/12
-      # Structured form (equivalent; use instead of or alongside the flat form):
-      #   ForwardedHeaders__KnownNetworks__0: "172.16.0.0/12"
+      #
+      # Trust the NARROWEST scope that reaches your proxy — anything inside a trusted range
+      # can forge X-Forwarded-For, so an over-broad range re-opens the rate-limit bypass.
+      # Best: pin the proxy's exact IP:
       #   ForwardedHeaders__KnownProxies__0: "172.18.0.5"
-      # Optional override when the proxy cannot forward X-Forwarded-Proto:
+      # Otherwise: trust the proxy's actual subnet (find it with
+      #   docker network inspect <network> --format '{{(index .IPAM.Config 0).Subnet}}'
+      # — typically a /16 or /24, NOT the whole 172.16.0.0/12 Docker block):
+      #   FORWARDED_KNOWN_NETWORKS=172.18.0.0/16            # flat, comma-separated CIDRs
+      #   ForwardedHeaders__KnownNetworks__0: "172.18.0.0/16"  # structured, equivalent
+      # Only use 172.16.0.0/12 on a single-tenant host you fully control. See the README's
+      # "Reverse proxy and forwarded headers" section.
+      # Optional override when the proxy cannot forward X-Forwarded-Proto (HTTPS only):
       #   Security__AlwaysSecureCookie: "true"
       FORWARDED_KNOWN_NETWORKS: "${FORWARDED_KNOWN_NETWORKS:-}"
     volumes:

@@ -311,25 +311,33 @@ If you terminate TLS at a reverse proxy that is **not** on loopback (typically a
 - every client appears to come from the proxy's IP, so the per-IP rate limiters collapse into one shared bucket and audit logs record the proxy address;
 - `X-Forwarded-Proto: https` is ignored, so the app thinks the request is plain HTTP and the auth cookie is issued **without** the `Secure` flag.
 
-Trust is opt-in and additive (loopback stays trusted). Configure it with either form:
+Trust is opt-in and additive (loopback stays trusted). **Trust the narrowest scope that reaches your proxy — anything inside a trusted range can forge `X-Forwarded-For`, so an over-broad range re-opens the rate-limit bypass this setting exists to prevent.** In order of preference:
 
-```yaml
-# docker-compose.yml (or .env: FORWARDED_KNOWN_NETWORKS=172.16.0.0/12)
-environment:
-  FORWARDED_KNOWN_NETWORKS: "172.16.0.0/12"        # comma-separated CIDRs
-  # or the structured form:
-  ForwardedHeaders__KnownNetworks__0: "172.16.0.0/12"
-  ForwardedHeaders__KnownProxies__0: "172.18.0.5"  # single proxy IPs
-```
+1. **Pin the proxy's IP** (best). Give your proxy container a static address and trust only that:
 
-The same keys work in `appsettings.json` under `"ForwardedHeaders": { "KnownNetworks": [...], "KnownProxies": [...] }`. Invalid entries are ignored (not fatal). On startup a warning is logged outside Development when nothing is configured, and an information line is logged with the counts when something is. Only trust ranges you control: anything in a trusted range can set the client IP seen by the app.
+   ```yaml
+   environment:
+     ForwardedHeaders__KnownProxies__0: "172.18.0.5"   # the proxy's exact IP
+   ```
 
-Setups by proxy (put the proxy and BookWheel on the same Docker network, and trust that network's CIDR; `docker network inspect <network>` shows it, and `172.16.0.0/12` covers all default bridge networks):
+2. **Trust the proxy's actual subnet** — the specific network your proxy and BookWheel share, not the whole private block. Find it with `docker network inspect <network> --format '{{(index .IPAM.Config 0).Subnet}}'` (typically a /16 or /24 such as `172.18.0.0/16`):
 
-- **Caddy**: `reverse_proxy bookwheel:8080` forwards `X-Forwarded-For` and `X-Forwarded-Proto` automatically. Trust the Caddy container's network, e.g. `FORWARDED_KNOWN_NETWORKS=172.16.0.0/12`.
-- **Traefik**: forwarded headers are added by default for entrypoints you expose. Trust Traefik's Docker network, e.g. `ForwardedHeaders__KnownNetworks__0=172.16.0.0/12`. Do not enable `forwardedHeaders.insecure` on a public entrypoint.
-- **Nginx Proxy Manager**: it sets `X-Forwarded-For` / `X-Forwarded-Proto` for proxy hosts. Trust its container network, e.g. `FORWARDED_KNOWN_NETWORKS=172.16.0.0/12`, or pin the NPM container's IP with `ForwardedHeaders__KnownProxies__0`.
-- **Cloudflare Tunnel (`cloudflared`)**: the tunnel connects from the `cloudflared` container to `http://bookwheel:8080`, so the source is that container's Docker IP. Trust the compose network CIDR (e.g. `172.16.0.0/12`). Cloudflare sends the visitor address in `X-Forwarded-For` and `CF-Connecting-IP`; BookWheel reads `X-Forwarded-For`.
+   ```yaml
+   environment:
+     FORWARDED_KNOWN_NETWORKS: "172.18.0.0/16"          # comma-separated CIDRs
+     # or: ForwardedHeaders__KnownNetworks__0: "172.18.0.0/16"
+   ```
+
+> ⚠️ Do **not** blanket-trust `172.16.0.0/12` (the entire Docker private range). On a host that runs anything besides this stack, any other container in that range could then spoof client IPs and bypass the rate limiters. Only use the whole block on a single-tenant host you fully control, and prefer options 1–2 everywhere else.
+
+The same keys work in `appsettings.json` under `"ForwardedHeaders": { "KnownNetworks": [...], "KnownProxies": [...] }`. Invalid entries are ignored (not fatal). On startup a warning is logged outside Development when nothing is configured, and an information line with the counts when something is.
+
+Setups by proxy — put the proxy and BookWheel on one dedicated Docker network and trust that network's exact subnet (option 2) or the proxy's pinned IP (option 1):
+
+- **Caddy**: `reverse_proxy bookwheel:8080` forwards `X-Forwarded-For` and `X-Forwarded-Proto` automatically. Trust the shared network's subnet or pin Caddy's IP.
+- **Traefik**: forwarded headers are added by default for entrypoints you expose. Trust Traefik's network subnet, e.g. `ForwardedHeaders__KnownNetworks__0=172.18.0.0/16`. Do not enable `forwardedHeaders.insecure` on a public entrypoint.
+- **Nginx Proxy Manager**: it sets `X-Forwarded-For` / `X-Forwarded-Proto` for proxy hosts. Pin the NPM container's IP with `ForwardedHeaders__KnownProxies__0`, or trust its network's subnet.
+- **Cloudflare Tunnel (`cloudflared`)**: the tunnel connects from the `cloudflared` container to `http://bookwheel:8080`, so the source is that container's Docker IP. Pin it, or trust the shared network's subnet. Cloudflare sends the visitor address in `X-Forwarded-For` and `CF-Connecting-IP`; BookWheel reads `X-Forwarded-For`.
 
 If your proxy cannot forward `X-Forwarded-Proto`, set `Security:AlwaysSecureCookie` to `true` (env `Security__AlwaysSecureCookie=true`) to always mark the auth cookie `Secure`. Only do this when users reach the app over HTTPS, since browsers will not send a `Secure` cookie over plain HTTP.
 
