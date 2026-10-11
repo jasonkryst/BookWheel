@@ -301,7 +301,8 @@ public sealed class AuthController : ControllerBase
 
     private string GetRequestPath()
     {
-        return HttpContext.Request.Path.Value ?? string.Empty;
+        // Request path and user agent are client-controlled, so sanitize before logging.
+        return LogSanitizer.Sanitize(HttpContext.Request.Path.Value);
     }
 
     private string GetRequestId()
@@ -311,6 +312,6 @@ public sealed class AuthController : ControllerBase
 
     private string GetUserAgent()
     {
-        return HttpContext.Request.Headers.UserAgent.ToString();
+        return LogSanitizer.Sanitize(HttpContext.Request.Headers.UserAgent.ToString());
     }
 }

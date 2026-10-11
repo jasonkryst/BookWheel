@@ -31,4 +31,29 @@ public sealed class LogSanitizerTests
         const string value = "Ændrée café 日本語";
         Assert.Equal(value, LogSanitizer.Sanitize(value));
     }
+
+    [Theory]
+    [InlineData("reader@example.com", "r***@example.com")]
+    [InlineData("a@b.co", "a***@b.co")]
+    public void MaskEmail_Keeps_First_Char_And_Domain(string input, string expected)
+    {
+        Assert.Equal(expected, LogSanitizer.MaskEmail(input));
+    }
+
+    [Theory]
+    [InlineData(null, "")]
+    [InlineData("", "")]
+    [InlineData("not-an-email", "***")]
+    [InlineData("@example.com", "***")]
+    [InlineData("trailing@", "***")]
+    public void MaskEmail_Handles_Missing_Or_Malformed_Addresses(string? input, string expected)
+    {
+        Assert.Equal(expected, LogSanitizer.MaskEmail(input));
+    }
+
+    [Fact]
+    public void MaskEmail_Sanitizes_Control_Characters_In_Domain()
+    {
+        Assert.Equal("r***@ex_ample.com", LogSanitizer.MaskEmail("reader@ex\nample.com"));
+    }
 }
