@@ -1,12 +1,14 @@
 using BookWheel.Models;
 using BookWheel.Services;
 using BookWheel.Storage;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
 namespace BookWheel.Controllers;
 
 [ApiController]
+[Authorize(Policy = "Admin")]
 [Route("api/[controller]")]
 public sealed class UsersController : ControllerBase
 {
@@ -36,17 +38,6 @@ public sealed class UsersController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetUsers()
     {
-        var currentUser = _authService.GetAuthenticatedUser(HttpContext);
-        if (currentUser is null)
-        {
-            return Unauthorized();
-        }
-
-        if (!currentUser.IsAdmin)
-        {
-            return StatusCode(StatusCodes.Status403Forbidden);
-        }
-
         var users = await _credentialRepository.GetUsersAsync();
         return Ok(new { users });
     }
@@ -54,17 +45,6 @@ public sealed class UsersController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request)
     {
-        var currentUser = _authService.GetAuthenticatedUser(HttpContext);
-        if (currentUser is null)
-        {
-            return Unauthorized();
-        }
-
-        if (!currentUser.IsAdmin)
-        {
-            return StatusCode(StatusCodes.Status403Forbidden);
-        }
-
         try
         {
             var user = await _credentialRepository.CreateUserAsync(request.Username, request.IsAdmin, request.Email);
@@ -74,7 +54,7 @@ public sealed class UsersController : ControllerBase
             var setupLink = await _authService.CreatePasswordResetLinkAsync(user.UserId, appBaseUrl);
             _logger.LogInformation(
                 "User account created with setup link. Actor {ActorUsername} target {TargetUsername} role {IsAdmin} request {RequestId}",
-                currentUser.Username,
+                User.GetUsername(),
                 user.Username,
                 user.IsAdmin,
                 HttpContext.TraceIdentifier);
@@ -101,18 +81,7 @@ public sealed class UsersController : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserAccountRequest request)
     {
-        var currentUser = _authService.GetAuthenticatedUser(HttpContext);
-        if (currentUser is null)
-        {
-            return Unauthorized();
-        }
-
-        if (!currentUser.IsAdmin)
-        {
-            return StatusCode(StatusCodes.Status403Forbidden);
-        }
-
-        if (id == currentUser.UserId)
+        if (id == User.GetUserId())
         {
             var self = (await _credentialRepository.GetUsersAsync()).FirstOrDefault(user => user.UserId == id);
             var onlyEmailChanging = self is not null &&
@@ -134,22 +103,11 @@ public sealed class UsersController : ControllerBase
             var user = await _credentialRepository.UpdateUserAsync(id, request.Username, request.IsAdmin, request.IsDisabled, request.ForcePasswordReset, request.IsLocked, request.Email);
             if (before is not null)
             {
-                // End live sessions when anything that affects authorization/identity changes.
-                // Email-only edits deliberately do not revoke (admins can edit their own email).
-                if (before.IsAdmin != user.IsAdmin ||
-                    before.IsDisabled != user.IsDisabled ||
-                    before.IsLocked != user.IsLocked ||
-                    before.ForcePasswordReset != user.ForcePasswordReset ||
-                    !string.Equals(before.Username, user.Username, StringComparison.Ordinal))
-                {
-                    _authService.RemoveSessionsForUser(id);
-                }
-
                 if (before.IsAdmin != user.IsAdmin)
                 {
                     _logger.LogInformation(
                         "Role changed. Actor {ActorUsername} target {TargetUsername} from {OldIsAdmin} to {NewIsAdmin} request {RequestId}",
-                        currentUser.Username,
+                        User.GetUsername(),
                         user.Username,
                         before.IsAdmin,
                         user.IsAdmin,
@@ -160,7 +118,7 @@ public sealed class UsersController : ControllerBase
                 {
                     _logger.LogInformation(
                         "Account security state changed. Actor {ActorUsername} target {TargetUsername} disabled {IsDisabled} locked {IsLocked} forceReset {ForcePasswordReset} request {RequestId}",
-                        currentUser.Username,
+                        User.GetUsername(),
                         user.Username,
                         user.IsDisabled,
                         user.IsLocked,
@@ -180,18 +138,7 @@ public sealed class UsersController : ControllerBase
     [HttpPost("{id:guid}/password-reset-link")]
     public async Task<IActionResult> CreatePasswordResetLink(Guid id)
     {
-        var currentUser = _authService.GetAuthenticatedUser(HttpContext);
-        if (currentUser is null)
-        {
-            return Unauthorized();
-        }
-
-        if (!currentUser.IsAdmin)
-        {
-            return StatusCode(StatusCodes.Status403Forbidden);
-        }
-
-        if (id == currentUser.UserId)
+        if (id == User.GetUserId())
         {
             return BadRequest(new { message = _errors.Localize("Administrators can only generate reset links for other user accounts.") });
         }
@@ -202,10 +149,9 @@ public sealed class UsersController : ControllerBase
             // so that header is attacker-controlled. Use the operator-configured App:BaseUrl instead.
             var appBaseUrl = _appOptions.BaseUrl.TrimEnd('/');
             var result = await _authService.CreatePasswordResetLinkAsync(id, appBaseUrl);
-            _authService.RemoveSessionsForUser(id);
             _logger.LogInformation(
                 "Forced password reset link generated. Actor {ActorUsername} target {TargetUsername} request {RequestId}",
-                currentUser.Username,
+                User.GetUsername(),
                 result.Username,
                 HttpContext.TraceIdentifier);
             return Ok(new
@@ -224,18 +170,7 @@ public sealed class UsersController : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteUser(Guid id)
     {
-        var currentUser = _authService.GetAuthenticatedUser(HttpContext);
-        if (currentUser is null)
-        {
-            return Unauthorized();
-        }
-
-        if (!currentUser.IsAdmin)
-        {
-            return StatusCode(StatusCodes.Status403Forbidden);
-        }
-
-        if (id == currentUser.UserId)
+        if (id == User.GetUserId())
         {
             return BadRequest(new { message = _errors.Localize("Administrators can only remove other user accounts.") });
         }
@@ -243,10 +178,9 @@ public sealed class UsersController : ControllerBase
         try
         {
             var (deletedUser, removedBooks) = await _userManagement.DeleteUserWithDataAsync(id);
-            _authService.RemoveSessionsForUser(id);
             _logger.LogInformation(
                 "User account deleted. Actor {ActorUsername} target {TargetUsername} removed books {RemovedBooks} request {RequestId}",
-                currentUser.Username,
+                User.GetUsername(),
                 deletedUser.Username,
                 removedBooks,
                 HttpContext.TraceIdentifier);

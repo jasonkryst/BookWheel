@@ -2,6 +2,8 @@ using BookWheel.Logging;
 using BookWheel.Models;
 using BookWheel.Services;
 using BookWheel.Storage;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
@@ -16,21 +18,20 @@ public sealed class AuthController : ControllerBase
     private readonly ILogger<AuthController> _logger;
     private readonly ApiMessageLocalizer _errors;
     private readonly AppOptions _appOptions;
-    private readonly SecurityOptions _securityOptions;
     private readonly ICredentialRepository _credentialRepository;
 
-    public AuthController(AuthService authService, AppMetricsService metricsService, ILogger<AuthController> logger, ApiMessageLocalizer errors, IOptions<AppOptions> appOptions, IOptions<SecurityOptions> securityOptions, ICredentialRepository credentialRepository)
+    public AuthController(AuthService authService, AppMetricsService metricsService, ILogger<AuthController> logger, ApiMessageLocalizer errors, IOptions<AppOptions> appOptions, ICredentialRepository credentialRepository)
     {
         _authService = authService;
         _metricsService = metricsService;
         _logger = logger;
         _errors = errors;
         _appOptions = appOptions.Value;
-        _securityOptions = securityOptions.Value;
         _credentialRepository = credentialRepository;
     }
 
     [HttpGet("status")]
+    [AllowAnonymous]
     public async Task<IActionResult> Status()
     {
         var hasAccount = await _authService.HasAccountAsync();
@@ -38,6 +39,7 @@ public sealed class AuthController : ControllerBase
     }
 
     [HttpPost("setup")]
+    [AllowAnonymous]
     public async Task<IActionResult> Setup([FromBody] SetupAccountRequest request)
     {
         var hasAccount = await _authService.HasAccountAsync();
@@ -76,6 +78,7 @@ public sealed class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
+    [AllowAnonymous]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         try
@@ -185,13 +188,15 @@ public sealed class AuthController : ControllerBase
     }
 
     [HttpPost("logout")]
-    public IActionResult Logout()
+    [AllowAnonymous]
+    public async Task<IActionResult> Logout()
     {
-        _authService.SignOut(HttpContext);
+        await HttpContext.SignOutAsync(AuthDefaults.Scheme);
         return Ok(new { message = "Logged out." });
     }
 
     [HttpPost("password-reset/complete")]
+    [AllowAnonymous]
     public async Task<IActionResult> CompletePasswordReset([FromBody] CompletePasswordResetRequest request)
     {
         try
@@ -220,6 +225,7 @@ public sealed class AuthController : ControllerBase
     }
 
     [HttpPost("password-reset/request")]
+    [AllowAnonymous]
     public async Task<IActionResult> RequestPasswordReset([FromBody] RequestPasswordResetRequest request)
     {
         // Deliberately NOT derived from Request.Scheme/Request.Host: that header is
@@ -239,6 +245,7 @@ public sealed class AuthController : ControllerBase
     }
 
     [HttpPost("forgot-username")]
+    [AllowAnonymous]
     public async Task<IActionResult> ForgotUsername([FromBody] ForgotUsernameRequest request)
     {
         await _authService.RequestForgottenUsernameAsync(request.Email);
@@ -252,6 +259,7 @@ public sealed class AuthController : ControllerBase
     }
 
     [HttpPost("password-reset/validate")]
+    [AllowAnonymous]
     public async Task<IActionResult> ValidatePasswordResetToken([FromBody] ValidatePasswordResetTokenRequest request)
     {
         var result = await _authService.ValidatePasswordResetTokenAsync(request.Token);
@@ -263,42 +271,27 @@ public sealed class AuthController : ControllerBase
     [HttpGet("me")]
     public async Task<IActionResult> Me()
     {
-        var user = _authService.GetAuthenticatedUser(HttpContext);
-        if (user is null)
-        {
-            return Unauthorized();
-        }
-
-        // Looked up fresh rather than read from the cached session record: Email can
+        // Looked up fresh rather than read from the auth cookie's claims: Email can
         // change mid-session (e.g. an admin just used the self-service "add your
-        // email" flow), and the session cache otherwise wouldn't reflect that until
-        // the next login.
-        var current = await _credentialRepository.FindByUsernameAsync(user.Username);
+        // email" flow), and the cookie otherwise wouldn't reflect that until the
+        // next login.
+        var userId = User.GetUserId();
+        var current = await _credentialRepository.FindByIdAsync(userId);
 
         return Ok(new
         {
             authenticated = true,
-            userId = user.UserId,
-            username = user.Username,
-            isAdmin = user.IsAdmin,
+            userId,
+            username = User.GetUsername(),
+            isAdmin = User.IsInRole(AuthDefaults.AdminRole),
             email = current?.Email
         });
     }
 
     private Task SignInAsync(AuthenticatedUser user)
     {
-        var token = _authService.CreateSession(user);
-        Response.Cookies.Append("BookWheel.Auth", token, new CookieOptions
-        {
-            HttpOnly = true,
-            SameSite = SameSiteMode.Strict,
-            Secure = Request.IsHttps || _securityOptions.AlwaysSecureCookie,
-            IsEssential = true,
-            Path = "/",
-            Expires = DateTimeOffset.UtcNow.AddHours(8)
-        });
-
-        return Task.CompletedTask;
+        var principal = ClaimsPrincipalExtensions.BuildPrincipal(user, AuthDefaults.Scheme);
+        return HttpContext.SignInAsync(AuthDefaults.Scheme, principal, new AuthenticationProperties { IsPersistent = true });
     }
 
     private string GetClientIp()

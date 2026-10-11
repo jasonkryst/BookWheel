@@ -49,7 +49,8 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
             PasswordHash = PasswordHasher.HashPassword(normalizedUsername, password),
             IsAdmin = true,
             Email = email.Trim(),
-            CreatedAtUtc = DateTimeOffset.UtcNow
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            SecurityStamp = NewSecurityStamp()
         };
 
         context.Users.Add(entity);
@@ -130,7 +131,8 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
             PasswordHash = PasswordHasher.HashPassword(normalizedUsername, GenerateTemporaryPassword()),
             IsAdmin = isAdmin,
             Email = normalizedEmail,
-            CreatedAtUtc = DateTimeOffset.UtcNow
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            SecurityStamp = NewSecurityStamp()
         };
 
         context.Users.Add(entity);
@@ -194,8 +196,22 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
             }
         }
 
+        // Any change to a security-relevant field must invalidate the user's existing
+        // sessions (the auth cookie carries the stamp and is checked on every request).
+        var securityRelevantChange =
+            entity.IsAdmin != isAdmin ||
+            !string.Equals(entity.Username, normalizedUsername, StringComparison.Ordinal) ||
+            (isDisabled.HasValue && entity.IsDisabled != isDisabled.Value) ||
+            (forcePasswordReset.HasValue && entity.ForcePasswordReset != forcePasswordReset.Value) ||
+            (isLocked.HasValue && entity.IsLocked != isLocked.Value);
+
         entity.Username = normalizedUsername;
         entity.IsAdmin = isAdmin;
+
+        if (securityRelevantChange)
+        {
+            entity.SecurityStamp = NewSecurityStamp();
+        }
 
         if (updateEmail)
         {
@@ -260,6 +276,7 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
         entity.ForcePasswordReset = true;
         entity.IsLocked = false;
         entity.LockedUntilUtc = null;
+        entity.SecurityStamp = NewSecurityStamp();
 
         await context.SaveChangesAsync();
         return ToRecord(entity);
@@ -275,6 +292,7 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
         entity.ForcePasswordReset = false;
         entity.IsLocked = false;
         entity.LockedUntilUtc = null;
+        entity.SecurityStamp = NewSecurityStamp();
 
         await context.SaveChangesAsync();
         return entity.Username;
@@ -291,6 +309,13 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
         await using var context = await _contextFactory.CreateDbContextAsync();
         var normalizedUsername = username.Trim();
         var entity = await context.Users.FirstOrDefaultAsync(u => u.Username == normalizedUsername);
+        return entity is null ? null : ToRecord(entity);
+    }
+
+    public async Task<CredentialRecord?> FindByIdAsync(Guid userId)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var entity = await context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
         return entity is null ? null : ToRecord(entity);
     }
 
@@ -327,7 +352,8 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
         ForcePasswordReset = entity.ForcePasswordReset,
         IsLocked = entity.IsLocked,
         LockedUntilUtc = entity.LockedUntilUtc,
-        CreatedAtUtc = entity.CreatedAtUtc
+        CreatedAtUtc = entity.CreatedAtUtc,
+        SecurityStamp = entity.SecurityStamp
     };
 
     private static UserAccountSummary ToSummary(UserEntity entity) => new()
@@ -342,6 +368,8 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
         LockedUntilUtc = entity.LockedUntilUtc,
         CreatedAtUtc = entity.CreatedAtUtc
     };
+
+    private static string NewSecurityStamp() => RandomNumberGenerator.GetHexString(64);
 
     private static string GenerateTemporaryPassword()
     {

@@ -4,6 +4,9 @@ using BookWheel.Models;
 using BookWheel.Services;
 using BookWheel.Storage;
 using BookWheel.Storage.Postgres;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Localization;
@@ -12,6 +15,7 @@ using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using System.Globalization;
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Reflection;
@@ -53,6 +57,7 @@ builder.Services.Configure<ObservabilityOptions>(builder.Configuration.GetSectio
 builder.Services.Configure<BookMetadataOptions>(builder.Configuration.GetSection(BookMetadataOptions.SectionName));
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
 builder.Services.Configure<AppOptions>(builder.Configuration.GetSection(AppOptions.SectionName));
+var authSecurityOptions = builder.Configuration.GetSection(SecurityOptions.SectionName).Get<SecurityOptions>() ?? new SecurityOptions();
 builder.Services.AddSingleton<AuthService>();
 builder.Services.AddSingleton<AppMetricsService>();
 builder.Services.AddSingleton<UserManagementService>();
@@ -110,6 +115,68 @@ builder.Services.AddControllers()
 			};
 		};
 	});
+builder.Services.AddAuthentication(AuthDefaults.Scheme)
+	.AddCookie(AuthDefaults.Scheme, options =>
+	{
+		options.Cookie.Name = AuthDefaults.CookieName;
+		options.Cookie.HttpOnly = true;
+		options.Cookie.SameSite = SameSiteMode.Strict;
+		options.Cookie.IsEssential = true;
+		options.Cookie.Path = "/";
+		// SameAsRequest => Secure when Request.IsHttps, which (after UseForwardedHeaders)
+		// is true behind an HTTPS reverse proxy.
+		options.Cookie.SecurePolicy = authSecurityOptions.AlwaysSecureCookie
+			? CookieSecurePolicy.Always
+			: CookieSecurePolicy.SameAsRequest;
+		options.ExpireTimeSpan = TimeSpan.FromHours(8);
+		options.SlidingExpiration = true;
+
+		// API/SPA: never redirect to an HTML login/access-denied page.
+		options.Events.OnRedirectToLogin = context =>
+		{
+			context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+			return Task.CompletedTask;
+		};
+		options.Events.OnRedirectToAccessDenied = context =>
+		{
+			context.Response.StatusCode = StatusCodes.Status403Forbidden;
+			return Task.CompletedTask;
+		};
+
+		// Session revocation (AUTH-1): the cookie is self-contained, so on every request
+		// re-check the account and compare the security stamp. Any security-relevant change
+		// (role, disable/lock, forced reset, rename, password) rotates the stamp.
+		options.Events.OnValidatePrincipal = async context =>
+		{
+			var principal = context.Principal;
+			var repository = context.HttpContext.RequestServices.GetRequiredService<ICredentialRepository>();
+			var userId = principal?.GetUserId() ?? Guid.Empty;
+			var stamp = principal?.FindFirstValue(AuthDefaults.SecurityStampClaimType);
+
+			var account = userId == Guid.Empty ? null : await repository.FindByIdAsync(userId);
+			var issuedAt = principal?.GetIssuedAt();
+			var isRevoked =
+				account is null ||
+				account.IsDisabled ||
+				account.ForcePasswordReset ||
+				(account.IsLocked && (account.LockedUntilUtc ?? DateTimeOffset.MaxValue) > DateTimeOffset.UtcNow) ||
+				string.IsNullOrEmpty(stamp) ||
+				!string.Equals(account.SecurityStamp, stamp, StringComparison.Ordinal) ||
+				// Absolute lifetime cap: sliding expiry must not let a session live indefinitely.
+				AuthDefaults.IsBeyondAbsoluteLifetime(issuedAt, DateTimeOffset.UtcNow);
+
+			if (isRevoked)
+			{
+				context.RejectPrincipal();
+				await context.HttpContext.SignOutAsync(AuthDefaults.Scheme);
+			}
+		};
+	});
+builder.Services.AddAuthorization(options =>
+{
+	options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+	options.AddPolicy(AuthDefaults.AdminPolicy, policy => policy.RequireRole(AuthDefaults.AdminRole));
+});
 builder.Services.AddHttpClient("central-log-shipper");
 builder.Services.AddHttpClient<OpenLibraryBookMetadataLookupService>(client =>
 {
@@ -224,10 +291,12 @@ builder.Services.AddRateLimiter(options =>
 			// sessions (each login issues a fresh token), and an anonymous caller can send
 			// any cookie value, so keying on the cookie would hand out a new bucket per
 			// session/value and defeat the limit — the same cycle-the-key bypass as XFF.
-			var authService = context.RequestServices.GetRequiredService<AuthService>();
-			var authenticatedUser = authService.GetAuthenticatedUser(context);
-			var keyMaterial = authenticatedUser is not null
-				? $"user:{authenticatedUser.UserId}"
+			// The rate limiter runs before UseAuthentication, so read the user id straight
+			// from the (tamper-proof, Data Protection encrypted) auth cookie ticket. A forged
+			// or undecryptable cookie yields no user and falls back to the client IP.
+			var authenticatedUserId = TryGetUserIdFromAuthCookie(context);
+			var keyMaterial = authenticatedUserId is not null
+				? $"user:{authenticatedUserId}"
 				: $"ip:{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}";
 
 			return RateLimitPartition.GetFixedWindowLimiter(
@@ -414,6 +483,47 @@ app.UseRequestLocalization(new RequestLocalizationOptions
 	SupportedCultures = supportedCultures,
 	SupportedUICultures = supportedCultures
 });
+// Static assets are public and served before authentication/authorization so the
+// fallback policy never applies to them.
+var staticFileContentTypeProvider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+staticFileContentTypeProvider.Mappings[".webmanifest"] = "application/manifest+json";
+
+app.UseStaticFiles(new StaticFileOptions
+{
+	ContentTypeProvider = staticFileContentTypeProvider,
+	OnPrepareResponse = context =>
+	{
+		// These assets are always requested with a ?v=<version> cache-busting query
+		// string (see index.html/sw.js), so it's safe to cache them indefinitely —
+		// a new deploy changes the URL, not the file's cached bytes.
+		context.Context.Response.Headers.CacheControl = "public, max-age=31536000, immutable";
+	}
+});
+app.UseAuthentication();
+app.UseAuthorization();
+
+static Guid? TryGetUserIdFromAuthCookie(HttpContext context)
+{
+	try
+	{
+		var cookieOptions = context.RequestServices
+			.GetRequiredService<IOptionsMonitor<CookieAuthenticationOptions>>()
+			.Get(AuthDefaults.Scheme);
+		var cookieValue = cookieOptions.CookieManager.GetRequestCookie(context, cookieOptions.Cookie.Name!);
+		if (string.IsNullOrEmpty(cookieValue))
+		{
+			return null;
+		}
+
+		var ticket = cookieOptions.TicketDataFormat.Unprotect(cookieValue);
+		var userId = ticket?.Principal.GetUserId();
+		return userId is { } id && id != Guid.Empty ? id : null;
+	}
+	catch
+	{
+		return null;
+	}
+}
 
 static string BuildContentSecurityPolicy(string nonce, bool googleAnalyticsEnabled)
 {
@@ -458,36 +568,22 @@ async Task WriteConfiguredServiceWorkerAsync(HttpContext context)
 	await context.Response.WriteAsync(script);
 }
 
-app.MapGet("/", WriteConfiguredIndexAsync);
-app.MapGet("/index.html", WriteConfiguredIndexAsync);
-app.MapGet("/sw.js", WriteConfiguredServiceWorkerAsync);
+app.MapGet("/", WriteConfiguredIndexAsync).AllowAnonymous();
+app.MapGet("/index.html", WriteConfiguredIndexAsync).AllowAnonymous();
+app.MapGet("/sw.js", WriteConfiguredServiceWorkerAsync).AllowAnonymous();
 
-var staticFileContentTypeProvider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
-staticFileContentTypeProvider.Mappings[".webmanifest"] = "application/manifest+json";
-
-app.UseStaticFiles(new StaticFileOptions
-{
-	ContentTypeProvider = staticFileContentTypeProvider,
-	OnPrepareResponse = context =>
-	{
-		// These assets are always requested with a ?v=<version> cache-busting query
-		// string (see index.html/sw.js), so it's safe to cache them indefinitely —
-		// a new deploy changes the URL, not the file's cached bytes.
-		context.Context.Response.Headers.CacheControl = "public, max-age=31536000, immutable";
-	}
-});
 app.MapGet("/api/version", () =>
 {
 	return Results.Ok(new { version = appVersion });
-});
+}).AllowAnonymous();
 app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {
 	Predicate = check => check.Tags.Contains("live")
-});
+}).AllowAnonymous();
 app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {
 	Predicate = check => check.Tags.Contains("ready")
-});
+}).AllowAnonymous();
 app.MapControllers();
 
 app.Run();

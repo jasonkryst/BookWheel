@@ -2685,9 +2685,11 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
 
         // Mint the token straight from the service (not the admin endpoint) so the
         // reader's session is still live and completion is the only thing that can evict it.
-        var authService = _factory.Services.GetRequiredService<BookWheel.Services.AuthService>();
-        var link = await authService.CreatePasswordResetLinkAsync(readerId, "https://bookwheel.test");
-        var token = ExtractResetToken(link.ResetLink);
+        // Uses the token repository directly (the self-service "forgot password" path) rather than
+        // CreatePasswordResetLinkAsync: the latter is the admin-forced flow, which flags the account
+        // ForcePasswordReset and rotates its security stamp immediately, evicting the session itself.
+        var tokenRepository = _factory.Services.GetRequiredService<BookWheel.Storage.IPasswordResetTokenRepository>();
+        var (token, _) = await tokenRepository.CreateAsync(readerId);
         Assert.Equal(HttpStatusCode.OK, (await readerClient.GetAsync("/api/books")).StatusCode);
 
         var complete = await anonymousClient.PostAsJsonAsync("/api/auth/password-reset/complete", new { token, newPassword = "reader-pass-2" });
