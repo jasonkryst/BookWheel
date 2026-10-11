@@ -134,6 +134,17 @@ public sealed class UsersController : ControllerBase
             var user = await _credentialRepository.UpdateUserAsync(id, request.Username, request.IsAdmin, request.IsDisabled, request.ForcePasswordReset, request.IsLocked, request.Email);
             if (before is not null)
             {
+                // End live sessions when anything that affects authorization/identity changes.
+                // Email-only edits deliberately do not revoke (admins can edit their own email).
+                if (before.IsAdmin != user.IsAdmin ||
+                    before.IsDisabled != user.IsDisabled ||
+                    before.IsLocked != user.IsLocked ||
+                    before.ForcePasswordReset != user.ForcePasswordReset ||
+                    !string.Equals(before.Username, user.Username, StringComparison.Ordinal))
+                {
+                    _authService.RemoveSessionsForUser(id);
+                }
+
                 if (before.IsAdmin != user.IsAdmin)
                 {
                     _logger.LogInformation(
@@ -191,6 +202,7 @@ public sealed class UsersController : ControllerBase
             // so that header is attacker-controlled. Use the operator-configured App:BaseUrl instead.
             var appBaseUrl = _appOptions.BaseUrl.TrimEnd('/');
             var result = await _authService.CreatePasswordResetLinkAsync(id, appBaseUrl);
+            _authService.RemoveSessionsForUser(id);
             _logger.LogInformation(
                 "Forced password reset link generated. Actor {ActorUsername} target {TargetUsername} request {RequestId}",
                 currentUser.Username,

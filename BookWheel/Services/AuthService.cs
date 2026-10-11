@@ -251,6 +251,7 @@ public sealed class AuthService
 
         var username = await _credentialRepository.SetPasswordAsync(lookup.UserId, newPassword);
         await _resetTokenRepository.CompleteAsync(token);
+        RemoveSessionsForUser(lookup.UserId);
         return username;
     }
 

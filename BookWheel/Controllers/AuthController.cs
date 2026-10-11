@@ -16,15 +16,17 @@ public sealed class AuthController : ControllerBase
     private readonly ILogger<AuthController> _logger;
     private readonly ApiMessageLocalizer _errors;
     private readonly AppOptions _appOptions;
+    private readonly SecurityOptions _securityOptions;
     private readonly ICredentialRepository _credentialRepository;
 
-    public AuthController(AuthService authService, AppMetricsService metricsService, ILogger<AuthController> logger, ApiMessageLocalizer errors, IOptions<AppOptions> appOptions, ICredentialRepository credentialRepository)
+    public AuthController(AuthService authService, AppMetricsService metricsService, ILogger<AuthController> logger, ApiMessageLocalizer errors, IOptions<AppOptions> appOptions, IOptions<SecurityOptions> securityOptions, ICredentialRepository credentialRepository)
     {
         _authService = authService;
         _metricsService = metricsService;
         _logger = logger;
         _errors = errors;
         _appOptions = appOptions.Value;
+        _securityOptions = securityOptions.Value;
         _credentialRepository = credentialRepository;
     }
 
@@ -290,7 +292,7 @@ public sealed class AuthController : ControllerBase
         {
             HttpOnly = true,
             SameSite = SameSiteMode.Strict,
-            Secure = Request.IsHttps,
+            Secure = Request.IsHttps || _securityOptions.AlwaysSecureCookie,
             IsEssential = true,
             Path = "/",
             Expires = DateTimeOffset.UtcNow.AddHours(8)
