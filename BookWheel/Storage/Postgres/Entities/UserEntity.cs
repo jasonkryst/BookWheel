@@ -15,4 +15,5 @@ public sealed class UserEntity
     public string? Theme { get; set; }
     public bool AnalyticsConsentOptedOut { get; set; }
     public int? PreferredBookInfoProviderId { get; set; }
+    public string SecurityStamp { get; set; } = string.Empty;
 }

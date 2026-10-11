@@ -506,6 +506,20 @@ public sealed class JsonCredentialRepository : ICredentialRepository
         }
     }
 
+    public async Task<CredentialRecord?> FindByIdAsync(Guid userId)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var users = await ReadUsersUnsafeAsync();
+            return users.FirstOrDefault(user => user.UserId == userId);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     public async Task<string?> FindUsernameByEmailAsync(string email)
     {
         await _gate.WaitAsync();

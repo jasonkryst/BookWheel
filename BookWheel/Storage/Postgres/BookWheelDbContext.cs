@@ -29,6 +29,7 @@ public sealed class BookWheelDbContext : DbContext
             entity.Property(u => u.PasswordHash).IsRequired();
             entity.Property(u => u.Email).HasColumnType("citext");
             entity.HasIndex(u => u.Email).IsUnique();
+            entity.Property(u => u.SecurityStamp).IsRequired();
         });
 
         modelBuilder.Entity<BookEntity>(entity =>

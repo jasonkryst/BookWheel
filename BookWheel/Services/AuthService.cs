@@ -10,12 +10,10 @@ public sealed class AuthService
     private readonly ICredentialRepository _credentialRepository;
     private readonly IPasswordResetTokenRepository _resetTokenRepository;
     private readonly SecurityOptions _securityOptions;
-    private readonly ConcurrentDictionary<string, SessionRecord> _sessions = new();
     private readonly ConcurrentDictionary<string, FailedLoginRecord> _failedLogins = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, RateLimitRecord> _passwordResetRequests = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, RateLimitRecord> _forgottenUsernameRequests = new(StringComparer.OrdinalIgnoreCase);
     private readonly AccountEmailService _accountEmailService;
-    private readonly TimeSpan _sessionLifetime = TimeSpan.FromHours(8);
 
     private sealed class FailedLoginRecord
     {
@@ -27,12 +25,6 @@ public sealed class AuthService
     {
         public int Count { get; set; }
         public DateTimeOffset WindowStartUtc { get; set; }
-    }
-
-    private sealed class SessionRecord
-    {
-        public AuthenticatedUser User { get; set; } = new();
-        public DateTimeOffset ExpiresAtUtc { get; set; }
     }
 
     public AuthService(ICredentialRepository credentialRepository, IPasswordResetTokenRepository resetTokenRepository, IOptions<SecurityOptions> securityOptions, AccountEmailService accountEmailService)
@@ -251,7 +243,6 @@ public sealed class AuthService
 
         var username = await _credentialRepository.SetPasswordAsync(lookup.UserId, newPassword);
         await _resetTokenRepository.CompleteAsync(token);
-        RemoveSessionsForUser(lookup.UserId);
         return username;
     }
 
@@ -277,73 +268,6 @@ public sealed class AuthService
         };
     }
 
-    public string CreateSession(AuthenticatedUser user)
-    {
-        var token = Convert.ToHexString(Guid.NewGuid().ToByteArray()) + Convert.ToHexString(Guid.NewGuid().ToByteArray());
-        _sessions[token] = new SessionRecord
-        {
-            User = user,
-            ExpiresAtUtc = DateTimeOffset.UtcNow.Add(_sessionLifetime)
-        };
-        return token;
-    }
-
-    public bool IsAuthenticated(HttpContext context)
-    {
-        return GetAuthenticatedUser(context) is not null;
-    }
-
-    public bool IsAdmin(HttpContext context)
-    {
-        return GetAuthenticatedUser(context)?.IsAdmin == true;
-    }
-
-    public AuthenticatedUser? GetAuthenticatedUser(HttpContext context)
-    {
-        if (!context.Request.Cookies.TryGetValue("BookWheel.Auth", out var token))
-        {
-            return null;
-        }
-
-        if (!_sessions.TryGetValue(token, out var session))
-        {
-            return null;
-        }
-
-        if (session.ExpiresAtUtc < DateTimeOffset.UtcNow)
-        {
-            _sessions.TryRemove(token, out _);
-            return null;
-        }
-
-        session.ExpiresAtUtc = DateTimeOffset.UtcNow.Add(_sessionLifetime);
-        _sessions[token] = session;
-        return session.User;
-    }
-
-    public void SignOut(HttpContext context)
-    {
-        if (context.Request.Cookies.TryGetValue("BookWheel.Auth", out var token))
-        {
-            _sessions.TryRemove(token, out _);
-        }
-
-        context.Response.Cookies.Delete("BookWheel.Auth", new CookieOptions { Path = "/" });
-    }
-
-    public void RemoveSessionsForUser(Guid userId)
-    {
-        var sessionTokens = _sessions
-            .Where(entry => entry.Value.User.UserId == userId)
-            .Select(entry => entry.Key)
-            .ToList();
-
-        foreach (var token in sessionTokens)
-        {
-            _sessions.TryRemove(token, out _);
-        }
-    }
-
     private static AuthenticatedUser ToAuthenticatedUser(CredentialRecord credential)
     {
         return new AuthenticatedUser
@@ -351,7 +275,8 @@ public sealed class AuthService
             UserId = credential.UserId,
             Username = credential.Username,
             IsAdmin = credential.IsAdmin,
-            Email = credential.Email
+            Email = credential.Email,
+            SecurityStamp = credential.SecurityStamp
         };
     }
 }

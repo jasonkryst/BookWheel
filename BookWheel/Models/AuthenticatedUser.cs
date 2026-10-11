@@ -6,4 +6,5 @@ public sealed class AuthenticatedUser
     public string Username { get; set; } = string.Empty;
     public bool IsAdmin { get; set; }
     public string? Email { get; set; }
+    public string SecurityStamp { get; set; } = string.Empty;
 }

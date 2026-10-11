@@ -10,7 +10,6 @@ namespace BookWheel.Controllers;
 [Route("api/[controller]")]
 public sealed class BooksController : ControllerBase
 {
-    private readonly AuthService _authService;
     private readonly AppMetricsService _metricsService;
     private readonly IBookRepository _store;
     private readonly ISpinHistoryRepository _spinHistory;
@@ -21,7 +20,6 @@ public sealed class BooksController : ControllerBase
     private readonly IOptionsSnapshot<BookMetadataOptions> _metadataOptions;
 
     public BooksController(
-        AuthService authService,
         AppMetricsService metricsService,
         IBookRepository store,
         ISpinHistoryRepository spinHistory,
@@ -31,7 +29,6 @@ public sealed class BooksController : ControllerBase
         IUserPreferencesRepository preferencesRepository,
         IOptionsSnapshot<BookMetadataOptions> metadataOptions)
     {
-        _authService = authService;
         _metricsService = metricsService;
         _store = store;
         _spinHistory = spinHistory;
@@ -45,15 +42,11 @@ public sealed class BooksController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var user = _authService.GetAuthenticatedUser(HttpContext);
-        if (user is null)
-        {
-            return Unauthorized();
-        }
+        var userId = User.GetUserId();
 
         try
         {
-            var books = await _store.GetAllAsync(user.UserId);
+            var books = await _store.GetAllAsync(userId);
             return Ok(new
             {
                 books,
@@ -69,22 +62,18 @@ public sealed class BooksController : ControllerBase
     [HttpGet("export")]
     public async Task<IActionResult> Export()
     {
-        var user = _authService.GetAuthenticatedUser(HttpContext);
-        if (user is null)
-        {
-            return Unauthorized();
-        }
+        var userId = User.GetUserId();
 
         try
         {
-            var books = await _store.GetAllForExportAsync(user.UserId);
-            var history = await _spinHistory.GetForUserAsync(user.UserId);
+            var books = await _store.GetAllForExportAsync(userId);
+            var history = await _spinHistory.GetForUserAsync(userId);
 
             return Ok(new
             {
                 schemaVersion = 1,
                 exportedAtUtc = DateTimeOffset.UtcNow,
-                account = new { username = user.Username },
+                account = new { username = User.GetUsername() },
                 books = books.Select(book => new
                 {
                     title = book.Title,
@@ -110,11 +99,7 @@ public sealed class BooksController : ControllerBase
     [HttpPost("import")]
     public async Task<IActionResult> Import([FromBody] ImportBooksRequest request)
     {
-        var user = _authService.GetAuthenticatedUser(HttpContext);
-        if (user is null)
-        {
-            return Unauthorized();
-        }
+        var userId = User.GetUserId();
 
         if (request.Books is null || request.Books.Count == 0)
         {
@@ -123,7 +108,7 @@ public sealed class BooksController : ControllerBase
 
         try
         {
-            var existingBooks = await _store.GetAllForExportAsync(user.UserId);
+            var existingBooks = await _store.GetAllForExportAsync(userId);
             var existingTitles = new HashSet<string>(
                 existingBooks.Select(book => NormalizeTitleForMatch(book.Title)),
                 StringComparer.Ordinal);
@@ -165,7 +150,7 @@ public sealed class BooksController : ControllerBase
                     existingIsbns.Add(normalizedIsbn);
                 }
 
-                await _store.AddAsync(user.UserId, title, normalizedIsbn, NormalizeOptional(item.Author), NormalizeOptional(item.CoverUrl), bookTypeId: item.BookTypeId ?? 1);
+                await _store.AddAsync(userId, title, normalizedIsbn, NormalizeOptional(item.Author), NormalizeOptional(item.CoverUrl), bookTypeId: item.BookTypeId ?? 1);
                 added += 1;
             }
 
@@ -182,11 +167,7 @@ public sealed class BooksController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Add([FromBody] UpdateBookRequest request)
     {
-        var user = _authService.GetAuthenticatedUser(HttpContext);
-        if (user is null)
-        {
-            return Unauthorized();
-        }
+        var userId = User.GetUserId();
 
         if (string.IsNullOrWhiteSpace(request.Title))
         {
@@ -201,7 +182,7 @@ public sealed class BooksController : ControllerBase
 
         try
         {
-            var book = await _store.AddAsync(user.UserId, request.Title, normalizedIsbn, NormalizeOptional(request.Author), NormalizeOptional(request.CoverUrl), request.AddedByScanner, request.BookTypeId, bookInfoProviderId: request.BookInfoProviderId);
+            var book = await _store.AddAsync(userId, request.Title, normalizedIsbn, NormalizeOptional(request.Author), NormalizeOptional(request.CoverUrl), request.AddedByScanner, request.BookTypeId, bookInfoProviderId: request.BookInfoProviderId);
             return Ok(book);
         }
         catch (CorruptedDataException ex)
@@ -213,11 +194,7 @@ public sealed class BooksController : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateBookRequest request)
     {
-        var user = _authService.GetAuthenticatedUser(HttpContext);
-        if (user is null)
-        {
-            return Unauthorized();
-        }
+        var userId = User.GetUserId();
 
         if (string.IsNullOrWhiteSpace(request.Title))
         {
@@ -232,7 +209,7 @@ public sealed class BooksController : ControllerBase
 
         try
         {
-            var book = await _store.UpdateAsync(user.UserId, id, request.Title, normalizedIsbn, NormalizeOptional(request.Author), NormalizeOptional(request.CoverUrl), request.BookTypeId, bookInfoProviderId: request.BookInfoProviderId);
+            var book = await _store.UpdateAsync(userId, id, request.Title, normalizedIsbn, NormalizeOptional(request.Author), NormalizeOptional(request.CoverUrl), request.BookTypeId, bookInfoProviderId: request.BookInfoProviderId);
             return Ok(book);
         }
         catch (CorruptedDataException ex)
@@ -248,18 +225,14 @@ public sealed class BooksController : ControllerBase
     [HttpGet("lookup")]
     public async Task<IActionResult> Lookup([FromQuery] string? isbn, [FromQuery] string? title)
     {
-        var user = _authService.GetAuthenticatedUser(HttpContext);
-        if (user is null)
-        {
-            return Unauthorized();
-        }
+        var userId = User.GetUserId();
 
         if (string.IsNullOrWhiteSpace(isbn) && string.IsNullOrWhiteSpace(title))
         {
             return BadRequest(new { message = _errors.Localize("Provide an ISBN or a title to look up.") });
         }
 
-        var preferences = await _preferencesRepository.GetAsync(user.UserId);
+        var preferences = await _preferencesRepository.GetAsync(userId);
 
         if (!string.IsNullOrWhiteSpace(isbn))
         {
@@ -290,18 +263,14 @@ public sealed class BooksController : ControllerBase
     [HttpGet("info")]
     public async Task<IActionResult> GetBookInfo([FromQuery] string? isbn, [FromQuery] string? title, [FromQuery] string? author)
     {
-        var user = _authService.GetAuthenticatedUser(HttpContext);
-        if (user is null)
-        {
-            return Unauthorized();
-        }
+        var userId = User.GetUserId();
 
         if (string.IsNullOrWhiteSpace(isbn) && string.IsNullOrWhiteSpace(title))
         {
             return BadRequest(new { message = _errors.Localize("Provide an ISBN or a title to look up.") });
         }
 
-        var preferences = await _preferencesRepository.GetAsync(user.UserId);
+        var preferences = await _preferencesRepository.GetAsync(userId);
 
         if (!string.IsNullOrWhiteSpace(isbn))
         {
@@ -350,18 +319,14 @@ public sealed class BooksController : ControllerBase
     [HttpPost("spin")]
     public async Task<IActionResult> Spin()
     {
-        var user = _authService.GetAuthenticatedUser(HttpContext);
-        if (user is null)
-        {
-            return Unauthorized();
-        }
+        var userId = User.GetUserId();
 
         try
         {
-            var selected = await _store.SelectRandomAsync(user.UserId);
-            await _spinHistory.RecordAsync(user.UserId, selected.Id, DateTimeOffset.UtcNow);
+            var selected = await _store.SelectRandomAsync(userId);
+            await _spinHistory.RecordAsync(userId, selected.Id, DateTimeOffset.UtcNow);
             _metricsService.IncrementSpinsSinceRestart();
-            var books = await _store.GetAllAsync(user.UserId);
+            var books = await _store.GetAllAsync(userId);
             return Ok(new
             {
                 selected,
@@ -381,28 +346,20 @@ public sealed class BooksController : ControllerBase
     [HttpGet("spin-history")]
     public async Task<IActionResult> GetSpinHistory()
     {
-        var user = _authService.GetAuthenticatedUser(HttpContext);
-        if (user is null)
-        {
-            return Unauthorized();
-        }
+        var userId = User.GetUserId();
 
-        var history = await _spinHistory.GetForUserAsync(user.UserId);
+        var history = await _spinHistory.GetForUserAsync(userId);
         return Ok(new { history });
     }
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Remove(Guid id)
     {
-        var user = _authService.GetAuthenticatedUser(HttpContext);
-        if (user is null)
-        {
-            return Unauthorized();
-        }
+        var userId = User.GetUserId();
 
         try
         {
-            var book = await _store.RemoveAsync(user.UserId, id);
+            var book = await _store.RemoveAsync(userId, id);
             return Ok(book);
         }
         catch (CorruptedDataException ex)

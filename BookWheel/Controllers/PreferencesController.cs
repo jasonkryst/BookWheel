@@ -9,39 +9,29 @@ namespace BookWheel.Controllers;
 [Route("api/[controller]")]
 public sealed class PreferencesController : ControllerBase
 {
-    private readonly AuthService _authService;
     private readonly IUserPreferencesRepository _preferencesRepository;
 
-    public PreferencesController(AuthService authService, IUserPreferencesRepository preferencesRepository)
+    public PreferencesController(IUserPreferencesRepository preferencesRepository)
     {
-        _authService = authService;
         _preferencesRepository = preferencesRepository;
     }
 
     [HttpGet]
     public async Task<IActionResult> Get()
     {
-        var user = _authService.GetAuthenticatedUser(HttpContext);
-        if (user is null)
-        {
-            return Unauthorized();
-        }
+        var userId = User.GetUserId();
 
-        var preferences = await _preferencesRepository.GetAsync(user.UserId);
+        var preferences = await _preferencesRepository.GetAsync(userId);
         return Ok(preferences);
     }
 
     [HttpPut]
     public async Task<IActionResult> Update([FromBody] UpdatePreferencesRequest request)
     {
-        var user = _authService.GetAuthenticatedUser(HttpContext);
-        if (user is null)
-        {
-            return Unauthorized();
-        }
+        var userId = User.GetUserId();
 
         var preferences = await _preferencesRepository.UpdateAsync(
-            user.UserId,
+            userId,
             request.Theme,
             request.AnalyticsConsentOptedOut,
             request.PreferredBookInfoProviderId);

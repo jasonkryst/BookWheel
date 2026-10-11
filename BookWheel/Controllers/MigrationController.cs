@@ -1,9 +1,11 @@
 using BookWheel.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookWheel.Controllers;
 
 [ApiController]
+[AllowAnonymous]
 [Route("api/system/migrations")]
 public sealed class MigrationController : ControllerBase
 {
@@ -50,13 +52,12 @@ public sealed class MigrationController : ControllerBase
             return null;
         }
 
-        var user = _authService.GetAuthenticatedUser(HttpContext);
-        if (user is null)
+        if (User.Identity?.IsAuthenticated != true)
         {
             return Unauthorized();
         }
 
-        if (!user.IsAdmin)
+        if (!User.IsInRole(AuthDefaults.AdminRole))
         {
             return StatusCode(StatusCodes.Status403Forbidden);
         }

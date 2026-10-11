@@ -16,5 +16,6 @@ public interface ICredentialRepository
     Task<string> SetPasswordAsync(Guid userId, string newPassword);
     Task<string?> GetUsernameAsync(Guid userId);
     Task<CredentialRecord?> FindByUsernameAsync(string username);
+    Task<CredentialRecord?> FindByIdAsync(Guid userId);
     Task<string?> FindUsernameByEmailAsync(string email);
 }
