@@ -218,13 +218,17 @@ builder.Services.AddRateLimiter(options =>
 		if (context.Request.Path.Equals("/api/books/lookup", StringComparison.OrdinalIgnoreCase)
 			|| context.Request.Path.Equals("/api/books/info", StringComparison.OrdinalIgnoreCase))
 		{
-			// Metadata lookups fan out to third-party APIs; bound them per session
-			// (auth cookie) and fall back to per-IP for unauthenticated callers.
-			var keyMaterial = context.Request.Cookies["BookWheel.Auth"];
-			if (string.IsNullOrEmpty(keyMaterial))
-			{
-				keyMaterial = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-			}
+			// Metadata lookups fan out to third-party APIs; bound them per authenticated
+			// user, falling back to client IP for unauthenticated callers. Key on the
+			// resolved user id, NOT the raw auth-cookie value: a user can mint many
+			// sessions (each login issues a fresh token), and an anonymous caller can send
+			// any cookie value, so keying on the cookie would hand out a new bucket per
+			// session/value and defeat the limit — the same cycle-the-key bypass as XFF.
+			var authService = context.RequestServices.GetRequiredService<AuthService>();
+			var authenticatedUser = authService.GetAuthenticatedUser(context);
+			var keyMaterial = authenticatedUser is not null
+				? $"user:{authenticatedUser.UserId}"
+				: $"ip:{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}";
 
 			return RateLimitPartition.GetFixedWindowLimiter(
 				$"lookup:{keyMaterial}",

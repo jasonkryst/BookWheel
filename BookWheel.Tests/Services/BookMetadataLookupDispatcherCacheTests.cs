@@ -24,8 +24,11 @@ public sealed class BookMetadataLookupDispatcherCacheTests
     }
 
     [Fact]
-    public async Task LookupByIsbnAsync_Caches_Negative_Result()
+    public async Task LookupByIsbnAsync_Does_Not_Cache_Negative_Result()
     {
+        // Misses are not cached: a provider returns null for both a genuine no-match and a
+        // transient failure, so caching a miss would let one caller's blip hide a real book
+        // for everyone. A repeat lookup must re-query.
         var openLibrary = new CountingProvider();
         var googleBooks = new CountingProvider();
         var dispatcher = new BookMetadataLookupDispatcher(openLibrary, googleBooks, NewCache());
@@ -33,8 +36,8 @@ public sealed class BookMetadataLookupDispatcherCacheTests
         Assert.Null(await dispatcher.LookupByIsbnAsync("9780134685991", null, CancellationToken.None));
         Assert.Null(await dispatcher.LookupByIsbnAsync("9780134685991", null, CancellationToken.None));
 
-        Assert.Equal(1, openLibrary.IsbnCallCount);
-        Assert.Equal(1, googleBooks.IsbnCallCount);
+        Assert.Equal(2, openLibrary.IsbnCallCount);
+        Assert.Equal(2, googleBooks.IsbnCallCount);
     }
 
     [Fact]
@@ -69,8 +72,9 @@ public sealed class BookMetadataLookupDispatcherCacheTests
     }
 
     [Fact]
-    public async Task LookupByTitleAsync_Caches_Negative_Result()
+    public async Task LookupByTitleAsync_Does_Not_Cache_Negative_Result()
     {
+        // See LookupByIsbnAsync_Does_Not_Cache_Negative_Result: empty results are not cached.
         var openLibrary = new CountingProvider();
         var googleBooks = new CountingProvider();
         var dispatcher = new BookMetadataLookupDispatcher(openLibrary, googleBooks, NewCache());
@@ -78,8 +82,8 @@ public sealed class BookMetadataLookupDispatcherCacheTests
         Assert.Empty(await dispatcher.LookupByTitleAsync("Nothing", 5, null, CancellationToken.None));
         Assert.Empty(await dispatcher.LookupByTitleAsync("Nothing", 5, null, CancellationToken.None));
 
-        Assert.Equal(1, openLibrary.TitleCallCount);
-        Assert.Equal(1, googleBooks.TitleCallCount);
+        Assert.Equal(2, openLibrary.TitleCallCount);
+        Assert.Equal(2, googleBooks.TitleCallCount);
     }
 
     [Fact]

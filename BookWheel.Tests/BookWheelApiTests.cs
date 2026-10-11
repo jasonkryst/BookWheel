@@ -1898,25 +1898,37 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
     }
 
     [Fact]
-    public async Task Lookup_Is_Rate_Limited_Per_Session()
+    public async Task Lookup_Is_Rate_Limited_Per_User_Across_Sessions()
     {
         using var limitedFactory = _factory.WithWebHostBuilder(b => b.UseSetting("Security:MetadataLookupRateLimitPerMinute", "3"));
-        using var client = limitedFactory.CreateClient();
 
-        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+        // Two separate sessions (two cookies) for the SAME user. The limit must apply to the
+        // user, not the session, so minting extra sessions can't multiply the budget.
+        using var sessionA = limitedFactory.CreateClient();
+        using var sessionB = limitedFactory.CreateClient();
+
+        await sessionA.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
             email = "test-setup@example.com" });
-        await LoginAsync(client);
+        await LoginAsync(sessionA);
+        await LoginAsync(sessionB);
 
-        for (var i = 0; i < 3; i++)
+        // Three allowed across the user: two on session A, one on session B.
+        for (var i = 0; i < 2; i++)
         {
-            var ok = await client.GetAsync($"/api/books/lookup?isbn={FakeBookMetadataLookupService.KnownIsbn}");
+            var ok = await sessionA.GetAsync($"/api/books/lookup?isbn={FakeBookMetadataLookupService.KnownIsbn}");
             Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
         }
 
-        var limited = await client.GetAsync($"/api/books/lookup?isbn={FakeBookMetadataLookupService.KnownIsbn}");
+        var thirdOnOtherSession = await sessionB.GetAsync($"/api/books/lookup?isbn={FakeBookMetadataLookupService.KnownIsbn}");
+        Assert.Equal(HttpStatusCode.OK, thirdOnOtherSession.StatusCode);
+
+        // The fourth lookup — on the second session — is still rejected, because both
+        // sessions share the one per-user bucket.
+        var limited = await sessionB.GetAsync($"/api/books/lookup?isbn={FakeBookMetadataLookupService.KnownIsbn}");
         Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
 
-        var info = await client.GetAsync($"/api/books/info?isbn={FakeBookMetadataLookupService.KnownIsbn}");
+        // /api/books/info shares the same bucket.
+        var info = await sessionA.GetAsync($"/api/books/info?isbn={FakeBookMetadataLookupService.KnownIsbn}");
         Assert.Equal(HttpStatusCode.TooManyRequests, info.StatusCode);
     }
 

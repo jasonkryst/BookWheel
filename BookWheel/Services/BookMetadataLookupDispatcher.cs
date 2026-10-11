@@ -6,13 +6,9 @@ namespace BookWheel.Services;
 public sealed class BookMetadataLookupDispatcher
 {
     private static readonly TimeSpan PositiveTtl = TimeSpan.FromDays(7);
-    private static readonly TimeSpan NegativeTtl = TimeSpan.FromHours(1);
 
     private readonly Dictionary<int, IBookMetadataLookupService> _providers;
     private readonly IMemoryCache? _cache;
-
-    // Cached value wrapper so a cached miss is distinguishable from "not cached".
-    private sealed record CacheEntry<T>(T? Value);
 
     public BookMetadataLookupDispatcher(IBookMetadataLookupService openLibraryProvider, IBookMetadataLookupService googleBooksProvider, IMemoryCache? cache = null)
     {
@@ -27,35 +23,48 @@ public sealed class BookMetadataLookupDispatcher
     public async Task<BookMetadataResult?> LookupByIsbnAsync(string isbn, int? preferredProviderId, CancellationToken cancellationToken)
     {
         var key = $"lookup:isbn:{preferredProviderId ?? 0}:{isbn}";
-        if (_cache is not null && _cache.TryGetValue(key, out CacheEntry<BookMetadataResult>? cached) && cached is not null)
+        if (_cache is not null && _cache.TryGetValue(key, out BookMetadataResult? cached) && cached is not null)
         {
-            return cached.Value;
+            return cached;
         }
 
         var found = await LookupByIsbnUncachedAsync(isbn, preferredProviderId, cancellationToken);
-        Store(key, found, found is not null);
+        CachePositive(key, found);
         return found;
     }
 
     public async Task<IReadOnlyList<BookMetadataResult>> LookupByTitleAsync(string title, int maxResults, int? preferredProviderId, CancellationToken cancellationToken)
     {
         var key = $"lookup:title:{preferredProviderId ?? 0}:{maxResults}:{title.Trim().ToLowerInvariant()}";
-        if (_cache is not null && _cache.TryGetValue(key, out CacheEntry<IReadOnlyList<BookMetadataResult>>? cached) && cached?.Value is not null)
+        if (_cache is not null && _cache.TryGetValue(key, out IReadOnlyList<BookMetadataResult>? cached) && cached is not null)
         {
-            return cached.Value;
+            return cached;
         }
 
         var found = await LookupByTitleUncachedAsync(title, maxResults, preferredProviderId, cancellationToken);
-        Store<IReadOnlyList<BookMetadataResult>>(key, found, found.Count > 0);
+        if (found.Count > 0)
+        {
+            CachePositive(key, found);
+        }
         return found;
     }
 
-    private void Store<T>(string key, T? value, bool positive)
+    // Cache positive results only. A provider returns null / an empty list for BOTH a genuine
+    // no-match AND a transient failure (timeout, 5xx, network error — see each provider's catch),
+    // and the cache is shared across all users, so negative-caching would let one caller's
+    // momentary failure mark a real book "not found" for an hour for everyone. Repeated misses
+    // are instead bounded by the per-user lookup rate limit (see Program.cs).
+    private void CachePositive<T>(string key, T? value) where T : class
     {
-        _cache?.Set(key, new CacheEntry<T>(value), new MemoryCacheEntryOptions
+        if (value is null)
+        {
+            return;
+        }
+
+        _cache?.Set(key, value, new MemoryCacheEntryOptions
         {
             Size = 1,
-            AbsoluteExpirationRelativeToNow = positive ? PositiveTtl : NegativeTtl
+            AbsoluteExpirationRelativeToNow = PositiveTtl
         });
     }
 
