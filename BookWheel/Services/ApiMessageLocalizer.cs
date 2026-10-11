@@ -50,6 +50,7 @@ public sealed class ApiMessageLocalizer(IStringLocalizer<SharedErrors> localizer
 		["No books were provided to import."] = "NoBooksProvidedToImport",
 		["The current password is incorrect."] = "CurrentPasswordIncorrect",
 		["The new password must be different from your current password."] = "NewPasswordMustDiffer",
+		["Too many failed attempts. Please try again later."] = "TooManyFailedAttempts",
 	};
 
 	public static IReadOnlyDictionary<string, string> KnownMessageKeys => KeysByEnglishMessage;

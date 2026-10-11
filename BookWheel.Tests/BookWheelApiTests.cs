@@ -2739,6 +2739,28 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
     }
 
     [Fact]
+    public async Task ChangePassword_Locks_Out_After_Repeated_Wrong_Current_Password()
+    {
+        // A stolen session must not be able to brute-force the current password here:
+        // wrong-current attempts count toward the same lockout as login.
+        using var factory = _factory.WithWebHostBuilder(b => b.UseSetting("Security:UsernameLockoutThreshold", "2"));
+        using var client = factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
+
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            var wrong = await client.PostAsJsonAsync("/api/auth/password", new { currentPassword = "nope", newPassword = "brand-new-pass-1" });
+            Assert.Equal(HttpStatusCode.BadRequest, wrong.StatusCode);
+        }
+
+        // Now locked out — even the correct current password is rejected until it expires.
+        var locked = await client.PostAsJsonAsync("/api/auth/password", new { currentPassword = "test-password", newPassword = "brand-new-pass-1" });
+        Assert.Equal(HttpStatusCode.BadRequest, locked.StatusCode);
+        using var doc = await ReadJsonAsync(locked);
+        Assert.Equal("Too many failed attempts. Please try again later.", doc.RootElement.GetProperty("message").GetString());
+    }
+
+    [Fact]
     public async Task ChangePassword_To_The_Same_Password_Returns_BadRequest()
     {
         using var client = _factory.CreateClient();
