@@ -344,12 +344,15 @@ public sealed class BooksController : ControllerBase
     }
 
     [HttpGet("spin-history")]
-    public async Task<IActionResult> GetSpinHistory()
+    public async Task<IActionResult> GetSpinHistory([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
         var userId = User.GetUserId();
 
-        var history = await _spinHistory.GetForUserAsync(userId);
-        return Ok(new { history });
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        var (history, total) = await _spinHistory.GetPagedForUserAsync(userId, page, pageSize);
+        return Ok(new { history, page, pageSize, total });
     }
 
     [HttpDelete("{id:guid}")]

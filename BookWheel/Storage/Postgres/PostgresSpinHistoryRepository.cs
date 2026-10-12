@@ -45,6 +45,31 @@ public sealed class PostgresSpinHistoryRepository : ISpinHistoryRepository
         return await query.ToListAsync();
     }
 
+    public async Task<(IReadOnlyList<SpinHistoryRecord> Items, int Total)> GetPagedForUserAsync(Guid userId, int page, int pageSize)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var total = await context.SpinSelections.CountAsync(selection => selection.UserId == userId);
+
+        var query =
+            from selection in context.SpinSelections
+            where selection.UserId == userId
+            join book in context.Books.IgnoreQueryFilters() on selection.BookId equals book.Id into books
+            from book in books.DefaultIfEmpty()
+            orderby selection.SelectedAtUtc descending
+            select new SpinHistoryRecord
+            {
+                BookId = selection.BookId,
+                Title = book != null ? book.Title : null,
+                SelectedAtUtc = selection.SelectedAtUtc
+            };
+
+        var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        return (items, total);
+    }
+
     public async Task<int> RemoveUserDataAsync(Guid userId)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
