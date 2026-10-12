@@ -24,10 +24,10 @@ set -euo pipefail
 : "${POSTGRES_USER:?POSTGRES_USER must be set}"
 : "${POSTGRES_MIGRATOR_PASSWORD:?POSTGRES_MIGRATOR_PASSWORD must be set}"
 : "${POSTGRES_APP_PASSWORD:?POSTGRES_APP_PASSWORD must be set}"
-# Optional read-only role for the backup sidecar. Default keeps a value so this
-# script still runs on deployments that don't set it (the role is provisioned
-# regardless; it's only used if the `backup` service is enabled).
-: "${POSTGRES_BACKUP_PASSWORD:=bookwheel_backup}"
+# Read-only role for the backup sidecar. Required (no hardcoded default) — the
+# local-dev default lives only in docker-compose.yml's ${POSTGRES_BACKUP_PASSWORD:-...},
+# matching the migrator/app roles above.
+: "${POSTGRES_BACKUP_PASSWORD:?POSTGRES_BACKUP_PASSWORD must be set}"
 
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
     DO \$\$
