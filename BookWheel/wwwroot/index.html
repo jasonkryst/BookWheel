@@ -112,6 +112,11 @@
         <p id="wheelSummary" class="sr-only" aria-live="polite"></p>
         <ul id="wheelBooksSrList" class="sr-only" aria-label="Books currently on the wheel"></ul>
         <p id="selectedBook" class="message selected-book" aria-live="polite"></p>
+        <section id="recentPicks" class="recent-picks" aria-labelledby="recentPicksHeading">
+          <h3 id="recentPicksHeading" class="stats-list-heading" data-i18n="wheel.recentPicksHeading">Recent picks</h3>
+          <ul id="recentPicksList" class="stats-book-list"></ul>
+          <p id="recentPicksEmpty" class="stats-list-empty" data-i18n="wheel.recentPicksEmpty">No spins yet.</p>
+        </section>
       </section>
 
       <section id="books" class="grid management-grid">
@@ -536,6 +541,16 @@
               <tbody id="statsTableBody"></tbody>
             </table>
           </div>
+          <section id="statsHistorySection">
+            <h3 class="stats-list-heading" data-i18n="stats.historyHeading">Spin History</h3>
+            <ul id="statsHistoryList" class="stats-book-list"></ul>
+            <p id="statsHistoryEmpty" class="stats-list-empty hidden" data-i18n="stats.historyEmpty">No spins recorded yet.</p>
+            <div id="statsHistoryPagination" class="pagination hidden">
+              <button id="statsHistoryPrevBtn" type="button" class="secondary" data-i18n="books.prevPage">Previous</button>
+              <span id="statsHistoryPageInfo" class="message"></span>
+              <button id="statsHistoryNextBtn" type="button" class="secondary" data-i18n="books.nextPage">Next</button>
+            </div>
+          </section>
           <section id="statsAdminSection" class="hidden stats-admin-section">
             <h3 data-i18n="stats.adminHeading">All Users (Admin)</h3>
             <div id="statsAdminContent" class="stats-admin-content"></div>

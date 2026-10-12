@@ -1372,6 +1372,116 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
     }
 
     [Fact]
+    public async Task Spin_History_Is_Paged_Server_Side_Newest_First_With_Total()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "test-setup@example.com"
+        });
+
+        await LoginAsync(client);
+        for (var i = 1; i <= 5; i++)
+        {
+            await AddBookAsync(client, $"Paged Book {i}");
+        }
+
+        var spunTitles = new List<string>();
+        for (var i = 0; i < 5; i++)
+        {
+            var spinResponse = await client.PostAsync("/api/books/spin", content: null);
+            Assert.Equal(HttpStatusCode.OK, spinResponse.StatusCode);
+            using var spinDoc = await ReadJsonAsync(spinResponse);
+            spunTitles.Add(spinDoc.RootElement.GetProperty("selected").GetProperty("title").GetString()!);
+            await Task.Delay(5);
+        }
+
+        var expectedNewestFirst = Enumerable.Reverse(spunTitles).ToList();
+
+        var page1Response = await client.GetAsync("/api/books/spin-history?page=1&pageSize=2");
+        Assert.Equal(HttpStatusCode.OK, page1Response.StatusCode);
+        using var page1 = await ReadJsonAsync(page1Response);
+        Assert.Equal(1, page1.RootElement.GetProperty("page").GetInt32());
+        Assert.Equal(2, page1.RootElement.GetProperty("pageSize").GetInt32());
+        Assert.Equal(5, page1.RootElement.GetProperty("total").GetInt32());
+        var page1Titles = page1.RootElement.GetProperty("history").EnumerateArray()
+            .Select(e => e.GetProperty("title").GetString()).ToList();
+        Assert.Equal(expectedNewestFirst.Take(2), page1Titles);
+
+        var page3Response = await client.GetAsync("/api/books/spin-history?page=3&pageSize=2");
+        using var page3 = await ReadJsonAsync(page3Response);
+        Assert.Equal(5, page3.RootElement.GetProperty("total").GetInt32());
+        var page3Titles = page3.RootElement.GetProperty("history").EnumerateArray()
+            .Select(e => e.GetProperty("title").GetString()).ToList();
+        Assert.Equal(expectedNewestFirst.Skip(4), page3Titles);
+
+        var beyondResponse = await client.GetAsync("/api/books/spin-history?page=4&pageSize=2");
+        using var beyond = await ReadJsonAsync(beyondResponse);
+        Assert.Empty(beyond.RootElement.GetProperty("history").EnumerateArray());
+        Assert.Equal(5, beyond.RootElement.GetProperty("total").GetInt32());
+    }
+
+    [Fact]
+    public async Task Spin_History_Clamps_Page_And_PageSize()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "test-setup@example.com"
+        });
+
+        await LoginAsync(client);
+        await AddBookAsync(client, "Clamp Book");
+        await client.PostAsync("/api/books/spin", content: null);
+
+        var response = await client.GetAsync("/api/books/spin-history?page=0&pageSize=1000");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var doc = await ReadJsonAsync(response);
+        Assert.Equal(1, doc.RootElement.GetProperty("page").GetInt32());
+        Assert.Equal(100, doc.RootElement.GetProperty("pageSize").GetInt32());
+        Assert.Equal(1, doc.RootElement.GetProperty("total").GetInt32());
+        Assert.Single(doc.RootElement.GetProperty("history").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Spin_History_Keeps_Title_For_Soft_Deleted_Book()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "test-setup@example.com"
+        });
+
+        await LoginAsync(client);
+        var bookId = await AddBookAsync(client, "Soon Removed Book");
+        var spinResponse = await client.PostAsync("/api/books/spin", content: null);
+        Assert.Equal(HttpStatusCode.OK, spinResponse.StatusCode);
+
+        var deleteResponse = await client.DeleteAsync($"/api/books/{bookId}");
+        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
+
+        var response = await client.GetAsync("/api/books/spin-history?page=1&pageSize=10");
+        using var doc = await ReadJsonAsync(response);
+        Assert.Equal(1, doc.RootElement.GetProperty("total").GetInt32());
+        var entry = Assert.Single(doc.RootElement.GetProperty("history").EnumerateArray());
+        Assert.Equal(bookId, entry.GetProperty("bookId").GetGuid());
+        // Soft-deleted books are still joined (IgnoreQueryFilters), so the title is preserved.
+        Assert.Equal("Soon Removed Book", entry.GetProperty("title").GetString());
+    }
+
+    [Fact]
     public async Task Export_Includes_Isbn_Author_And_CoverUrl_For_Tagged_Books()
     {
         var factory = _factory;

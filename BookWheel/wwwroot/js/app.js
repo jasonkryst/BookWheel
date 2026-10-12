@@ -50,6 +50,8 @@ const logoutBtn = document.getElementById('logoutBtn');
 const themeToggleBtn = document.getElementById('themeToggleBtn');
 const themeToggleIcon = document.getElementById('themeToggleIcon');
 const userGreeting = document.getElementById('userGreeting');
+const recentPicksListEl = document.getElementById('recentPicksList');
+const recentPicksEmptyEl = document.getElementById('recentPicksEmpty');
 const canvas = document.getElementById('wheelCanvas');
 const ctx = canvas.getContext('2d');
 const editDialog = document.getElementById('editDialog');
@@ -1069,12 +1071,83 @@ async function activateSettingsManageUsersTab() {
   await loadUsers();
 }
 
+const WHEEL_LOGICAL_SIZE = 420;
+const WHEEL_LABEL_MIN_FONT_PX = 9;
+const WHEEL_LABEL_MAX_FONT_PX = 18;
+const WHEEL_LABEL_MIN_CONTRAST = 4.5;
+
+function parseHexColor(value) {
+  const match = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec((value || '').trim());
+  if (!match) {
+    return null;
+  }
+  let hex = match[1];
+  if (hex.length === 3) {
+    hex = hex.split('').map((ch) => ch + ch).join('');
+  }
+  return {
+    r: parseInt(hex.slice(0, 2), 16),
+    g: parseInt(hex.slice(2, 4), 16),
+    b: parseInt(hex.slice(4, 6), 16)
+  };
+}
+
+function getRelativeLuminance({ r, g, b }) {
+  const [lr, lg, lb] = [r, g, b].map((channel) => {
+    const c = channel / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+}
+
+function getContrastRatio(lumA, lumB) {
+  const lighter = Math.max(lumA, lumB);
+  const darker = Math.min(lumA, lumB);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+// Picks black or white text for a slice color; returns null when neither reaches the minimum contrast.
+function pickSliceTextColor(sliceColor) {
+  const rgb = parseHexColor(sliceColor);
+  if (!rgb) {
+    return null;
+  }
+  const sliceLum = getRelativeLuminance(rgb);
+  const blackContrast = getContrastRatio(sliceLum, 0);
+  const whiteContrast = getContrastRatio(sliceLum, 1);
+  const useBlack = blackContrast >= whiteContrast;
+  const best = useBlack ? blackContrast : whiteContrast;
+  return best >= WHEEL_LABEL_MIN_CONTRAST ? (useBlack ? '#000' : '#fff') : null;
+}
+
+function fitWheelLabel(text, maxWidth) {
+  if (ctx.measureText(text).width <= maxWidth) {
+    return text;
+  }
+  let end = text.length;
+  while (end > 1 && ctx.measureText(`${text.slice(0, end)}...`).width > maxWidth) {
+    end -= 1;
+  }
+  return `${text.slice(0, end).trimEnd()}...`;
+}
+
+// Sizes the backing store for the current devicePixelRatio; CSS keeps the displayed size.
+function setupWheelCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  const backingSize = Math.round(WHEEL_LOGICAL_SIZE * dpr);
+  if (canvas.width !== backingSize || canvas.height !== backingSize) {
+    canvas.width = backingSize;
+    canvas.height = backingSize;
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
 function drawWheel() {
-  const size = canvas.width;
+  setupWheelCanvas();
+  const size = WHEEL_LOGICAL_SIZE;
   const radius = size / 2;
   ctx.clearRect(0, 0, size, size);
   const computedStyles = getComputedStyle(document.documentElement);
-  const wheelTextColor = computedStyles.getPropertyValue('--input-bg').trim() || '#0b1220';
   const emptyStateColor = computedStyles.getPropertyValue('--muted').trim() || '#94a3b8';
   const sliceColors = [1, 2, 3, 4, 5, 6].map(
     (n) => computedStyles.getPropertyValue(`--wheel-slice-${n}`).trim() || '#38bdf8'
@@ -1092,25 +1165,44 @@ function drawWheel() {
   }
 
   const step = (Math.PI * 2) / wheelBooks.length;
+  // Labels run from the outer rim toward the hub; size them to the slice height at their inner end.
+  const labelOuterRadius = radius - 24;
+  const labelInnerRadius = radius * 0.35;
+  const labelMaxWidth = labelOuterRadius - labelInnerRadius;
+  // Clamp the half-angle to 90°: the chord formula otherwise collapses to 0 at a
+  // single full-circle slice (step/2 = π, sin π = 0), hiding the label for a 1-book wheel.
+  const sliceHeightAtInner = 2 * labelInnerRadius * Math.sin(Math.min(step / 2, Math.PI / 2));
+  const labelFontSize = Math.min(WHEEL_LABEL_MAX_FONT_PX, Math.floor(sliceHeightAtInner * 0.7));
+  const showLabels = labelFontSize >= WHEEL_LABEL_MIN_FONT_PX;
+
   wheelBooks.forEach((book, index) => {
     const start = index * step - Math.PI / 2;
     const end = start + step;
+    const sliceColor = sliceColors[index % sliceColors.length];
 
     ctx.beginPath();
     ctx.moveTo(radius, radius);
     ctx.arc(radius, radius, radius - 12, start, end);
     ctx.closePath();
-    ctx.fillStyle = sliceColors[index % sliceColors.length];
+    ctx.fillStyle = sliceColor;
     ctx.fill();
+
+    if (!showLabels) {
+      return;
+    }
+    const textColor = pickSliceTextColor(sliceColor);
+    if (!textColor) {
+      return;
+    }
 
     ctx.save();
     ctx.translate(radius, radius);
     ctx.rotate(start + step / 2);
-    ctx.fillStyle = wheelTextColor;
-    ctx.font = 'bold 18px Arial';
+    ctx.fillStyle = textColor;
+    ctx.font = `bold ${labelFontSize}px Arial`;
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    ctx.fillText(book.title.length > 18 ? `${book.title.slice(0, 18)}...` : book.title, radius - 24, 0);
+    ctx.fillText(fitWheelLabel(book.title, labelMaxWidth), labelOuterRadius, 0);
     ctx.restore();
   });
 }
@@ -1247,6 +1339,79 @@ function renderSelectedBookResult(book) {
   }
 
   selectedBookEl.appendChild(details);
+}
+
+let recentPicks = [];
+
+function formatRelativeTime(isoDate) {
+  const { t, getCurrentLocale } = window.BookWheelI18n;
+  const then = new Date(isoDate);
+  const diffSeconds = Math.round((then.getTime() - Date.now()) / 1000);
+  const absSeconds = Math.abs(diffSeconds);
+  if (absSeconds < 60) {
+    return t('wheel.justNow');
+  }
+  const rtf = new Intl.RelativeTimeFormat(getCurrentLocale(), { numeric: 'auto' });
+  if (absSeconds < 3600) {
+    return rtf.format(Math.round(diffSeconds / 60), 'minute');
+  }
+  if (absSeconds < 86400) {
+    return rtf.format(Math.round(diffSeconds / 3600), 'hour');
+  }
+  if (absSeconds < 7 * 86400) {
+    return rtf.format(Math.round(diffSeconds / 86400), 'day');
+  }
+  return then.toLocaleDateString(getCurrentLocale());
+}
+
+function buildSpinHistoryItem(entry) {
+  const { t } = window.BookWheelI18n;
+  const li = document.createElement('li');
+  li.className = 'stats-book-list-item';
+
+  const titleSpan = document.createElement('span');
+  titleSpan.className = 'stats-book-list-title';
+  titleSpan.textContent = entry.title || t('wheel.removedBook');
+  li.appendChild(titleSpan);
+
+  const timeEl = document.createElement('time');
+  timeEl.className = 'spin-history-time';
+  timeEl.dateTime = entry.selectedAtUtc;
+  timeEl.textContent = formatRelativeTime(entry.selectedAtUtc);
+  li.appendChild(timeEl);
+
+  return li;
+}
+
+function renderRecentPicks() {
+  recentPicksListEl.innerHTML = '';
+  recentPicksEmptyEl.classList.toggle('hidden', recentPicks.length > 0);
+  recentPicks.forEach(entry => {
+    recentPicksListEl.appendChild(buildSpinHistoryItem(entry));
+  });
+}
+
+async function loadRecentPicks(options = {}) {
+  const { t } = window.BookWheelI18n;
+  try {
+    const data = await requestJson('/api/books/spin-history?page=1&pageSize=10');
+    recentPicks = data.history || [];
+  } catch {
+    recentPicks = [];
+    renderRecentPicks();
+    recentPicksEmptyEl.textContent = t('wheel.recentPicksLoadError');
+    recentPicksEmptyEl.classList.remove('hidden');
+    return;
+  }
+  recentPicksEmptyEl.textContent = t('wheel.recentPicksEmpty');
+  renderRecentPicks();
+
+  // Restore the last pick after a reload when the wheel shows no selection yet.
+  const latest = recentPicks[0];
+  if (options.restoreSelection && latest?.title && !selectedBookEl.textContent.trim()) {
+    const match = activeBooks.find(book => book.id === latest.bookId);
+    renderSelectedBookResult(match || { title: latest.title });
+  }
 }
 
 async function refreshBooks(options = {}) {
@@ -2122,6 +2287,7 @@ spinBtn.addEventListener('click', async () => {
       drawWheel();
       renderActiveBooks();
       renderSelectedBookResult(selected);
+      loadRecentPicks();
       spinning = false;
       spinBtn.disabled = activeBooks.length === 0;
       spinBtn.textContent = t('wheel.spinBtn');
@@ -2777,6 +2943,53 @@ function drawStatsChart(topBooks) {
   });
 }
 
+const statsHistoryList = document.getElementById('statsHistoryList');
+const statsHistoryEmpty = document.getElementById('statsHistoryEmpty');
+const statsHistoryPagination = document.getElementById('statsHistoryPagination');
+const statsHistoryPrevBtn = document.getElementById('statsHistoryPrevBtn');
+const statsHistoryNextBtn = document.getElementById('statsHistoryNextBtn');
+const statsHistoryPageInfo = document.getElementById('statsHistoryPageInfo');
+const STATS_HISTORY_PAGE_SIZE = 20;
+let statsHistoryData = { history: [], page: 1, pageSize: STATS_HISTORY_PAGE_SIZE, total: 0 };
+
+function renderStatsHistory() {
+  const { t } = window.BookWheelI18n;
+  statsHistoryList.innerHTML = '';
+  const { history, page, pageSize, total } = statsHistoryData;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  statsHistoryEmpty.classList.toggle('hidden', history.length > 0);
+  statsHistoryPagination.classList.toggle('hidden', total <= pageSize);
+  statsHistoryPageInfo.textContent = t('books.pageInfo', { current: page, total: totalPages });
+  statsHistoryPrevBtn.disabled = page <= 1;
+  statsHistoryNextBtn.disabled = page >= totalPages;
+  history.forEach(entry => {
+    statsHistoryList.appendChild(buildSpinHistoryItem(entry));
+  });
+}
+
+async function loadStatsHistory(page) {
+  const { t } = window.BookWheelI18n;
+  try {
+    const data = await requestJson(`/api/books/spin-history?page=${page}&pageSize=${STATS_HISTORY_PAGE_SIZE}`);
+    statsHistoryData = {
+      history: data.history || [],
+      page: data.page,
+      pageSize: data.pageSize,
+      total: data.total
+    };
+    statsHistoryEmpty.textContent = t('stats.historyEmpty');
+    renderStatsHistory();
+  } catch {
+    statsHistoryData = { history: [], page: 1, pageSize: STATS_HISTORY_PAGE_SIZE, total: 0 };
+    renderStatsHistory();
+    statsHistoryEmpty.textContent = t('stats.historyLoadError');
+    statsHistoryEmpty.classList.remove('hidden');
+  }
+}
+
+statsHistoryPrevBtn.addEventListener('click', () => loadStatsHistory(statsHistoryData.page - 1));
+statsHistoryNextBtn.addEventListener('click', () => loadStatsHistory(statsHistoryData.page + 1));
+
 async function fetchAndRenderStats() {
   const { t } = window.BookWheelI18n;
 
@@ -2791,6 +3004,7 @@ async function fetchAndRenderStats() {
   statsAdminContent.innerHTML = '';
   statsUniqueSpunList.innerHTML = '';
   statsNeverSpunList.innerHTML = '';
+  statsHistoryList.innerHTML = '';
   setStatsTab('summary');
 
   try {
@@ -2842,6 +3056,9 @@ async function fetchAndRenderStats() {
       });
       statsTypeBreakdownSection.classList.remove('hidden');
     }
+
+    // Spin history (paged server-side)
+    await loadStatsHistory(1);
 
     // Chart
     drawStatsChart(stats.topBooks);
@@ -2997,6 +3214,8 @@ window.addEventListener('bookwheel:locale-changed', () => {
   }
   if (!appView.classList.contains('hidden')) {
     renderActiveBooks();
+    renderRecentPicks();
+    renderStatsHistory();
   }
   if (settingsDialog.hasAttribute('open') && !settingsManageUsersPanel.classList.contains('hidden')) {
     renderUserRows(allUsers);
@@ -3065,6 +3284,7 @@ syncLangSelect();
     await loadAndApplyPreferences();
     showApp(true);
     await refreshBooks();
+    await loadRecentPicks({ restoreSelection: true });
     applyRequestedView();
   } catch {
     applyCurrentUser(null);
