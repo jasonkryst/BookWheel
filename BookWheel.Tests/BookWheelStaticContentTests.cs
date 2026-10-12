@@ -1328,4 +1328,25 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
         Assert.Contains("typeBreakdownHeading: 'Por tipo de soporte'", script, StringComparison.Ordinal);
         Assert.Contains("typeBreakdownHeading: 'Według formatu'", script, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task Recent_Picks_Are_Reset_On_SignOut_And_Reloaded_On_SignIn()
+    {
+        // Regression guard for #263: Recent Picks and the last-spin line must be
+        // scoped to the logged-in user. The API is owner-scoped (and covered by
+        // Spin_History_Is_Isolated_Per_User); this pins the client behavior that no
+        // prior account's picks linger across a sign-out / sign-in on the same tab.
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var script = await client.GetStringAsync("/js/app.js");
+
+        // The reset helper exists and clears both the picks list and the last-spin line.
+        Assert.Contains("function resetHomeView()", script, StringComparison.Ordinal);
+        Assert.Contains("recentPicks = [];", script, StringComparison.Ordinal);
+
+        // Sign-in refreshes this user's picks; sign-out clears the prior user's.
+        Assert.Contains("await loadRecentPicks({ restoreSelection: true });", script, StringComparison.Ordinal);
+        Assert.Contains("resetHomeView();", script, StringComparison.Ordinal);
+    }
 }
