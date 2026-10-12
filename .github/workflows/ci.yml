@@ -193,6 +193,58 @@ jobs:
           docker rm -f bookwheel-smoke bookwheel-smoke-postgres || true
           docker network rm bookwheel-smoke-net || true
 
+  backup-restore-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: "15432"
+      PGUSER: bookwheel
+      PGPASSWORD: bookwheel
+      PGDATABASE: bookwheel
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install Postgres client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Start Postgres
+        run: |
+          docker run -d --name bookwheel-restore-postgres -p 15432:5432 \
+            -e POSTGRES_DB=bookwheel -e POSTGRES_USER=bookwheel -e POSTGRES_PASSWORD=bookwheel \
+            postgres:16-alpine
+          for _ in {1..20}; do
+            if psql -qtAX -c "SELECT 1" > /dev/null 2>&1; then
+              echo "postgres ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Postgres failed readiness check"
+          docker logs bookwheel-restore-postgres
+          exit 1
+      - name: Seed data and take a dump
+        run: |
+          psql -v ON_ERROR_STOP=1 -c "CREATE TABLE restore_check (id int PRIMARY KEY, name text NOT NULL);"
+          psql -v ON_ERROR_STOP=1 -c "INSERT INTO restore_check VALUES (1, 'alpha'), (2, 'beta');"
+          pg_dump --clean --if-exists | gzip > "$RUNNER_TEMP/bookwheel-test.sql.gz"
+      - name: Simulate data loss
+        run: psql -v ON_ERROR_STOP=1 -c "DROP TABLE restore_check;"
+      - name: Restore with scripts/restore.sh and verify
+        run: |
+          scripts/restore.sh "$RUNNER_TEMP/bookwheel-test.sql.gz" \
+            --host "$PGHOST" --port "$PGPORT" --db "$PGDATABASE" --user "$PGUSER" --force
+          COUNT=$(psql -qtAX -c "SELECT count(*) FROM restore_check;")
+          NAMES=$(psql -qtAX -c "SELECT string_agg(name, ',' ORDER BY id) FROM restore_check;")
+          if [[ "$COUNT" != "2" || "$NAMES" != "alpha,beta" ]]; then
+            echo "Restore verification failed: count=$COUNT names=$NAMES" >&2
+            exit 1
+          fi
+          echo "restore verified"
+      - name: Cleanup
+        if: always()
+        run: docker rm -f bookwheel-restore-postgres || true
+
   trivy:
     runs-on: ubuntu-latest
     timeout-minutes: 15

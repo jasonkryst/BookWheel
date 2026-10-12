@@ -24,6 +24,11 @@ ENV ASPNETCORE_ENVIRONMENT=Production
 
 EXPOSE 8080
 
+# curl powers the docker-compose healthcheck (the aspnet base image ships neither curl nor wget).
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends curl \
+	&& rm -rf /var/lib/apt/lists/*
+
 COPY --from=build /app/publish .
 
 # Ensure runtime writable paths are owned by the non-root app user.
