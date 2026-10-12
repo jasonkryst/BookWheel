@@ -19,6 +19,8 @@ public sealed class UpdateBookRequest
 
     public bool AddedByScanner { get; set; }
 
+    public bool AllowDuplicate { get; set; }
+
     [Range(1, 3, ErrorMessage = "Book type must be a valid type.")]
     public int BookTypeId { get; set; } = 1;
 

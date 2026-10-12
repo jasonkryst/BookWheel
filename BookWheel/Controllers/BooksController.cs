@@ -1,12 +1,14 @@
 using BookWheel.Models;
 using BookWheel.Services;
 using BookWheel.Storage;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
 namespace BookWheel.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public sealed class BooksController : ControllerBase
 {
@@ -108,15 +110,8 @@ public sealed class BooksController : ControllerBase
 
         try
         {
-            var existingBooks = await _store.GetAllForExportAsync(userId);
-            var existingTitles = new HashSet<string>(
-                existingBooks.Select(book => NormalizeTitleForMatch(book.Title)),
-                StringComparer.Ordinal);
-            var existingIsbns = new HashSet<string>(
-                existingBooks.Where(book => book.Isbn is not null).Select(book => book.Isbn!),
-                StringComparer.Ordinal);
-
             var added = 0;
+            var restored = 0;
             var skipped = 0;
 
             foreach (var item in request.Books)
@@ -135,26 +130,26 @@ public sealed class BooksController : ControllerBase
                 }
 
                 var normalizedTitle = NormalizeTitleForMatch(title);
-                var isDuplicate = existingTitles.Contains(normalizedTitle)
-                    || (normalizedIsbn is not null && existingIsbns.Contains(normalizedIsbn));
 
-                if (isDuplicate)
+                if (await _store.FindActiveByTitleOrIsbnAsync(userId, normalizedTitle, normalizedIsbn) is not null)
                 {
                     skipped += 1;
                     continue;
                 }
 
-                existingTitles.Add(normalizedTitle);
-                if (normalizedIsbn is not null)
+                var removed = await _store.FindDeletedByTitleOrIsbnAsync(userId, normalizedTitle, normalizedIsbn);
+                if (removed is not null)
                 {
-                    existingIsbns.Add(normalizedIsbn);
+                    await _store.RestoreAsync(userId, removed.Id);
+                    restored += 1;
+                    continue;
                 }
 
                 await _store.AddAsync(userId, title, normalizedIsbn, NormalizeOptional(item.Author), NormalizeOptional(item.CoverUrl), bookTypeId: item.BookTypeId ?? 1);
                 added += 1;
             }
 
-            return Ok(new { added, skipped });
+            return Ok(new { added, restored, skipped });
         }
         catch (CorruptedDataException ex)
         {
@@ -182,6 +177,23 @@ public sealed class BooksController : ControllerBase
 
         try
         {
+            if (!request.AllowDuplicate)
+            {
+                var normalizedTitle = NormalizeTitleForMatch(request.Title);
+
+                var removedMatch = await _store.FindDeletedByTitleOrIsbnAsync(userId, normalizedTitle, normalizedIsbn);
+                if (removedMatch is not null)
+                {
+                    return Conflict(new { reason = "removed", match = removedMatch, message = _errors.Localize("You removed this book before.") });
+                }
+
+                var activeMatch = await _store.FindActiveByTitleOrIsbnAsync(userId, normalizedTitle, normalizedIsbn);
+                if (activeMatch is not null)
+                {
+                    return Conflict(new { reason = "exact", match = activeMatch, message = _errors.Localize("This book is already on your wheel.") });
+                }
+            }
+
             var book = await _store.AddAsync(userId, request.Title, normalizedIsbn, NormalizeOptional(request.Author), NormalizeOptional(request.CoverUrl), request.AddedByScanner, request.BookTypeId, bookInfoProviderId: request.BookInfoProviderId);
             return Ok(book);
         }
@@ -353,6 +365,42 @@ public sealed class BooksController : ControllerBase
 
         var (history, total) = await _spinHistory.GetPagedForUserAsync(userId, page, pageSize);
         return Ok(new { history, page, pageSize, total });
+    }
+
+    [HttpGet("deleted")]
+    public async Task<IActionResult> GetDeleted()
+    {
+        var userId = User.GetUserId();
+
+        try
+        {
+            var books = await _store.GetDeletedAsync(userId);
+            return Ok(new { books });
+        }
+        catch (CorruptedDataException ex)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = _errors.Localize(ex.Message) });
+        }
+    }
+
+    [HttpPost("{id:guid}/restore")]
+    public async Task<IActionResult> Restore(Guid id)
+    {
+        var userId = User.GetUserId();
+
+        try
+        {
+            var book = await _store.RestoreAsync(userId, id);
+            return Ok(book);
+        }
+        catch (CorruptedDataException ex)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = _errors.Localize(ex.Message) });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { message = _errors.Localize(ex.Message) });
+        }
     }
 
     [HttpDelete("{id:guid}")]

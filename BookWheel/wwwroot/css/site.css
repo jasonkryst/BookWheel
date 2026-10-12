@@ -265,6 +265,24 @@ button:disabled {
 .error { color: var(--danger); min-height: 1.2em; }
 .message { color: var(--muted); min-height: 1.2em; }
 
+.email-readiness-banner {
+  margin: 8px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--danger);
+  border-left-width: 4px;
+  border-radius: 8px;
+}
+
+.email-test-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+}
+
+.email-test-row .message { min-height: 0; }
+
 .link-btn {
   background: none;
   color: var(--accent);
@@ -1519,4 +1537,29 @@ button:disabled {
   #wheelCanvas {
     transition: none;
   }
+}
+
+.toast-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.toast-action-btn {
+  flex: none;
+}
+
+.removed-books {
+  margin-top: 12px;
+}
+
+.removed-books summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 6px 0;
+}
+
+.removed-books .book-list {
+  margin-top: 8px;
 }

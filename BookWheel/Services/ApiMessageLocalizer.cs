@@ -51,6 +51,11 @@ public sealed class ApiMessageLocalizer(IStringLocalizer<SharedErrors> localizer
 		["The current password is incorrect."] = "CurrentPasswordIncorrect",
 		["The new password must be different from your current password."] = "NewPasswordMustDiffer",
 		["Too many failed attempts. Please try again later."] = "TooManyFailedAttempts",
+		["This book is already on your wheel."] = "BookAlreadyOnWheel",
+		["You removed this book before."] = "BookPreviouslyRemoved",
+		["No email address is set for your account."] = "NoEmailForAccount",
+		["Book Wheel test email"] = "TestEmailSubject",
+		["This is a test email from Book Wheel. If you can read this, email delivery is working."] = "TestEmailBody",
 	};
 
 	public static IReadOnlyDictionary<string, string> KnownMessageKeys => KeysByEnglishMessage;

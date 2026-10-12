@@ -70,6 +70,14 @@ const lookupPickerDialog = document.getElementById('lookupPickerDialog');
 const lookupPickerList = document.getElementById('lookupPickerList');
 const cancelLookupPickerBtn = document.getElementById('cancelLookupPickerBtn');
 const cancelEditBtn = document.getElementById('cancelEditBtn');
+const removedBooksSection = document.getElementById('removedBooksSection');
+const removedBooksEl = document.getElementById('removedBooks');
+const duplicateDialog = document.getElementById('duplicateDialog');
+const duplicateMessage = document.getElementById('duplicateMessage');
+const duplicateCancelBtn = document.getElementById('duplicateCancelBtn');
+const duplicateViewBtn = document.getElementById('duplicateViewBtn');
+const duplicateRestoreBtn = document.getElementById('duplicateRestoreBtn');
+const duplicateAddBtn = document.getElementById('duplicateAddBtn');
 const deleteDialog = document.getElementById('deleteDialog');
 const deleteConfirmMessage = document.getElementById('deleteConfirmMessage');
 const deleteError = document.getElementById('deleteError');
@@ -119,6 +127,9 @@ const settingsTabRow = document.getElementById('settingsTabRow');
 const settingsManageUsersTabBtn = document.getElementById('settingsManageUsersTabBtn');
 const settingsImportExportTabBtn = document.getElementById('settingsImportExportTabBtn');
 const settingsPreferencesTabBtn = document.getElementById('settingsPreferencesTabBtn');
+const emailReadinessBanner = document.getElementById('emailReadinessBanner');
+const sendTestEmailBtn = document.getElementById('sendTestEmailBtn');
+const testEmailResult = document.getElementById('testEmailResult');
 const settingsManageUsersPanel = document.getElementById('settingsManageUsersPanel');
 const settingsImportExportPanel = document.getElementById('settingsImportExportPanel');
 const settingsPreferencesPanel = document.getElementById('settingsPreferencesPanel');
@@ -195,22 +206,42 @@ let addedByScanner = false;
 const BOOK_TYPE_ICONS = { 1: '📖', 2: '📱', 3: '🔖' };
 const BOOK_TYPE_I18N_KEYS = { 1: 'books.typePhysical', 2: 'books.typeDigital', 3: 'books.typeNookOnly' };
 
-function showToast(message, type = 'info') {
+function showToast(message, type = 'info', options = {}) {
   if (!toastRegion || !message) {
     return;
   }
 
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
-  toast.textContent = message;
-  toastRegion.appendChild(toast);
 
-  window.setTimeout(() => {
+  const dismiss = () => {
     toast.classList.add('toast-exit');
     window.setTimeout(() => {
       toast.remove();
     }, 260);
-  }, 2600);
+  };
+
+  if (options.actionLabel && typeof options.onAction === 'function') {
+    toast.classList.add('toast-action');
+    const messageEl = document.createElement('span');
+    messageEl.textContent = message;
+    const actionBtn = document.createElement('button');
+    actionBtn.type = 'button';
+    actionBtn.className = 'secondary toast-action-btn';
+    actionBtn.textContent = options.actionLabel;
+    actionBtn.addEventListener('click', async () => {
+      actionBtn.disabled = true;
+      dismiss();
+      await options.onAction();
+    });
+    toast.append(messageEl, actionBtn);
+  } else {
+    toast.textContent = message;
+  }
+
+  toastRegion.appendChild(toast);
+
+  window.setTimeout(dismiss, options.durationMs || 2600);
 }
 
 function setButtonBusy(button, isBusy, busyText, idleText) {
@@ -618,7 +649,10 @@ async function requestJson(url, options = {}) {
   const payload = contentType.includes('application/json') ? await response.json() : null;
 
   if (!response.ok) {
-    throw new Error(payload?.message || window.BookWheelI18n.t('common.requestFailed'));
+    const error = new Error(payload?.message || window.BookWheelI18n.t('common.requestFailed'));
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
   }
 
   return payload;
@@ -1065,10 +1099,68 @@ async function loadUsers() {
   renderUserRows(allUsers);
 }
 
+async function loadEmailReadiness() {
+  if (!emailReadinessBanner) {
+    return;
+  }
+  const { t } = window.BookWheelI18n;
+  emailReadinessBanner.textContent = '';
+  emailReadinessBanner.classList.add('hidden');
+  try {
+    const status = await requestJson('/api/system/config-status');
+    const missing = [];
+    if (!status.smtpConfigured) {
+      missing.push(t('users.emailMissingSmtp'));
+    }
+    if (!status.baseUrlConfigured) {
+      missing.push(t('users.emailMissingBaseUrl'));
+    }
+    if (missing.length === 0) {
+      return;
+    }
+    const title = document.createElement('strong');
+    title.textContent = t('users.emailWarningTitle');
+    const body = document.createElement('span');
+    body.textContent = ` ${t('users.emailWarningBody', { missing: missing.join(', ') })}`;
+    emailReadinessBanner.append(title, body);
+    emailReadinessBanner.classList.remove('hidden');
+  } catch {
+    // Status is advisory; failing to load it must not break the panel.
+  }
+}
+
+async function sendTestEmail() {
+  const { t } = window.BookWheelI18n;
+  testEmailResult.textContent = '';
+  testEmailResult.classList.remove('error');
+  setButtonBusy(sendTestEmailBtn, true, t('users.sendingTestEmail'), t('users.sendTestEmail'));
+  try {
+    const result = await requestJson('/api/system/test-email', { method: 'POST' });
+    if (result.success) {
+      testEmailResult.textContent = t('users.testEmailSent');
+    } else {
+      testEmailResult.textContent = result.error || t('users.testEmailFailed');
+      testEmailResult.classList.add('error');
+    }
+  } catch (error) {
+    testEmailResult.textContent = error.message || t('users.testEmailFailed');
+    testEmailResult.classList.add('error');
+  } finally {
+    setButtonBusy(sendTestEmailBtn, false, t('users.sendingTestEmail'), t('users.sendTestEmail'));
+  }
+}
+
+if (sendTestEmailBtn) {
+  sendTestEmailBtn.addEventListener('click', sendTestEmail);
+}
+
 async function activateSettingsManageUsersTab() {
   resetUserManagementMessages();
+  if (testEmailResult) {
+    testEmailResult.textContent = '';
+  }
   setUserManagementTab('directory');
-  await loadUsers();
+  await Promise.all([loadUsers(), loadEmailReadiness()]);
 }
 
 const WHEEL_LOGICAL_SIZE = 420;
@@ -1426,6 +1518,82 @@ async function refreshBooks(options = {}) {
   drawWheel();
   renderActiveBooks();
   spinBtn.disabled = activeBooks.length === 0 || spinning;
+  await loadRemovedBooks();
+}
+
+async function loadRemovedBooks() {
+  try {
+    const data = await requestJson('/api/books/deleted');
+    renderRemovedBooks(data.books || []);
+  } catch {
+    renderRemovedBooks([]);
+  }
+}
+
+function renderRemovedBooks(books) {
+  const { t, getCurrentLocale } = window.BookWheelI18n;
+  removedBooksEl.textContent = '';
+
+  if (!books.length) {
+    const empty = document.createElement('p');
+    empty.className = 'message';
+    empty.textContent = t('books.removedEmpty');
+    removedBooksEl.appendChild(empty);
+    return;
+  }
+
+  books.forEach(book => {
+    const row = document.createElement('div');
+    row.className = 'book-row';
+
+    const details = document.createElement('div');
+    details.className = 'book-row-details';
+
+    const titleEl = document.createElement('span');
+    titleEl.className = 'book-row-title';
+    titleEl.textContent = book.title;
+    details.appendChild(titleEl);
+
+    if (book.author) {
+      const authorEl = document.createElement('span');
+      authorEl.className = 'book-row-author';
+      authorEl.textContent = book.author;
+      details.appendChild(authorEl);
+    }
+
+    if (book.deletedAtUtc) {
+      const whenEl = document.createElement('span');
+      whenEl.className = 'book-row-author';
+      whenEl.textContent = t('books.removedOn', { date: new Date(book.deletedAtUtc).toLocaleDateString(getCurrentLocale()) });
+      details.appendChild(whenEl);
+    }
+
+    const restoreButton = document.createElement('button');
+    restoreButton.type = 'button';
+    restoreButton.className = 'secondary';
+    restoreButton.textContent = t('books.restoreBtn');
+    restoreButton.setAttribute('aria-label', t('books.restoreAria', { title: book.title }));
+    restoreButton.addEventListener('click', () => restoreBook(book));
+
+    const actions = document.createElement('div');
+    actions.className = 'book-row-actions';
+    actions.appendChild(restoreButton);
+
+    row.append(details, actions);
+    removedBooksEl.appendChild(row);
+  });
+}
+
+async function restoreBook(book) {
+  const { t } = window.BookWheelI18n;
+  try {
+    await requestJson(`/api/books/${book.id}/restore`, { method: 'POST' });
+    showToast(t('books.restoredToast', { title: book.title }), 'success');
+    await refreshBooks({ goToLastPage: true, shuffleWheel: true });
+  } catch (error) {
+    bookMessage.textContent = error.message;
+    showToast(error.message, 'error');
+  }
 }
 
 async function editBook(book) {
@@ -1791,13 +1959,19 @@ async function confirmDelete() {
   confirmDeleteBtn.disabled = true;
   cancelDeleteBtn.disabled = true;
 
-  await requestJson(`/api/books/${pendingDeleteBook.id}`, {
+  const removedBook = pendingDeleteBook;
+  await requestJson(`/api/books/${removedBook.id}`, {
     method: 'DELETE'
   });
 
   closeDeleteDialog();
-  bookMessage.textContent = window.BookWheelI18n.t('books.removedMessage');
-  showToast(window.BookWheelI18n.t('books.removedToast'), 'success');
+  const { t } = window.BookWheelI18n;
+  bookMessage.textContent = t('books.removedMessage');
+  showToast(t('books.removedUndoToast', { title: removedBook.title }), 'success', {
+    actionLabel: t('books.undoBtn'),
+    durationMs: 8000,
+    onAction: () => restoreBook(removedBook)
+  });
   await refreshBooks();
 }
 
@@ -1906,11 +2080,11 @@ async function importBooksFromJsonFile() {
     body: JSON.stringify({ books: importBooks })
   });
 
-  if (result.added > 0) {
+  if (result.added > 0 || result.restored > 0) {
     await refreshBooks({ goToLastPage: true, shuffleWheel: true });
   }
 
-  const messages = [t('transfer.importCompleteMessage', { added: result.added, skipped: result.skipped })];
+  const messages = [t('transfer.importCompleteMessage', { added: result.added, restored: result.restored || 0, skipped: result.skipped })];
   if (account && typeof account.username === 'string' && currentUser && account.username !== currentUser.username) {
     messages.push(t('transfer.accountMismatchWarning', { username: account.username }));
   }
@@ -2193,21 +2367,28 @@ bookForm.addEventListener('submit', async event => {
 
   bookTitle.setAttribute('aria-invalid', 'false');
 
+  const wasAddedByScanner = addedByScanner;
+  addedByScanner = false;
+  await submitNewBook({
+    title: trimmedTitle,
+    isbn: bookIsbn.value.trim(),
+    author: bookAuthor.value.trim(),
+    coverUrl: bookCoverUrl.value.trim(),
+    addedByScanner: wasAddedByScanner,
+    bookTypeId: parseInt(bookType.value, 10) || 1,
+    bookInfoProviderId: bookAddLookupProviderId
+  });
+});
+
+let pendingDuplicate = null;
+
+async function submitNewBook(payload) {
+  const { t } = window.BookWheelI18n;
   try {
     bookTitle.disabled = true;
-    const wasAddedByScanner = addedByScanner;
-    addedByScanner = false;
     await requestJson('/api/books', {
       method: 'POST',
-      body: JSON.stringify({
-        title: trimmedTitle,
-        isbn: bookIsbn.value.trim(),
-        author: bookAuthor.value.trim(),
-        coverUrl: bookCoverUrl.value.trim(),
-        addedByScanner: wasAddedByScanner,
-        bookTypeId: parseInt(bookType.value, 10) || 1,
-        bookInfoProviderId: bookAddLookupProviderId
-      })
+      body: JSON.stringify(payload)
     });
     bookTitle.value = '';
     bookIsbn.value = '';
@@ -2222,11 +2403,66 @@ bookForm.addEventListener('submit', async event => {
     showToast(t('books.addedToast'), 'success');
     await refreshBooks({ goToLastPage: true, shuffleWheel: true });
   } catch (error) {
-    bookMessage.textContent = error.message;
-    showToast(error.message, 'error');
+    const reason = error.status === 409 ? error.payload?.reason : null;
+    if ((reason === 'exact' || reason === 'removed') && error.payload?.match) {
+      showDuplicateDialog(reason, error.payload.match, payload);
+    } else {
+      bookMessage.textContent = error.message;
+      showToast(error.message, 'error');
+    }
   } finally {
     bookTitle.disabled = false;
   }
+}
+
+function showDuplicateDialog(reason, match, payload) {
+  const { t } = window.BookWheelI18n;
+  const isRemoved = reason === 'removed';
+  pendingDuplicate = { reason, match, payload };
+  duplicateMessage.textContent = t(isRemoved ? 'books.duplicateRemovedMessage' : 'books.duplicateExactMessage', { title: match.title });
+  duplicateRestoreBtn.classList.toggle('hidden', !isRemoved);
+  duplicateViewBtn.classList.toggle('hidden', isRemoved);
+  duplicateAddBtn.textContent = t(isRemoved ? 'books.addAsNewBtn' : 'books.addAnywayBtn');
+  openDialog(duplicateDialog, isRemoved ? duplicateRestoreBtn : duplicateCancelBtn);
+}
+
+function closeDuplicateDialog() {
+  pendingDuplicate = null;
+  closeDialog(duplicateDialog);
+}
+
+duplicateCancelBtn.addEventListener('click', () => closeDuplicateDialog());
+
+duplicateAddBtn.addEventListener('click', async () => {
+  if (!pendingDuplicate) {
+    return;
+  }
+  const { payload } = pendingDuplicate;
+  closeDuplicateDialog();
+  await submitNewBook({ ...payload, allowDuplicate: true });
+});
+
+duplicateRestoreBtn.addEventListener('click', async () => {
+  if (!pendingDuplicate) {
+    return;
+  }
+  const { match } = pendingDuplicate;
+  closeDuplicateDialog();
+  await restoreBook(match);
+});
+
+duplicateViewBtn.addEventListener('click', () => {
+  if (!pendingDuplicate) {
+    return;
+  }
+  const { match } = pendingDuplicate;
+  closeDuplicateDialog();
+  const index = activeBooks.findIndex(book => book.id === match.id);
+  if (index >= 0) {
+    currentPage = Math.floor(index / BOOKS_PER_PAGE) + 1;
+    renderActiveBooks();
+  }
+  activeBooksEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
 booksPrevPageBtn.addEventListener('click', () => {

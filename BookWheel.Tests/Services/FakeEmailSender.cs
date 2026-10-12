@@ -11,4 +11,10 @@ public sealed class FakeEmailSender : IEmailSender
         SentEmails.Add((toAddress, subject, plainTextBody));
         return Task.CompletedTask;
     }
+
+    public Task<EmailSendResult> TrySendAsync(string toAddress, string subject, string plainTextBody, CancellationToken cancellationToken = default)
+    {
+        SentEmails.Add((toAddress, subject, plainTextBody));
+        return Task.FromResult(EmailSendResult.Ok());
+    }
 }
