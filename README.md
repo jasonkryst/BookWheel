@@ -27,6 +27,9 @@ This solution is split into separate application and test projects:
 - Email-based account recovery: users can request a password reset link (`POST /api/auth/password-reset/request`, by username) or a reminder of their username (`POST /api/auth/forgot-username`, by email) from the login screen; both always return the same generic confirmation regardless of whether the account/email exists, to prevent account enumeration. Email is now a required, admin-set, globally-unique field on every account created via setup or by an administrator (existing accounts created before this feature keep working with no email until an administrator backfills one). Outbound email is sent via SMTP — see "Email (SMTP)" below for configuration. (GH #115)
 - Book Search (🔍 in the header): scan a barcode or enter an ISBN or title to look up a book, see its cover/author/ISBN, and open it directly on Google Books, Open Library, Goodreads, Barnes & Noble, or Amazon (all links open in a new tab). Multi-result title searches show a picker; an "Add to Wheel" button pre-fills the add form from the result. (GH #123)
 - User management tab is visible only to administrators, inside the consolidated Settings dialog
+- Trash / "Recently removed": removing a book soft-deletes it; restore it from the Recently removed list in the book list (GH #181)
+- Duplicate-add warnings: adding a book already on your wheel (or one you removed earlier) warns you and offers "Add anyway" or "Restore" instead of silently creating a copy (GH #201)
+- Email-readiness check for administrators: the Manage users panel shows a warning banner when `Smtp:Host` or `App:BaseUrl` is unset (so reset/username emails won't be delivered) and a "Send test email" button (GH #178)
 - Security headers: a nonce-based Content-Security-Policy (shipping in Report-Only mode first; set `Security:ContentSecurityPolicyReportOnly=false` to enforce) plus a Permissions-Policy that allows the camera only for the barcode scanner
 - Book metadata lookups are cached server-side (7 days for hits, 1 hour for misses) and rate-limited per user session (`Security:MetadataLookupRateLimitPerMinute`, default 30)
 - Add, edit, and remove books
@@ -104,6 +107,8 @@ Password-reset and forgotten-username emails are sent via SMTP, configured throu
 - `Smtp:Username` / `Smtp__Username` / `SMTP_USERNAME` and `Smtp:Password` / `Smtp__Password` / `SMTP_PASSWORD` — SMTP auth credentials; leave both empty to connect without authentication.
 - `Smtp:EnableSsl` / `Smtp__EnableSsl` — `true` (default) uses STARTTLS; `false` connects unencrypted.
 - `Smtp:FromAddress` / `Smtp__FromAddress` / `SMTP_FROM_ADDRESS` and `Smtp:FromName` / `Smtp__FromName` — the sender address/name on outgoing emails.
+
+Administrators can check readiness from Settings > Manage users: a banner appears if `Smtp:Host` or `App:BaseUrl` is unset, and "Send test email" sends a message to the administrator's own address and shows the SMTP error if delivery fails. The same status is available at `GET /api/system/config-status` (booleans only; no secrets are returned) and `POST /api/system/test-email`.
 
 In `docker-compose.yml`, set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, and `SMTP_FROM_ADDRESS` in your own `.env` file.
 

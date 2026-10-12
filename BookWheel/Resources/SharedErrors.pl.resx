@@ -147,4 +147,19 @@
   <data name="NewPasswordMustDiffer" xml:space="preserve">
     <value>Nowe hasło musi różnić się od obecnego hasła.</value>
   </data>
+  <data name="BookAlreadyOnWheel" xml:space="preserve">
+    <value>Ta książka jest już na Twoim kole.</value>
+  </data>
+  <data name="BookPreviouslyRemoved" xml:space="preserve">
+    <value>Wcześniej usunięto tę książkę.</value>
+  </data>
+  <data name="NoEmailForAccount" xml:space="preserve">
+    <value>Dla Twojego konta nie ustawiono adresu e-mail.</value>
+  </data>
+  <data name="TestEmailSubject" xml:space="preserve">
+    <value>Testowa wiadomość e-mail z Book Wheel</value>
+  </data>
+  <data name="TestEmailBody" xml:space="preserve">
+    <value>To jest testowa wiadomość e-mail z Book Wheel. Jeśli możesz ją przeczytać, dostarczanie poczty działa.</value>
+  </data>
 </root>

@@ -137,6 +137,7 @@ public sealed class PostgresLoginThrottleRepositoryTests : IAsyncLifetime
     private sealed class NoOpEmailSender : IEmailSender
     {
         public Task SendAsync(string toAddress, string subject, string plainTextBody, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<EmailSendResult> TrySendAsync(string toAddress, string subject, string plainTextBody, CancellationToken cancellationToken = default) => Task.FromResult(EmailSendResult.Ok());
     }
 
     private AuthService CreateAuthService(int threshold = 3)

@@ -238,6 +238,29 @@ public sealed class JsonBookRepository : IBookRepository
         }
     }
 
+    public Task<IReadOnlyList<BookRecord>> GetDeletedAsync(Guid userId)
+    {
+        // This store hard-deletes on RemoveAsync, so there is nothing to restore.
+        return Task.FromResult<IReadOnlyList<BookRecord>>(Array.Empty<BookRecord>());
+    }
+
+    public Task<BookRecord> RestoreAsync(Guid userId, Guid id)
+    {
+        throw new InvalidOperationException("Book not found.");
+    }
+
+    public async Task<BookRecord?> FindActiveByTitleOrIsbnAsync(Guid userId, string normalizedTitle, string? normalizedIsbn)
+    {
+        var books = await GetAllAsync(userId);
+        return books.FirstOrDefault(b => b.Title.Trim().ToLowerInvariant() == normalizedTitle
+            || (normalizedIsbn is not null && b.Isbn == normalizedIsbn));
+    }
+
+    public Task<BookRecord?> FindDeletedByTitleOrIsbnAsync(Guid userId, string normalizedTitle, string? normalizedIsbn)
+    {
+        return Task.FromResult<BookRecord?>(null);
+    }
+
     public async Task<BookRecord> RemoveAsync(Guid userId, Guid id)
     {
         await _gate.WaitAsync();

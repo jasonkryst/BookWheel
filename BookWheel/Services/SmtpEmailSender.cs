@@ -20,10 +20,17 @@ public sealed class SmtpEmailSender : IEmailSender
 
     public async Task SendAsync(string toAddress, string subject, string plainTextBody, CancellationToken cancellationToken = default)
     {
+        // Fire-and-forget semantics preserved for existing callers (anti-enumeration):
+        // the outcome is deliberately ignored.
+        _ = await TrySendAsync(toAddress, subject, plainTextBody, cancellationToken);
+    }
+
+    public async Task<EmailSendResult> TrySendAsync(string toAddress, string subject, string plainTextBody, CancellationToken cancellationToken = default)
+    {
         if (string.IsNullOrWhiteSpace(_options.Host))
         {
             _logger.LogWarning("Email send skipped because Smtp:Host is not configured. Intended recipient {ToAddress}.", LogSanitizer.MaskEmail(toAddress));
-            return;
+            return EmailSendResult.Fail("SMTP is not configured (Smtp:Host is empty).");
         }
 
         try
@@ -45,6 +52,7 @@ public sealed class SmtpEmailSender : IEmailSender
 
             await client.SendAsync(message, cancellationToken);
             await client.DisconnectAsync(true, cancellationToken);
+            return EmailSendResult.Ok();
         }
         catch (Exception ex)
         {
@@ -52,6 +60,7 @@ public sealed class SmtpEmailSender : IEmailSender
             // auth failure, rejected recipient) must never propagate into a
             // caller's HTTP response — see Global Constraints. Logged, not rethrown.
             _logger.LogError(ex, "Failed to send email to {ToAddress}.", LogSanitizer.MaskEmail(toAddress));
+            return EmailSendResult.Fail(ex.Message);
         }
     }
 }

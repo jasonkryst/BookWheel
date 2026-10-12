@@ -38,7 +38,9 @@ public sealed class AuthorizationCoverageTests
         "UsersController.CreateUser",
         "UsersController.UpdateUser",
         "UsersController.CreatePasswordResetLink",
-        "UsersController.DeleteUser"
+        "UsersController.DeleteUser",
+        "SystemController.GetConfigStatus",
+        "SystemController.SendTestEmail"
     };
 
     private static IEnumerable<(string Name, MethodInfo Method)> Actions()
