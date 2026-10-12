@@ -1,7 +1,0 @@
-{
-  "books": [
-    { "title": "Imported Book Alpha" },
-    { "title": "Imported Book Beta", "isbn": "9780316769488" },
-    { "title": "Book Four" }
-  ]
-}
