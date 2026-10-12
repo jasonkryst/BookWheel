@@ -1,0 +1,20 @@
+- generic [active] [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#appMain"
+  - main [ref=e3]:
+    - generic [ref=e4]:
+      - button "Settings" [ref=e5] [cursor=pointer]:
+        - generic [aria-hidden] [ref=e6]: ⚙
+      - heading "Book Wheel Login" [level=1] [ref=e7]
+      - paragraph [ref=e8]
+      - generic [ref=e9]:
+        - generic [ref=e10]:
+          - generic [ref=e11]: Username
+          - textbox "Username" [ref=e12]
+        - generic [ref=e13]:
+          - generic [ref=e14]: Password
+          - textbox "Password" [ref=e15]
+        - button "Log in" [ref=e16] [cursor=pointer]
+        - alert [ref=e17]
+  - contentinfo [ref=e18]:
+    - generic [ref=e19]: "Version: 2.16.2"

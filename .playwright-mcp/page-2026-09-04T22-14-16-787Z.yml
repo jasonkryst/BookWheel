@@ -1,0 +1,114 @@
+- generic [active] [ref=f3e1]:
+  - link "Skip to main content" [ref=f3e2] [cursor=pointer]:
+    - /url: "#appMain"
+  - main [ref=f3e3]:
+    - region "Book Wheel application" [ref=f3e20]:
+      - generic [ref=f3e21]:
+        - heading "Book Wheel" [level=1] [ref=f3e22]
+        - generic [ref=f3e23]:
+          - paragraph [ref=f3e24]: Hello, audituser
+          - generic [ref=f3e25]:
+            - button "Stats" [ref=f3e26] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f3e27]: 📊
+            - button "Settings" [ref=f3e28] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f3e29]: ⚙
+            - button "Log out" [ref=f3e30] [cursor=pointer]
+      - generic [ref=f3e31]:
+        - heading "Spin wheel" [level=2] [ref=f3e32]
+        - button "Book selection wheel. Press Enter or Space to spin." [ref=f3e34]
+        - button "Spin" [ref=f3e205] [cursor=pointer]
+        - paragraph [ref=f3e37]: Wheel has 11 books.
+        - list "Books currently on the wheel" [ref=f3e38]:
+          - listitem [ref=f3e39]: 1. Nook Book One
+          - listitem [ref=f3e40]: 2. Book Nine
+          - listitem [ref=f3e41]: 3. Book Four
+          - listitem [ref=f3e42]: 4. The Hobbit (Edited)
+          - listitem [ref=f3e43]: 5. Book Six
+          - listitem [ref=f3e44]: 6. Book Eleven
+          - listitem [ref=f3e45]: 7. Test ISBN Book
+          - listitem [ref=f3e46]: 8. Book Eight
+          - listitem [ref=f3e47]: 9. Book Seven
+          - listitem [ref=f3e48]: 10. Book Five
+          - listitem [ref=f3e49]: 11. Book Ten
+        - paragraph [ref=f3e204]:
+          - generic [ref=f3e206]: "Last selected: Book Four"
+      - generic [ref=f3e51]:
+        - heading "Active books" [level=2] [ref=f3e52]
+        - paragraph [ref=f3e53]: 11 books total • Page 1 of 2
+        - generic [ref=f3e54]:
+          - generic [ref=f3e55]:
+            - generic [ref=f3e56]: Book title
+            - textbox "Book title" [ref=f3e57]
+            - generic [ref=f3e58]: ISBN
+            - textbox "ISBN" [ref=f3e59]:
+              - /placeholder: ISBN (optional)
+            - generic [ref=f3e60]: Book type
+            - combobox "Book type" [ref=f3e61]:
+              - option "Physical" [selected]
+              - option "Digital"
+              - option "Nook Only"
+          - generic [ref=f3e62]:
+            - button "Scan ISBN barcode" [ref=f3e63] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f3e64]: 📷
+            - button "Lookup" [ref=f3e65] [cursor=pointer]
+            - button "Add" [ref=f3e66] [cursor=pointer]
+        - generic [ref=f3e67]:
+          - generic [ref=f3e208]:
+            - generic [ref=f3e209]:
+              - 'button "Edit book title: Nook Book One" [ref=f3e210] [cursor=pointer]': Nook Book One
+              - generic "Nook Only" [ref=f3e211]: 🔖
+            - 'button "Remove book: Nook Book One" [ref=f3e213] [cursor=pointer]': Remove
+          - generic [ref=f3e214]:
+            - generic [ref=f3e215]:
+              - 'button "Edit book title: Book Nine" [ref=f3e216] [cursor=pointer]': Book Nine
+              - generic "Physical" [ref=f3e217]: 📖
+            - 'button "Remove book: Book Nine" [ref=f3e219] [cursor=pointer]': Remove
+          - generic [ref=f3e220]:
+            - generic [ref=f3e221]:
+              - 'button "Edit book title: Book Four" [ref=f3e222] [cursor=pointer]': Book Four
+              - generic "Physical" [ref=f3e223]: 📖
+            - 'button "Remove book: Book Four" [ref=f3e225] [cursor=pointer]': Remove
+          - generic [ref=f3e226]:
+            - generic [ref=f3e227]:
+              - 'button "Edit book title: The Hobbit (Edited)" [ref=f3e228] [cursor=pointer]': The Hobbit (Edited)
+              - generic "Digital" [ref=f3e229]: 📱
+            - 'button "Remove book: The Hobbit (Edited)" [ref=f3e231] [cursor=pointer]': Remove
+          - generic [ref=f3e232]:
+            - generic [ref=f3e233]:
+              - 'button "Edit book title: Book Six" [ref=f3e234] [cursor=pointer]': Book Six
+              - generic "Physical" [ref=f3e235]: 📖
+            - 'button "Remove book: Book Six" [ref=f3e237] [cursor=pointer]': Remove
+          - generic [ref=f3e238]:
+            - generic [ref=f3e239]:
+              - 'button "Edit book title: Book Eleven" [ref=f3e240] [cursor=pointer]': Book Eleven
+              - generic "Physical" [ref=f3e241]: 📖
+            - 'button "Remove book: Book Eleven" [ref=f3e243] [cursor=pointer]': Remove
+          - generic [ref=f3e244]:
+            - img "Cover of Test ISBN Book" [ref=f3e245]
+            - generic [ref=f3e246]:
+              - 'button "Edit book title: Test ISBN Book" [ref=f3e247] [cursor=pointer]': Test ISBN Book
+              - generic [ref=f3e248]: Celeste Ng
+              - generic "Physical" [ref=f3e249]: 📖
+            - 'button "Remove book: Test ISBN Book" [ref=f3e251] [cursor=pointer]': Remove
+          - generic [ref=f3e252]:
+            - generic [ref=f3e253]:
+              - 'button "Edit book title: Book Eight" [ref=f3e254] [cursor=pointer]': Book Eight
+              - generic "Physical" [ref=f3e255]: 📖
+            - 'button "Remove book: Book Eight" [ref=f3e257] [cursor=pointer]': Remove
+          - generic [ref=f3e258]:
+            - generic [ref=f3e259]:
+              - 'button "Edit book title: Book Seven" [ref=f3e260] [cursor=pointer]': Book Seven
+              - generic "Physical" [ref=f3e261]: 📖
+            - 'button "Remove book: Book Seven" [ref=f3e263] [cursor=pointer]': Remove
+          - generic [ref=f3e264]:
+            - generic [ref=f3e265]:
+              - 'button "Edit book title: Book Five" [ref=f3e266] [cursor=pointer]': Book Five
+              - generic "Physical" [ref=f3e267]: 📖
+            - 'button "Remove book: Book Five" [ref=f3e269] [cursor=pointer]': Remove
+        - generic [ref=f3e130]:
+          - button "Previous" [disabled] [ref=f3e131]
+          - generic [ref=f3e132]: Page 1 of 2
+          - button "Next" [ref=f3e133] [cursor=pointer]
+        - status [ref=f3e134]
+  - contentinfo [ref=f3e18]:
+    - generic [ref=f3e19]: "Version: 2.13.0"

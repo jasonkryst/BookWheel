@@ -1,0 +1,92 @@
+- generic [ref=f8e1]:
+  - link "Przejdź do głównej treści" [ref=f8e191] [cursor=pointer]:
+    - /url: "#appMain"
+  - main [ref=f8e3]:
+    - region "Book Wheel application" [ref=f8e20]:
+      - generic [ref=f8e21]:
+        - heading "Book Wheel" [level=1] [ref=f8e22]
+        - generic [ref=f8e23]:
+          - paragraph [ref=f8e24]: Hello, audituser
+          - generic [ref=f8e25]:
+            - button "Statystyki" [ref=f8e192] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f8e27]: 📊
+            - button "Ustawienia" [ref=f8e193] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f8e29]: ⚙
+            - button "Wyloguj się" [ref=f8e194] [cursor=pointer]
+      - generic [ref=f8e31]:
+        - heading "Koło losujące" [level=2] [ref=f8e195]
+        - button "Koło wyboru książki. Naciśnij Enter lub Spację, aby zakręcić." [ref=f8e196]
+        - button "Zakręć" [ref=f8e197] [cursor=pointer]
+        - paragraph [ref=f8e37]: Koło zawiera 12 książek.
+        - list "Books currently on the wheel" [ref=f8e38]:
+          - listitem [ref=f8e198]: 1. Book Four
+          - listitem [ref=f8e199]: 2. Book Eleven
+          - listitem [ref=f8e200]: 3. Book Eight
+          - listitem [ref=f8e201]: 4. Book Five
+          - listitem [ref=f8e202]: 5. Book Seven
+          - listitem [ref=f8e203]: 6. Nook Book One
+          - listitem [ref=f8e204]: 7. Imported Book Alpha
+          - listitem [ref=f8e205]: 8. Imported Book Beta
+          - listitem [ref=f8e206]: 9. The Hobbit (Edited)
+          - listitem [ref=f8e207]: 10. Test ISBN Book
+          - listitem [ref=f8e208]: 11. Book Ten
+          - listitem [ref=f8e209]: 12. Book Six
+        - paragraph
+      - generic [ref=f8e50]:
+        - heading "Aktywne książki" [level=2] [ref=f8e210]
+        - paragraph [ref=f8e52]: 12 książek łącznie • Strona 2 z 2
+        - generic [ref=f8e53]:
+          - generic [ref=f8e54]:
+            - generic [ref=f8e55]: Tytuł książki
+            - textbox "Tytuł książki" [ref=f8e211]
+            - generic [ref=f8e57]: ISBN
+            - textbox "ISBN" [ref=f8e58]:
+              - /placeholder: ISBN (opcjonalnie)
+            - generic [ref=f8e59]: Typ książki
+            - combobox "Typ książki" [ref=f8e212]:
+              - option "Fizyczna" [selected]
+              - option "Cyfrowa"
+              - option "Tylko Nook"
+          - generic [ref=f8e61]:
+            - button "Skanuj kod ISBN" [ref=f8e213] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f8e63]: 📷
+            - button "Wyszukaj" [ref=f8e214] [cursor=pointer]
+            - button "Dodaj" [ref=f8e215] [cursor=pointer]
+        - generic [ref=f8e66]:
+          - generic [ref=f8e216]:
+            - generic [ref=f8e217]:
+              - 'button "Edytuj tytuł książki: Book Five" [ref=f8e218] [cursor=pointer]': Book Five
+              - generic "Fizyczna" [ref=f8e219]: 📖
+            - 'button "Usuń książkę: Book Five" [ref=f8e221] [cursor=pointer]': Usuń
+          - generic [ref=f8e222]:
+            - generic [ref=f8e223]:
+              - 'button "Edytuj tytuł książki: Book Ten" [ref=f8e224] [cursor=pointer]': Book Ten
+              - generic "Fizyczna" [ref=f8e225]: 📖
+            - 'button "Usuń książkę: Book Ten" [ref=f8e227] [cursor=pointer]': Usuń
+        - generic [ref=f8e129]:
+          - button "Poprzednia" [ref=f8e228] [cursor=pointer]
+          - generic [ref=f8e131]: Strona 2 z 2
+          - button "Następna" [disabled] [ref=f8e229]
+        - status [ref=f8e133]
+  - dialog [ref=f8e136]:
+    - generic [ref=f8e137]:
+      - banner [ref=f8e138]:
+        - heading "Ustawienia" [level=2] [ref=f8e230]
+      - tablist "Sekcje ustawień" [ref=f8e231]:
+        - tab "Zarządzaj użytkownikami" [ref=f8e232] [cursor=pointer]
+        - tab "Importuj / Eksportuj" [ref=f8e233] [cursor=pointer]
+        - tab "Preferencje" [active] [selected] [ref=f8e234] [cursor=pointer]
+      - tabpanel "Preferencje" [ref=f8e235]:
+        - generic [ref=f8e145]:
+          - generic [ref=f8e146]: Motyw
+          - button "Przełącz na Tryb wysokiego kontrastu" [ref=f8e236] [cursor=pointer]:
+            - generic [aria-hidden] [ref=f8e148]: ☀
+        - generic [ref=f8e149]:
+          - generic [ref=f8e150]: Język
+          - combobox "Język" [ref=f8e237]:
+            - option "English"
+            - option "Español"
+            - option "Polski" [selected]
+      - button "Zamknij" [ref=f8e238] [cursor=pointer]
+  - contentinfo [ref=f8e18]:
+    - generic [ref=f8e19]: "Version: 2.13.0"

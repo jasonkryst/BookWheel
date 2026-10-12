@@ -1,0 +1,92 @@
+- generic [ref=f8e1]:
+  - link "Skip to main content" [ref=f8e2] [cursor=pointer]:
+    - /url: "#appMain"
+  - main [ref=f8e3]:
+    - region "Book Wheel application" [ref=f8e20]:
+      - generic [ref=f8e21]:
+        - heading "Book Wheel" [level=1] [ref=f8e22]
+        - generic [ref=f8e23]:
+          - paragraph [ref=f8e24]: Hello, audituser
+          - generic [ref=f8e25]:
+            - button "Stats" [ref=f8e26] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f8e27]: 📊
+            - button "Settings" [ref=f8e28] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f8e29]: ⚙
+            - button "Log out" [ref=f8e30] [cursor=pointer]
+      - generic [ref=f8e31]:
+        - heading "Spin wheel" [level=2] [ref=f8e32]
+        - button "Book selection wheel. Press Enter or Space to spin." [ref=f8e34]
+        - button "Spin" [ref=f8e36] [cursor=pointer]
+        - paragraph [ref=f8e37]: Wheel has 12 books.
+        - list "Books currently on the wheel" [ref=f8e38]:
+          - listitem [ref=f8e167]: 1. Book Four
+          - listitem [ref=f8e168]: 2. Book Eleven
+          - listitem [ref=f8e169]: 3. Book Eight
+          - listitem [ref=f8e170]: 4. Book Five
+          - listitem [ref=f8e171]: 5. Book Seven
+          - listitem [ref=f8e172]: 6. Nook Book One
+          - listitem [ref=f8e173]: 7. Imported Book Alpha
+          - listitem [ref=f8e174]: 8. Imported Book Beta
+          - listitem [ref=f8e175]: 9. The Hobbit (Edited)
+          - listitem [ref=f8e176]: 10. Test ISBN Book
+          - listitem [ref=f8e177]: 11. Book Ten
+          - listitem [ref=f8e178]: 12. Book Six
+        - paragraph
+      - generic [ref=f8e50]:
+        - heading "Active books" [level=2] [ref=f8e51]
+        - paragraph [ref=f8e52]: 12 books total • Page 2 of 2
+        - generic [ref=f8e53]:
+          - generic [ref=f8e54]:
+            - generic [ref=f8e55]: Book title
+            - textbox "Book title" [ref=f8e56]
+            - generic [ref=f8e57]: ISBN
+            - textbox "ISBN" [ref=f8e58]:
+              - /placeholder: ISBN (optional)
+            - generic [ref=f8e59]: Book type
+            - combobox "Book type" [ref=f8e60]:
+              - option "Physical" [selected]
+              - option "Digital"
+              - option "Nook Only"
+          - generic [ref=f8e61]:
+            - button "Scan ISBN barcode" [ref=f8e62] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f8e63]: 📷
+            - button "Lookup" [ref=f8e64] [cursor=pointer]
+            - button "Add" [ref=f8e65] [cursor=pointer]
+        - generic [ref=f8e66]:
+          - generic [ref=f8e179]:
+            - generic [ref=f8e180]:
+              - 'button "Edit book title: Book Five" [ref=f8e181] [cursor=pointer]': Book Five
+              - generic "Physical" [ref=f8e182]: 📖
+            - 'button "Remove book: Book Five" [ref=f8e184] [cursor=pointer]': Remove
+          - generic [ref=f8e185]:
+            - generic [ref=f8e186]:
+              - 'button "Edit book title: Book Ten" [ref=f8e187] [cursor=pointer]': Book Ten
+              - generic "Physical" [ref=f8e188]: 📖
+            - 'button "Remove book: Book Ten" [ref=f8e190] [cursor=pointer]': Remove
+        - generic [ref=f8e129]:
+          - button "Previous" [ref=f8e130] [cursor=pointer]
+          - generic [ref=f8e131]: Page 2 of 2
+          - button "Next" [disabled] [ref=f8e132]
+        - status [ref=f8e133]
+  - dialog [ref=f8e136]:
+    - generic [ref=f8e137]:
+      - banner [ref=f8e138]:
+        - heading "Settings" [level=2] [ref=f8e139]
+      - tablist "Settings sections" [ref=f8e140]:
+        - tab "Manage users" [ref=f8e141] [cursor=pointer]
+        - tab "Import / Export" [ref=f8e142] [cursor=pointer]
+        - tab "Preferences" [active] [selected] [ref=f8e143] [cursor=pointer]
+      - tabpanel "Preferences" [ref=f8e144]:
+        - generic [ref=f8e145]:
+          - generic [ref=f8e146]: Theme
+          - button "Switch theme" [ref=f8e147] [cursor=pointer]:
+            - generic [aria-hidden] [ref=f8e148]: ☀
+        - generic [ref=f8e149]:
+          - generic [ref=f8e150]: Language
+          - combobox "Language" [ref=f8e151]:
+            - option "English" [selected]
+            - option "Español"
+            - option "Polski"
+      - button "Close" [ref=f8e153] [cursor=pointer]
+  - contentinfo [ref=f8e18]:
+    - generic [ref=f8e19]: "Version: 2.13.0"

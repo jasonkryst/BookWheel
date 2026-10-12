@@ -1126,6 +1126,17 @@ button:disabled {
   padding: 8px 0;
 }
 
+.recent-picks {
+  width: min(100%, 420px);
+}
+
+.spin-history-time {
+  flex-shrink: 0;
+  margin-left: 12px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 .transfer-modal {
   width: min(900px, calc(100% - 24px));
   max-height: calc(100vh - 24px);

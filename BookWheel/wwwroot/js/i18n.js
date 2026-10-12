@@ -109,6 +109,11 @@
         summaryCount: 'Wheel has {count} books.',
         addBooksPrompt: 'Add books to spin',
         emptyPrompt: 'Add your first book to begin spinning.',
+        recentPicksHeading: 'Recent picks',
+        recentPicksEmpty: 'No spins yet.',
+        recentPicksLoadError: 'Could not load recent picks.',
+        removedBook: 'Removed book',
+        justNow: 'just now',
         addBooksError: 'Add books to spin.',
         selectionNotFoundError: 'Selected book was not found on the current wheel.',
         selectedToast: 'Selected: {title}'
@@ -326,7 +331,10 @@
         neverSpunHeading: 'Never Spun',
         neverSpunEmpty: 'All books have been spun at least once!',
         typeBreakdownHeading: 'By Media Type',
-        chartAriaLabel: 'Spin frequency bar chart'
+        chartAriaLabel: 'Spin frequency bar chart',
+        historyHeading: 'Spin History',
+        historyEmpty: 'No spins recorded yet.',
+        historyLoadError: 'Could not load spin history.'
       }
     },
     es: {
@@ -434,6 +442,11 @@
         summaryCount: 'La rueda tiene {count} libros.',
         addBooksPrompt: 'Añade libros para girar',
         emptyPrompt: 'Añade tu primer libro para empezar a girar.',
+        recentPicksHeading: 'Elecciones recientes',
+        recentPicksEmpty: 'Aún no hay giros.',
+        recentPicksLoadError: 'No se pudieron cargar las elecciones recientes.',
+        removedBook: 'Libro eliminado',
+        justNow: 'ahora mismo',
         addBooksError: 'Añade libros para girar.',
         selectionNotFoundError: 'El libro seleccionado no se encontró en la rueda actual.',
         selectedToast: 'Seleccionado: {title}'
@@ -651,7 +664,10 @@
         neverSpunHeading: 'Nunca girados',
         neverSpunEmpty: '¡Todos los libros han sido girados al menos una vez!',
         typeBreakdownHeading: 'Por tipo de soporte',
-        chartAriaLabel: 'Gráfico de barras de frecuencia de giro'
+        chartAriaLabel: 'Gráfico de barras de frecuencia de giro',
+        historyHeading: 'Historial de giros',
+        historyEmpty: 'Aún no hay giros registrados.',
+        historyLoadError: 'No se pudo cargar el historial de giros.'
       }
     },
     pl: {
@@ -759,6 +775,11 @@
         summaryCount: 'Koło zawiera {count} książek.',
         addBooksPrompt: 'Dodaj książki, aby zakręcić',
         emptyPrompt: 'Dodaj pierwszą książkę, aby zacząć losowanie.',
+        recentPicksHeading: 'Ostatnie wybory',
+        recentPicksEmpty: 'Brak losowań.',
+        recentPicksLoadError: 'Nie udało się wczytać ostatnich wyborów.',
+        removedBook: 'Usunięta książka',
+        justNow: 'przed chwilą',
         addBooksError: 'Dodaj książki, aby zakręcić.',
         selectionNotFoundError: 'Wybrana książka nie została znaleziona na bieżącym kole.',
         selectedToast: 'Wybrano: {title}'
@@ -976,7 +997,10 @@
         neverSpunHeading: 'Nigdy nie losowane',
         neverSpunEmpty: 'Wszystkie książki zostały wylosowane co najmniej raz!',
         typeBreakdownHeading: 'Według formatu',
-        chartAriaLabel: 'Wykres słupkowy częstotliwości losowania'
+        chartAriaLabel: 'Wykres słupkowy częstotliwości losowania',
+        historyHeading: 'Historia losowań',
+        historyEmpty: 'Nie zarejestrowano jeszcze losowań.',
+        historyLoadError: 'Nie udało się wczytać historii losowań.'
       }
     }
   };

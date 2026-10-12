@@ -1,0 +1,133 @@
+- generic [ref=f2e1]:
+  - link "Skip to main content" [ref=f2e2] [cursor=pointer]:
+    - /url: "#appMain"
+  - main [ref=f2e3]:
+    - region "Book Wheel application" [ref=f2e4]:
+      - generic [ref=f2e5]:
+        - heading "Book Wheel" [level=1] [ref=f2e6]
+        - generic [ref=f2e7]:
+          - paragraph [ref=f2e8]: Hello, audituser
+          - generic [ref=f2e9]:
+            - button "Stats" [ref=f2e10] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f2e11]: 📊
+            - button "Settings" [ref=f2e12] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f2e13]: ⚙
+            - button "Log out" [ref=f2e14] [cursor=pointer]
+      - generic [ref=f2e15]:
+        - heading "Spin wheel" [level=2] [ref=f2e16]
+        - button "Book selection wheel. Press Enter or Space to spin." [ref=f2e18]
+        - button "Spin" [ref=f2e20] [cursor=pointer]
+        - paragraph [ref=f2e21]: Wheel has 11 books.
+        - list "Books currently on the wheel" [ref=f2e22]:
+          - listitem [ref=f2e23]: 1. Nook Book One
+          - listitem [ref=f2e24]: 2. Book Nine
+          - listitem [ref=f2e25]: 3. Book Four
+          - listitem [ref=f2e26]: 4. The Hobbit (Edited)
+          - listitem [ref=f2e27]: 5. Book Six
+          - listitem [ref=f2e28]: 6. Book Eleven
+          - listitem [ref=f2e29]: 7. Test ISBN Book
+          - listitem [ref=f2e30]: 8. Book Eight
+          - listitem [ref=f2e31]: 9. Book Seven
+          - listitem [ref=f2e32]: 10. Book Five
+          - listitem [ref=f2e33]: 11. Book Ten
+        - paragraph
+      - generic [ref=f2e35]:
+        - heading "Active books" [level=2] [ref=f2e36]
+        - paragraph [ref=f2e37]: 11 books total • Page 1 of 2
+        - generic [ref=f2e38]:
+          - generic [ref=f2e39]:
+            - generic [ref=f2e40]: Book title
+            - textbox "Book title" [ref=f2e41]
+            - generic [ref=f2e42]: ISBN
+            - textbox "ISBN" [ref=f2e43]:
+              - /placeholder: ISBN (optional)
+            - generic [ref=f2e44]: Book type
+            - combobox "Book type" [ref=f2e45]:
+              - option "Physical" [selected]
+              - option "Digital"
+              - option "Nook Only"
+          - generic [ref=f2e46]:
+            - button "Scan ISBN barcode" [ref=f2e47] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f2e48]: 📷
+            - button "Lookup" [ref=f2e49] [cursor=pointer]
+            - button "Add" [ref=f2e50] [cursor=pointer]
+        - generic [ref=f2e51]:
+          - generic [ref=f2e52]:
+            - generic [ref=f2e53]:
+              - 'button "Edit book title: Nook Book One" [ref=f2e54] [cursor=pointer]': Nook Book One
+              - generic "Nook Only" [ref=f2e55]: 🔖
+            - 'button "Remove book: Nook Book One" [ref=f2e57] [cursor=pointer]': Remove
+          - generic [ref=f2e58]:
+            - generic [ref=f2e59]:
+              - 'button "Edit book title: Book Nine" [ref=f2e60] [cursor=pointer]': Book Nine
+              - generic "Physical" [ref=f2e61]: 📖
+            - 'button "Remove book: Book Nine" [ref=f2e63] [cursor=pointer]': Remove
+          - generic [ref=f2e64]:
+            - generic [ref=f2e65]:
+              - 'button "Edit book title: Book Four" [ref=f2e66] [cursor=pointer]': Book Four
+              - generic "Physical" [ref=f2e67]: 📖
+            - 'button "Remove book: Book Four" [ref=f2e69] [cursor=pointer]': Remove
+          - generic [ref=f2e70]:
+            - generic [ref=f2e71]:
+              - 'button "Edit book title: The Hobbit (Edited)" [ref=f2e72] [cursor=pointer]': The Hobbit (Edited)
+              - generic "Digital" [ref=f2e73]: 📱
+            - 'button "Remove book: The Hobbit (Edited)" [ref=f2e75] [cursor=pointer]': Remove
+          - generic [ref=f2e76]:
+            - generic [ref=f2e77]:
+              - 'button "Edit book title: Book Six" [ref=f2e78] [cursor=pointer]': Book Six
+              - generic "Physical" [ref=f2e79]: 📖
+            - 'button "Remove book: Book Six" [ref=f2e81] [cursor=pointer]': Remove
+          - generic [ref=f2e82]:
+            - generic [ref=f2e83]:
+              - 'button "Edit book title: Book Eleven" [ref=f2e84] [cursor=pointer]': Book Eleven
+              - generic "Physical" [ref=f2e85]: 📖
+            - 'button "Remove book: Book Eleven" [ref=f2e87] [cursor=pointer]': Remove
+          - generic [ref=f2e88]:
+            - img "Cover of Test ISBN Book" [ref=f2e89]
+            - generic [ref=f2e90]:
+              - 'button "Edit book title: Test ISBN Book" [ref=f2e91] [cursor=pointer]': Test ISBN Book
+              - generic [ref=f2e92]: Celeste Ng
+              - generic "Physical" [ref=f2e93]: 📖
+            - 'button "Remove book: Test ISBN Book" [ref=f2e95] [cursor=pointer]': Remove
+          - generic [ref=f2e96]:
+            - generic [ref=f2e97]:
+              - 'button "Edit book title: Book Eight" [ref=f2e98] [cursor=pointer]': Book Eight
+              - generic "Physical" [ref=f2e99]: 📖
+            - 'button "Remove book: Book Eight" [ref=f2e101] [cursor=pointer]': Remove
+          - generic [ref=f2e102]:
+            - generic [ref=f2e103]:
+              - 'button "Edit book title: Book Seven" [ref=f2e104] [cursor=pointer]': Book Seven
+              - generic "Physical" [ref=f2e105]: 📖
+            - 'button "Remove book: Book Seven" [ref=f2e107] [cursor=pointer]': Remove
+          - generic [ref=f2e108]:
+            - generic [ref=f2e109]:
+              - 'button "Edit book title: Book Five" [ref=f2e110] [cursor=pointer]': Book Five
+              - generic "Physical" [ref=f2e111]: 📖
+            - 'button "Remove book: Book Five" [ref=f2e113] [cursor=pointer]': Remove
+        - generic [ref=f2e114]:
+          - button "Previous" [disabled] [ref=f2e115]
+          - generic [ref=f2e116]: Page 1 of 2
+          - button "Next" [ref=f2e117] [cursor=pointer]
+        - status [ref=f2e118]
+  - dialog [ref=f2e121]:
+    - generic [ref=f2e122]:
+      - banner [ref=f2e123]:
+        - heading "Settings" [level=2] [ref=f2e124]
+      - tablist "Settings sections" [ref=f2e125]:
+        - tab "Manage users" [ref=f2e126] [cursor=pointer]
+        - tab "Import / Export" [ref=f2e127] [cursor=pointer]
+        - tab "Preferences" [active] [selected] [ref=f2e128] [cursor=pointer]
+      - tabpanel "Preferences" [ref=f2e129]:
+        - generic [ref=f2e130]:
+          - generic [ref=f2e131]: Theme
+          - button "Switch theme" [ref=f2e132] [cursor=pointer]:
+            - generic [aria-hidden] [ref=f2e133]: ☀
+        - generic [ref=f2e134]:
+          - generic [ref=f2e135]: Language
+          - combobox "Language" [ref=f2e136]:
+            - option "English" [selected]
+            - option "Español"
+            - option "Polski"
+      - button "Close" [ref=f2e138] [cursor=pointer]
+  - contentinfo [ref=f2e119]:
+    - generic [ref=f2e120]: "Version: 2.13.0"

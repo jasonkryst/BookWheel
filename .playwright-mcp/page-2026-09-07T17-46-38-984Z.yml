@@ -1,0 +1,54 @@
+- generic [active] [ref=f1e1]:
+  - link "Skip to main content" [ref=f1e2] [cursor=pointer]:
+    - /url: "#appMain"
+  - main [ref=f1e3]:
+    - region "Book Wheel application" [ref=f1e22]:
+      - generic [ref=f1e23]:
+        - heading "Book Wheel" [level=1] [ref=f1e24]
+        - generic [ref=f1e25]:
+          - paragraph [ref=f1e26]: Hello, verify-admin
+          - generic [ref=f1e27]:
+            - button "Stats" [ref=f1e28] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f1e29]: 📊
+            - button "Settings" [ref=f1e30] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f1e31]: ⚙
+            - button "Log out" [ref=f1e32] [cursor=pointer]
+      - generic [ref=f1e33]:
+        - heading "Spin wheel" [level=2] [ref=f1e34]
+        - button "Book selection wheel. Press Enter or Space to spin." [ref=f1e36]
+        - button "Spin" [disabled] [ref=f1e38]
+        - paragraph [ref=f1e39]: Wheel is empty. Add books to spin.
+        - list "Books currently on the wheel" [ref=f1e40]
+        - paragraph [ref=f1e41]: Add your first book to begin spinning.
+      - generic [ref=f1e43]:
+        - heading "Active books" [level=2] [ref=f1e44]
+        - paragraph [ref=f1e45]: 0 books total • Page 1 of 1
+        - generic [ref=f1e46]:
+          - generic [ref=f1e47]:
+            - generic [ref=f1e48]: Book title
+            - textbox "Book title" [ref=f1e49]
+            - generic [ref=f1e50]: ISBN
+            - textbox "ISBN" [ref=f1e51]:
+              - /placeholder: ISBN (optional)
+            - generic [ref=f1e52]: Book type
+            - combobox "Book type" [ref=f1e53]:
+              - option "Physical" [selected]
+              - option "Digital"
+              - option "Nook Only"
+          - generic [ref=f1e54]:
+            - button "Scan ISBN barcode" [ref=f1e55] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f1e56]: 📷
+            - button "Lookup" [ref=f1e57] [cursor=pointer]
+            - button "Add" [ref=f1e58] [cursor=pointer]
+        - status [ref=f1e60]:
+          - heading "No books yet" [level=3] [ref=f1e61]
+          - paragraph [ref=f1e62]: Add your first title above to populate the wheel.
+          - paragraph [ref=f1e63]: "Tip: after adding books, press the Spin button or hit Enter on the wheel."
+        - generic [ref=f1e64]:
+          - button "Previous" [disabled] [ref=f1e65]
+          - generic [ref=f1e66]: Page 1 of 1
+          - button "Next" [disabled] [ref=f1e67]
+        - status [ref=f1e68]
+  - generic [ref=f1e69]: Account created and signed in.
+  - contentinfo [ref=f1e18]:
+    - generic [ref=f1e19]: "Version: 2.16.2"

@@ -1,0 +1,206 @@
+- generic [ref=f7e1]:
+  - link "Skip to main content" [ref=f7e2] [cursor=pointer]:
+    - /url: "#appMain"
+  - main [ref=f7e3]:
+    - region "Book Wheel application" [ref=f7e20]:
+      - generic [ref=f7e21]:
+        - heading "Book Wheel" [level=1] [ref=f7e22]
+        - generic [ref=f7e23]:
+          - paragraph [ref=f7e24]: Hello, audituser
+          - generic [ref=f7e25]:
+            - button "Stats" [ref=f7e26] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f7e27]: 📊
+            - button "Settings" [ref=f7e28] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f7e29]: ⚙
+            - button "Log out" [ref=f7e30] [cursor=pointer]
+      - generic [ref=f7e31]:
+        - heading "Spin wheel" [level=2] [ref=f7e32]
+        - button "Book selection wheel. Press Enter or Space to spin." [ref=f7e34]
+        - button "Spin" [ref=f7e36] [cursor=pointer]
+        - paragraph [ref=f7e37]: Wheel has 10 books.
+        - list "Books currently on the wheel" [ref=f7e38]:
+          - listitem [ref=f7e39]: 1. Nook Book One
+          - listitem [ref=f7e40]: 2. Book Four
+          - listitem [ref=f7e41]: 3. The Hobbit (Edited)
+          - listitem [ref=f7e42]: 4. Book Six
+          - listitem [ref=f7e43]: 5. Book Eleven
+          - listitem [ref=f7e44]: 6. Test ISBN Book
+          - listitem [ref=f7e45]: 7. Book Eight
+          - listitem [ref=f7e46]: 8. Book Seven
+          - listitem [ref=f7e47]: 9. Book Five
+          - listitem [ref=f7e48]: 10. Book Ten
+        - paragraph
+      - generic [ref=f7e50]:
+        - heading "Active books" [level=2] [ref=f7e51]
+        - paragraph [ref=f7e52]: 10 books total • Page 1 of 1
+        - generic [ref=f7e53]:
+          - generic [ref=f7e54]:
+            - generic [ref=f7e55]: Book title
+            - textbox "Book title" [ref=f7e56]
+            - generic [ref=f7e57]: ISBN
+            - textbox "ISBN" [ref=f7e58]:
+              - /placeholder: ISBN (optional)
+            - generic [ref=f7e59]: Book type
+            - combobox "Book type" [ref=f7e60]:
+              - option "Physical" [selected]
+              - option "Digital"
+              - option "Nook Only"
+          - generic [ref=f7e61]:
+            - button "Scan ISBN barcode" [ref=f7e62] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f7e63]: 📷
+            - button "Lookup" [ref=f7e64] [cursor=pointer]
+            - button "Add" [ref=f7e65] [cursor=pointer]
+        - generic [ref=f7e66]:
+          - generic [ref=f7e67]:
+            - generic [ref=f7e68]:
+              - 'button "Edit book title: Nook Book One" [ref=f7e69] [cursor=pointer]': Nook Book One
+              - generic "Nook Only" [ref=f7e70]: 🔖
+            - 'button "Remove book: Nook Book One" [ref=f7e72] [cursor=pointer]': Remove
+          - generic [ref=f7e73]:
+            - generic [ref=f7e74]:
+              - 'button "Edit book title: Book Four" [ref=f7e75] [cursor=pointer]': Book Four
+              - generic "Physical" [ref=f7e76]: 📖
+            - 'button "Remove book: Book Four" [ref=f7e78] [cursor=pointer]': Remove
+          - generic [ref=f7e79]:
+            - generic [ref=f7e80]:
+              - 'button "Edit book title: The Hobbit (Edited)" [ref=f7e81] [cursor=pointer]': The Hobbit (Edited)
+              - generic "Digital" [ref=f7e82]: 📱
+            - 'button "Remove book: The Hobbit (Edited)" [ref=f7e84] [cursor=pointer]': Remove
+          - generic [ref=f7e85]:
+            - generic [ref=f7e86]:
+              - 'button "Edit book title: Book Six" [ref=f7e87] [cursor=pointer]': Book Six
+              - generic "Physical" [ref=f7e88]: 📖
+            - 'button "Remove book: Book Six" [ref=f7e90] [cursor=pointer]': Remove
+          - generic [ref=f7e91]:
+            - generic [ref=f7e92]:
+              - 'button "Edit book title: Book Eleven" [ref=f7e93] [cursor=pointer]': Book Eleven
+              - generic "Physical" [ref=f7e94]: 📖
+            - 'button "Remove book: Book Eleven" [ref=f7e96] [cursor=pointer]': Remove
+          - generic [ref=f7e97]:
+            - img "Cover of Test ISBN Book" [ref=f7e98]
+            - generic [ref=f7e99]:
+              - 'button "Edit book title: Test ISBN Book" [ref=f7e100] [cursor=pointer]': Test ISBN Book
+              - generic [ref=f7e101]: Celeste Ng
+              - generic "Physical" [ref=f7e102]: 📖
+            - 'button "Remove book: Test ISBN Book" [ref=f7e104] [cursor=pointer]': Remove
+          - generic [ref=f7e105]:
+            - generic [ref=f7e106]:
+              - 'button "Edit book title: Book Eight" [ref=f7e107] [cursor=pointer]': Book Eight
+              - generic "Physical" [ref=f7e108]: 📖
+            - 'button "Remove book: Book Eight" [ref=f7e110] [cursor=pointer]': Remove
+          - generic [ref=f7e111]:
+            - generic [ref=f7e112]:
+              - 'button "Edit book title: Book Seven" [ref=f7e113] [cursor=pointer]': Book Seven
+              - generic "Physical" [ref=f7e114]: 📖
+            - 'button "Remove book: Book Seven" [ref=f7e116] [cursor=pointer]': Remove
+          - generic [ref=f7e117]:
+            - generic [ref=f7e118]:
+              - 'button "Edit book title: Book Five" [ref=f7e119] [cursor=pointer]': Book Five
+              - generic "Physical" [ref=f7e120]: 📖
+            - 'button "Remove book: Book Five" [ref=f7e122] [cursor=pointer]': Remove
+          - generic [ref=f7e123]:
+            - generic [ref=f7e124]:
+              - 'button "Edit book title: Book Ten" [ref=f7e125] [cursor=pointer]': Book Ten
+              - generic "Physical" [ref=f7e126]: 📖
+            - 'button "Remove book: Book Ten" [ref=f7e128] [cursor=pointer]': Remove
+        - generic [ref=f7e129]:
+          - button "Previous" [disabled] [ref=f7e130]
+          - generic [ref=f7e131]: Page 1 of 1
+          - button "Next" [disabled] [ref=f7e132]
+        - status [ref=f7e133]
+  - dialog [ref=f7e134]:
+    - generic [ref=f7e135]:
+      - banner [ref=f7e136]:
+        - heading "Settings" [level=2] [ref=f7e137]
+      - tablist "Settings sections" [ref=f7e138]:
+        - tab "Manage users" [selected] [ref=f7e139] [cursor=pointer]
+        - tab "Import / Export" [ref=f7e140] [cursor=pointer]
+        - tab "Preferences" [ref=f7e141] [cursor=pointer]
+      - tabpanel "Manage users" [ref=f7e152]:
+        - generic [ref=f7e153]:
+          - generic [ref=f7e154]:
+            - heading "Existing users" [level=3] [ref=f7e155]
+            - generic [ref=f7e156]: Directory
+          - generic [ref=f7e157]: 5 users
+        - paragraph [ref=f7e158]: Administrators can update other user accounts. Your own account is read-only here.
+        - tablist "User management options" [ref=f7e159]:
+          - tab "Existing users" [selected] [ref=f7e160] [cursor=pointer]
+          - tab "Create user" [ref=f7e161] [cursor=pointer]
+        - tabpanel "Existing users" [ref=f7e162]:
+          - generic [ref=f7e163]:
+            - generic [ref=f7e164]:
+              - generic [ref=f7e165]: Search users
+              - textbox "Search users" [ref=f7e166]:
+                - /placeholder: Filter by username
+            - generic [ref=f7e167]:
+              - generic [ref=f7e168]: Account status
+              - combobox "Account status" [ref=f7e169]:
+                - option "All accounts" [selected]
+                - option "Needs attention"
+                - option "Administrator"
+                - option "Locked"
+                - option "Disabled"
+                - option "Require reset"
+            - button "Clear" [ref=f7e170] [cursor=pointer]
+          - generic [ref=f7e171]:
+            - group [ref=f7e172]:
+              - generic "audituser (you) Administrator Created 9/4/2026 >" [ref=f7e173] [cursor=pointer]:
+                - generic [ref=f7e174]:
+                  - generic [ref=f7e175]: audituser (you)
+                  - generic [ref=f7e176]: Administrator
+                - generic [ref=f7e177]: Created 9/4/2026
+                - text: ">"
+            - group [ref=f7e178]:
+              - generic "a11yuser Standard user Created 9/4/2026 >" [ref=f7e179] [cursor=pointer]:
+                - generic [ref=f7e180]:
+                  - generic [ref=f7e181]: a11yuser
+                  - generic [ref=f7e182]: Standard user
+                - generic [ref=f7e183]: Created 9/4/2026
+                - text: ">"
+            - group [ref=f7e184]:
+              - generic "perfuser Standard user Created 9/4/2026 >" [ref=f7e185] [cursor=pointer]:
+                - generic [ref=f7e186]:
+                  - generic [ref=f7e187]: perfuser
+                  - generic [ref=f7e188]: Standard user
+                - generic [ref=f7e189]: Created 9/4/2026
+                - text: ">"
+            - group [ref=f7e190]:
+              - generic "secaudituser Standard user Created 9/4/2026 >" [ref=f7e191] [cursor=pointer]:
+                - generic [ref=f7e192]:
+                  - generic [ref=f7e193]: secaudituser
+                  - generic [ref=f7e194]: Standard user
+                - generic [ref=f7e195]: Created 9/4/2026
+                - text: ">"
+            - group [ref=f7e196]:
+              - generic "audit-throwaway-01 Standard user Created 9/4/2026 >" [active] [ref=f7e197] [cursor=pointer]:
+                - generic [ref=f7e198]:
+                  - generic [ref=f7e199]: audit-throwaway-01
+                  - generic [ref=f7e200]: Standard user
+                - generic [ref=f7e201]: Created 9/4/2026
+                - text: ">"
+              - generic [ref=f7e204]:
+                - generic [ref=f7e205]:
+                  - generic [ref=f7e206]:
+                    - text: Username
+                    - textbox "Username" [ref=f7e207]: audit-throwaway-01
+                  - generic [ref=f7e208]:
+                    - checkbox "Admin" [ref=f7e209]
+                    - generic [ref=f7e210]: Admin
+                  - generic [ref=f7e211]:
+                    - checkbox "Disabled" [ref=f7e212]
+                    - generic [ref=f7e213]: Disabled
+                  - generic [ref=f7e214]:
+                    - checkbox "Require reset" [ref=f7e215]
+                    - generic [ref=f7e216]: Require reset
+                  - generic [ref=f7e217]:
+                    - checkbox "Locked" [ref=f7e218]
+                    - generic [ref=f7e219]: Locked
+                - generic [ref=f7e220]:
+                  - button "Save changes for audit-throwaway-01" [disabled] [ref=f7e221]: Save
+                  - button "Generate password reset link for audit-throwaway-01" [ref=f7e222] [cursor=pointer]: Generate reset link
+                  - button "Remove user audit-throwaway-01" [ref=f7e223] [cursor=pointer]: Remove
+        - paragraph [ref=f7e202]
+        - alert [ref=f7e203]
+      - button "Close" [ref=f7e151] [cursor=pointer]
+  - contentinfo [ref=f7e18]:
+    - generic [ref=f7e19]: "Version: 2.13.0"

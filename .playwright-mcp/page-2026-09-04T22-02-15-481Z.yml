@@ -1,0 +1,65 @@
+- generic [active] [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#appMain"
+  - main [ref=e3]:
+    - region "Book Wheel application" [ref=e20]:
+      - generic [ref=e21]:
+        - heading "Book Wheel" [level=1] [ref=e22]
+        - generic [ref=e23]:
+          - paragraph [ref=e24]: Hello, audituser
+          - generic [ref=e25]:
+            - button "Stats" [ref=e26] [cursor=pointer]:
+              - generic [aria-hidden] [ref=e27]: 📊
+            - button "Settings" [ref=e28] [cursor=pointer]:
+              - generic [aria-hidden] [ref=e29]: ⚙
+            - button "Log out" [ref=e30] [cursor=pointer]
+      - generic [ref=e31]:
+        - heading "Spin wheel" [level=2] [ref=e32]
+        - button "Book selection wheel. Press Enter or Space to spin." [ref=e34]
+        - button "Spin" [ref=e36] [cursor=pointer]
+        - paragraph [ref=e37]: Wheel has 2 books.
+        - list "Books currently on the wheel" [ref=e38]:
+          - listitem [ref=e116]: 1. Test ISBN Book
+          - listitem [ref=e117]: 2. The Hobbit (Edited)
+        - paragraph [ref=e39]: Add your first book to begin spinning.
+      - generic [ref=e41]:
+        - heading "Active books" [level=2] [ref=e42]
+        - paragraph [ref=e43]: 2 books total • Page 1 of 1
+        - generic [ref=e44]:
+          - generic [ref=e45]:
+            - generic [ref=e46]: Book title
+            - textbox "Book title" [ref=e47]
+            - generic [ref=e48]: ISBN
+            - textbox "ISBN" [ref=e49]:
+              - /placeholder: ISBN (optional)
+            - generic [ref=e50]: Book type
+            - combobox "Book type" [ref=e51]:
+              - option "Physical" [selected]
+              - option "Digital"
+              - option "Nook Only"
+          - generic [ref=e52]:
+            - button "Scan ISBN barcode" [ref=e53] [cursor=pointer]:
+              - generic [aria-hidden] [ref=e54]: 📷
+            - button "Lookup" [ref=e55] [cursor=pointer]
+            - button "Add" [ref=e56] [cursor=pointer]
+        - generic [ref=e57]:
+          - generic [ref=e118]:
+            - generic [ref=e119]:
+              - 'button "Edit book title: The Hobbit (Edited)" [ref=e120] [cursor=pointer]': The Hobbit (Edited)
+              - generic "Digital" [ref=e121]: 📱
+            - 'button "Remove book: The Hobbit (Edited)" [ref=e123] [cursor=pointer]': Remove
+          - generic [ref=e124]:
+            - img "Cover of Test ISBN Book" [ref=e125]
+            - generic [ref=e126]:
+              - 'button "Edit book title: Test ISBN Book" [ref=e127] [cursor=pointer]': Test ISBN Book
+              - generic [ref=e128]: Celeste Ng
+              - generic "Physical" [ref=e129]: 📖
+            - 'button "Remove book: Test ISBN Book" [ref=e131] [cursor=pointer]': Remove
+        - generic [ref=e62]:
+          - button "Previous" [disabled] [ref=e63]
+          - generic [ref=e64]: Page 1 of 1
+          - button "Next" [disabled] [ref=e65]
+        - status [ref=e66]: Book updated.
+  - generic [ref=e74]: Book title updated.
+  - contentinfo [ref=e18]:
+    - generic [ref=e19]: "Version: 2.13.0"
