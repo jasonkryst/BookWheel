@@ -776,7 +776,7 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
         // eagerly loading the user directory; the user list is only fetched
         // once the Manage users tab is actually activated.
         Assert.Contains("function openSettingsDialog(updateUrl = true) {\n  setSettingsTab('preferences');\n  openDialog(settingsDialog, settingsPreferencesTabBtn);\n  if (updateUrl) {\n    setRequestedView('preferences');\n  }\n}", script, StringComparison.Ordinal);
-        Assert.Contains("async function activateSettingsManageUsersTab() {\n  resetUserManagementMessages();\n  setUserManagementTab('directory');\n  await loadUsers();\n}", script, StringComparison.Ordinal);
+        Assert.Contains("async function activateSettingsManageUsersTab() {\n  resetUserManagementMessages();\n  if (testEmailResult) {\n    testEmailResult.textContent = '';\n  }\n  setUserManagementTab('directory');\n  await Promise.all([loadUsers(), loadEmailReadiness()]);\n}", script, StringComparison.Ordinal);
     }
 
     [Fact]

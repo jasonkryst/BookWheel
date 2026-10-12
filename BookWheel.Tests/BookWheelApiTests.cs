@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using BookWheel.Storage;
 using BookWheel.Tests.Services;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
@@ -125,13 +126,18 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         Assert.Equal("BookWheelTests/1.0", logEntry.State["UserAgent"]);
         Assert.DoesNotContain("wrong-password", logEntry.Message, StringComparison.Ordinal);
 
-        var logFilePath = Directory.GetFiles(factory.LogDirectoryPath, "bookwheel-*.jsonl")
-            .OrderBy(path => path)
-            .LastOrDefault();
+        // Search every rolled log file, not just one: the provider rolls
+        // bookwheel-<date>.jsonl -> bookwheel-<date>-1.jsonl -> -2 ... once a file exceeds
+        // MaxFileSizeBytes, and a late-running test's entry can land in a rolled file.
+        var logFilePaths = Directory.GetFiles(factory.LogDirectoryPath, "bookwheel-*.jsonl");
+        Assert.NotEmpty(logFilePaths);
 
-        Assert.NotNull(logFilePath);
+        var logLines = new List<string>();
+        foreach (var path in logFilePaths)
+        {
+            logLines.AddRange(await File.ReadAllLinesAsync(path));
+        }
 
-        var logLines = await File.ReadAllLinesAsync(logFilePath!);
         var persistedEntry = logLines
             .Select(line => JsonDocument.Parse(line))
             .FirstOrDefault(document =>
@@ -296,6 +302,69 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         Assert.Contains(users, user => user.GetProperty("username").GetString() == "reader-one" && !user.GetProperty("isAdmin").GetBoolean());
         Assert.Contains(users, user => user.GetProperty("username").GetString() == "reader-one" && user.GetProperty("forcePasswordReset").GetBoolean());
         Assert.All(users, user => Assert.False(user.TryGetProperty("passwordHash", out _)));
+    }
+
+    [Fact]
+    public async Task System_ConfigStatus_Is_Forbidden_For_NonAdmin_And_Returns_Booleans_For_Admin()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
+
+        var adminResponse = await client.GetAsync("/api/system/config-status");
+        Assert.Equal(HttpStatusCode.OK, adminResponse.StatusCode);
+        using var doc = await ReadJsonAsync(adminResponse);
+        var root = doc.RootElement;
+        Assert.Equal(4, root.EnumerateObject().Count());
+        Assert.True(root.GetProperty("baseUrlConfigured").GetBoolean());
+        Assert.False(root.GetProperty("smtpConfigured").GetBoolean());
+        Assert.False(root.GetProperty("googleBooksKeyConfigured").GetBoolean());
+        Assert.True(root.TryGetProperty("proxyTrustConfigured", out var proxy) && proxy.ValueKind is JsonValueKind.True or JsonValueKind.False);
+
+        var (_, setupLink) = await CreateUserAsync(client, "reader-one");
+        await SetPasswordFromSetupLinkAsync(client, setupLink, "reader-pass-1");
+        await client.PostAsync("/api/auth/logout", content: null);
+        await LoginAsync(client, "reader-one", "reader-pass-1");
+
+        var readerResponse = await client.GetAsync("/api/system/config-status");
+        Assert.Equal(HttpStatusCode.Forbidden, readerResponse.StatusCode);
+        var readerPost = await client.PostAsync("/api/system/test-email", content: null);
+        Assert.Equal(HttpStatusCode.Forbidden, readerPost.StatusCode);
+    }
+
+    [Fact]
+    public async Task System_TestEmail_Sends_To_Admin_Address()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin-test@example.com" });
+        factory.FakeEmailSender.SentEmails.Clear();
+
+        var response = await client.PostAsync("/api/system/test-email", content: null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var doc = await ReadJsonAsync(response);
+        Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
+        var sent = Assert.Single(factory.FakeEmailSender.SentEmails);
+        Assert.Equal("admin-test@example.com", sent.ToAddress);
+    }
+
+    [Fact]
+    public async Task System_TestEmail_Returns_BadRequest_When_Admin_Has_No_Email()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin-noemail@example.com" });
+        var repo = factory.Services.GetRequiredService<ICredentialRepository>();
+        var admin = await repo.FindByUsernameAsync("test-admin");
+        Assert.NotNull(admin);
+        await repo.UpdateUserAsync(admin!.UserId, admin.Username, true, false, false, false, null);
+        factory.FakeEmailSender.SentEmails.Clear();
+
+        var response = await client.PostAsync("/api/system/test-email", content: null);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Empty(factory.FakeEmailSender.SentEmails);
     }
 
     [Fact]
@@ -1372,6 +1441,116 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
     }
 
     [Fact]
+    public async Task Spin_History_Is_Paged_Server_Side_Newest_First_With_Total()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "test-setup@example.com"
+        });
+
+        await LoginAsync(client);
+        for (var i = 1; i <= 5; i++)
+        {
+            await AddBookAsync(client, $"Paged Book {i}");
+        }
+
+        var spunTitles = new List<string>();
+        for (var i = 0; i < 5; i++)
+        {
+            var spinResponse = await client.PostAsync("/api/books/spin", content: null);
+            Assert.Equal(HttpStatusCode.OK, spinResponse.StatusCode);
+            using var spinDoc = await ReadJsonAsync(spinResponse);
+            spunTitles.Add(spinDoc.RootElement.GetProperty("selected").GetProperty("title").GetString()!);
+            await Task.Delay(5);
+        }
+
+        var expectedNewestFirst = Enumerable.Reverse(spunTitles).ToList();
+
+        var page1Response = await client.GetAsync("/api/books/spin-history?page=1&pageSize=2");
+        Assert.Equal(HttpStatusCode.OK, page1Response.StatusCode);
+        using var page1 = await ReadJsonAsync(page1Response);
+        Assert.Equal(1, page1.RootElement.GetProperty("page").GetInt32());
+        Assert.Equal(2, page1.RootElement.GetProperty("pageSize").GetInt32());
+        Assert.Equal(5, page1.RootElement.GetProperty("total").GetInt32());
+        var page1Titles = page1.RootElement.GetProperty("history").EnumerateArray()
+            .Select(e => e.GetProperty("title").GetString()).ToList();
+        Assert.Equal(expectedNewestFirst.Take(2), page1Titles);
+
+        var page3Response = await client.GetAsync("/api/books/spin-history?page=3&pageSize=2");
+        using var page3 = await ReadJsonAsync(page3Response);
+        Assert.Equal(5, page3.RootElement.GetProperty("total").GetInt32());
+        var page3Titles = page3.RootElement.GetProperty("history").EnumerateArray()
+            .Select(e => e.GetProperty("title").GetString()).ToList();
+        Assert.Equal(expectedNewestFirst.Skip(4), page3Titles);
+
+        var beyondResponse = await client.GetAsync("/api/books/spin-history?page=4&pageSize=2");
+        using var beyond = await ReadJsonAsync(beyondResponse);
+        Assert.Empty(beyond.RootElement.GetProperty("history").EnumerateArray());
+        Assert.Equal(5, beyond.RootElement.GetProperty("total").GetInt32());
+    }
+
+    [Fact]
+    public async Task Spin_History_Clamps_Page_And_PageSize()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "test-setup@example.com"
+        });
+
+        await LoginAsync(client);
+        await AddBookAsync(client, "Clamp Book");
+        await client.PostAsync("/api/books/spin", content: null);
+
+        var response = await client.GetAsync("/api/books/spin-history?page=0&pageSize=1000");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var doc = await ReadJsonAsync(response);
+        Assert.Equal(1, doc.RootElement.GetProperty("page").GetInt32());
+        Assert.Equal(100, doc.RootElement.GetProperty("pageSize").GetInt32());
+        Assert.Equal(1, doc.RootElement.GetProperty("total").GetInt32());
+        Assert.Single(doc.RootElement.GetProperty("history").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Spin_History_Keeps_Title_For_Soft_Deleted_Book()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "test-setup@example.com"
+        });
+
+        await LoginAsync(client);
+        var bookId = await AddBookAsync(client, "Soon Removed Book");
+        var spinResponse = await client.PostAsync("/api/books/spin", content: null);
+        Assert.Equal(HttpStatusCode.OK, spinResponse.StatusCode);
+
+        var deleteResponse = await client.DeleteAsync($"/api/books/{bookId}");
+        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
+
+        var response = await client.GetAsync("/api/books/spin-history?page=1&pageSize=10");
+        using var doc = await ReadJsonAsync(response);
+        Assert.Equal(1, doc.RootElement.GetProperty("total").GetInt32());
+        var entry = Assert.Single(doc.RootElement.GetProperty("history").EnumerateArray());
+        Assert.Equal(bookId, entry.GetProperty("bookId").GetGuid());
+        // Soft-deleted books are still joined (IgnoreQueryFilters), so the title is preserved.
+        Assert.Equal("Soon Removed Book", entry.GetProperty("title").GetString());
+    }
+
+    [Fact]
     public async Task Export_Includes_Isbn_Author_And_CoverUrl_For_Tagged_Books()
     {
         var factory = _factory;
@@ -1560,7 +1739,7 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
     }
 
     [Fact]
-    public async Task Import_Skips_Match_Against_A_SoftDeleted_Book_Without_Restoring_It()
+    public async Task Import_Restores_Match_Against_A_SoftDeleted_Book_And_Skips_Active_Duplicates()
     {
         var factory = _factory;
         using var client = factory.CreateClient();
@@ -1573,20 +1752,219 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         });
 
         await LoginAsync(client);
-        var bookId = await AddBookAsync(client, "Deleted On Purpose");
-        await client.DeleteAsync($"/api/books/{bookId}");
+        var removedId = await AddBookAsync(client, "Deleted On Purpose");
+        await client.DeleteAsync($"/api/books/{removedId}");
+        await AddBookAsync(client, "Still Here");
 
         var importResponse = await client.PostAsJsonAsync("/api/books/import", new
         {
-            books = new[] { new { title = "Deleted On Purpose" } }
+            books = new[] { new { title = "deleted on purpose" }, new { title = "Still Here" }, new { title = "Brand New" } }
         });
 
         using var doc = await ReadJsonAsync(importResponse);
-        Assert.Equal(0, doc.RootElement.GetProperty("added").GetInt32());
+        Assert.Equal(1, doc.RootElement.GetProperty("added").GetInt32());
+        Assert.Equal(1, doc.RootElement.GetProperty("restored").GetInt32());
         Assert.Equal(1, doc.RootElement.GetProperty("skipped").GetInt32());
 
         using var activeDoc = await GetBooksDocumentAsync(client);
-        Assert.Empty(activeDoc.RootElement.GetProperty("activeBooks").EnumerateArray());
+        var ids = GetBookIds(activeDoc, "activeBooks");
+        Assert.Contains(removedId, ids);
+        Assert.Equal(3, ids.Count);
+    }
+
+    [Fact]
+    public async Task Deleted_Endpoint_Returns_Only_The_Callers_Removed_Books()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "test-setup@example.com"
+        });
+
+        await LoginAsync(client);
+        var removedId = await AddBookAsync(client, "Removed Mine");
+        await AddBookAsync(client, "Active Mine");
+        await client.DeleteAsync($"/api/books/{removedId}");
+
+        var (_, readerSetupLink) = await CreateUserAsync(client, "reader-trash");
+        await SetPasswordFromSetupLinkAsync(client, readerSetupLink, "reader-pass-1");
+        await client.PostAsync("/api/auth/logout", content: null);
+        await LoginAsync(client, "reader-trash", "reader-pass-1");
+        var readerRemovedId = await AddBookAsync(client, "Removed Reader");
+        await client.DeleteAsync($"/api/books/{readerRemovedId}");
+
+        var readerResponse = await client.GetAsync("/api/books/deleted");
+        Assert.Equal(HttpStatusCode.OK, readerResponse.StatusCode);
+        using (var readerDoc = await ReadJsonAsync(readerResponse))
+        {
+            var readerBook = Assert.Single(readerDoc.RootElement.GetProperty("books").EnumerateArray());
+            Assert.Equal("Removed Reader", readerBook.GetProperty("title").GetString());
+        }
+
+        await client.PostAsync("/api/auth/logout", content: null);
+        await LoginAsync(client);
+        var adminResponse = await client.GetAsync("/api/books/deleted");
+        using var adminDoc = await ReadJsonAsync(adminResponse);
+        var adminBook = Assert.Single(adminDoc.RootElement.GetProperty("books").EnumerateArray());
+        Assert.Equal(removedId, adminBook.GetProperty("id").GetGuid());
+    }
+
+    [Fact]
+    public async Task Restore_Brings_A_Removed_Book_Back_And_Returns_NotFound_For_Unknown_Or_Foreign_Ids()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "test-setup@example.com"
+        });
+
+        await LoginAsync(client);
+        var bookId = await AddBookAsync(client, "Restorable");
+        await client.DeleteAsync($"/api/books/{bookId}");
+
+        var restoreResponse = await client.PostAsync($"/api/books/{bookId}/restore", content: null);
+        Assert.Equal(HttpStatusCode.OK, restoreResponse.StatusCode);
+
+        using (var activeDoc = await GetBooksDocumentAsync(client))
+        {
+            Assert.Contains(bookId, GetBookIds(activeDoc, "activeBooks"));
+        }
+
+        var deletedResponse = await client.GetAsync("/api/books/deleted");
+        using (var deletedDoc = await ReadJsonAsync(deletedResponse))
+        {
+            Assert.Empty(deletedDoc.RootElement.GetProperty("books").EnumerateArray());
+        }
+
+        var again = await client.PostAsync($"/api/books/{bookId}/restore", content: null);
+        Assert.Equal(HttpStatusCode.NotFound, again.StatusCode);
+        var unknown = await client.PostAsync($"/api/books/{Guid.NewGuid()}/restore", content: null);
+        Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
+
+        await client.DeleteAsync($"/api/books/{bookId}");
+        var (_, readerSetupLink) = await CreateUserAsync(client, "reader-restore");
+        await SetPasswordFromSetupLinkAsync(client, readerSetupLink, "reader-pass-1");
+        await client.PostAsync("/api/auth/logout", content: null);
+        await LoginAsync(client, "reader-restore", "reader-pass-1");
+        var foreign = await client.PostAsync($"/api/books/{bookId}/restore", content: null);
+        Assert.Equal(HttpStatusCode.NotFound, foreign.StatusCode);
+    }
+
+    [Fact]
+    public async Task Restored_Book_Retains_Its_Spin_History()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "test-setup@example.com"
+        });
+
+        await LoginAsync(client);
+        var bookId = await AddBookAsync(client, "History Keeper");
+        var spinResponse = await client.PostAsync("/api/books/spin", content: null);
+        Assert.Equal(HttpStatusCode.OK, spinResponse.StatusCode);
+
+        await client.DeleteAsync($"/api/books/{bookId}");
+        await client.PostAsync($"/api/books/{bookId}/restore", content: null);
+
+        var historyResponse = await client.GetAsync("/api/books/spin-history");
+        using var doc = await ReadJsonAsync(historyResponse);
+        var entry = Assert.Single(doc.RootElement.GetProperty("history").EnumerateArray());
+        Assert.Equal(bookId, entry.GetProperty("bookId").GetGuid());
+    }
+
+    [Fact]
+    public async Task Add_Duplicate_Active_Title_Returns_Conflict_Unless_AllowDuplicate()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "test-setup@example.com"
+        });
+
+        await LoginAsync(client);
+        var originalId = await AddBookAsync(client, "Dune");
+
+        var conflict = await client.PostAsJsonAsync("/api/books", new { title = "  dUNE " });
+        Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
+        using (var doc = await ReadJsonAsync(conflict))
+        {
+            Assert.Equal("exact", doc.RootElement.GetProperty("reason").GetString());
+            Assert.Equal(originalId, doc.RootElement.GetProperty("match").GetProperty("id").GetGuid());
+        }
+
+        var forced = await client.PostAsJsonAsync("/api/books", new { title = "Dune", allowDuplicate = true });
+        Assert.Equal(HttpStatusCode.OK, forced.StatusCode);
+
+        using var activeDoc = await GetBooksDocumentAsync(client);
+        Assert.Equal(2, GetBookIds(activeDoc, "activeBooks").Count);
+    }
+
+    [Fact]
+    public async Task Add_Duplicate_Isbn_Returns_Conflict()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "test-setup@example.com"
+        });
+
+        await LoginAsync(client);
+        await AddBookWithDetailsAsync(client, "Dune", "9780441013593", null, null);
+
+        var conflict = await client.PostAsJsonAsync("/api/books", new { title = "Dune (Reissue)", isbn = "9780441013593" });
+        Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
+        using var doc = await ReadJsonAsync(conflict);
+        Assert.Equal("exact", doc.RootElement.GetProperty("reason").GetString());
+    }
+
+    [Fact]
+    public async Task Add_Title_Matching_A_Removed_Book_Returns_Removed_Conflict()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "test-setup@example.com"
+        });
+
+        await LoginAsync(client);
+        var removedId = await AddBookAsync(client, "Gone Book");
+        await client.DeleteAsync($"/api/books/{removedId}");
+
+        var conflict = await client.PostAsJsonAsync("/api/books", new { title = "gone book" });
+        Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
+        using (var doc = await ReadJsonAsync(conflict))
+        {
+            Assert.Equal("removed", doc.RootElement.GetProperty("reason").GetString());
+            Assert.Equal(removedId, doc.RootElement.GetProperty("match").GetProperty("id").GetGuid());
+        }
+
+        var forced = await client.PostAsJsonAsync("/api/books", new { title = "gone book", allowDuplicate = true });
+        Assert.Equal(HttpStatusCode.OK, forced.StatusCode);
     }
 
     [Fact]

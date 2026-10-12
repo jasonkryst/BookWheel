@@ -9,6 +9,10 @@ public interface IBookRepository
     Task<BookRecord> AddAsync(Guid userId, string title, string? isbn = null, string? author = null, string? coverUrl = null, bool addedByScanner = false, int bookTypeId = 1, Guid? createdByUserId = null, int? bookInfoProviderId = null);
     Task<BookRecord> UpdateAsync(Guid userId, Guid id, string title, string? isbn = null, string? author = null, string? coverUrl = null, int bookTypeId = 1, Guid? updatedByUserId = null, int? bookInfoProviderId = null);
     Task<BookRecord> RemoveAsync(Guid userId, Guid id);
+    Task<IReadOnlyList<BookRecord>> GetDeletedAsync(Guid userId);
+    Task<BookRecord> RestoreAsync(Guid userId, Guid id);
+    Task<BookRecord?> FindActiveByTitleOrIsbnAsync(Guid userId, string normalizedTitle, string? normalizedIsbn);
+    Task<BookRecord?> FindDeletedByTitleOrIsbnAsync(Guid userId, string normalizedTitle, string? normalizedIsbn);
     Task<BookRecord> SelectRandomAsync(Guid userId);
     Task<int> RemoveUserDataAsync(Guid userId);
     Task<int> GetTotalBookCountAsync();

@@ -95,6 +95,54 @@ public sealed class PostgresBookRepository : IBookRepository
         return ToRecord(entity);
     }
 
+    public async Task<IReadOnlyList<BookRecord>> GetDeletedAsync(Guid userId)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var entities = await context.Books
+            .IgnoreQueryFilters()
+            .Where(b => b.UserId == userId && b.DeletedAtUtc != null)
+            .OrderByDescending(b => b.DeletedAtUtc)
+            .ToListAsync();
+        return entities.Select(ToRecord).ToList();
+    }
+
+    public async Task<BookRecord> RestoreAsync(Guid userId, Guid id)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var entity = await context.Books
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(b => b.UserId == userId && b.Id == id && b.DeletedAtUtc != null)
+            ?? throw new InvalidOperationException("Book not found.");
+        entity.DeletedAtUtc = null;
+        await context.SaveChangesAsync();
+        return ToRecord(entity);
+    }
+
+    public async Task<BookRecord?> FindActiveByTitleOrIsbnAsync(Guid userId, string normalizedTitle, string? normalizedIsbn)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var entity = await context.Books
+            .Where(b => b.UserId == userId
+                && (b.Title.Trim().ToLower() == normalizedTitle
+                    || (normalizedIsbn != null && b.Isbn == normalizedIsbn)))
+            .OrderBy(b => b.CreatedAtUtc)
+            .FirstOrDefaultAsync();
+        return entity is null ? null : ToRecord(entity);
+    }
+
+    public async Task<BookRecord?> FindDeletedByTitleOrIsbnAsync(Guid userId, string normalizedTitle, string? normalizedIsbn)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var entity = await context.Books
+            .IgnoreQueryFilters()
+            .Where(b => b.UserId == userId && b.DeletedAtUtc != null
+                && (b.Title.Trim().ToLower() == normalizedTitle
+                    || (normalizedIsbn != null && b.Isbn == normalizedIsbn)))
+            .OrderByDescending(b => b.DeletedAtUtc)
+            .FirstOrDefaultAsync();
+        return entity is null ? null : ToRecord(entity);
+    }
+
     public async Task<int> RemoveUserDataAsync(Guid userId)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();

@@ -62,3 +62,6 @@ App_Data/
 
 # Private security-advisory drafts (feature audit)
 *.local.mjs
+
+# Playwright MCP scratch output
+.playwright-mcp/
