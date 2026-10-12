@@ -24,6 +24,10 @@ set -euo pipefail
 : "${POSTGRES_USER:?POSTGRES_USER must be set}"
 : "${POSTGRES_MIGRATOR_PASSWORD:?POSTGRES_MIGRATOR_PASSWORD must be set}"
 : "${POSTGRES_APP_PASSWORD:?POSTGRES_APP_PASSWORD must be set}"
+# Optional read-only role for the backup sidecar. Default keeps a value so this
+# script still runs on deployments that don't set it (the role is provisioned
+# regardless; it's only used if the `backup` service is enabled).
+: "${POSTGRES_BACKUP_PASSWORD:=bookwheel_backup}"
 
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
     DO \$\$
@@ -38,6 +42,12 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
             CREATE ROLE bookwheel_app WITH LOGIN PASSWORD '$POSTGRES_APP_PASSWORD';
         ELSE
             ALTER ROLE bookwheel_app WITH LOGIN PASSWORD '$POSTGRES_APP_PASSWORD';
+        END IF;
+
+        IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'bookwheel_backup') THEN
+            CREATE ROLE bookwheel_backup WITH LOGIN PASSWORD '$POSTGRES_BACKUP_PASSWORD';
+        ELSE
+            ALTER ROLE bookwheel_backup WITH LOGIN PASSWORD '$POSTGRES_BACKUP_PASSWORD';
         END IF;
     END
     \$\$;
@@ -55,6 +65,17 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
         GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO bookwheel_app;
     ALTER DEFAULT PRIVILEGES FOR ROLE bookwheel_migrator IN SCHEMA public
         GRANT USAGE, SELECT ON SEQUENCES TO bookwheel_app;
+
+    -- Read-only role for logical backups (pg_dump). SELECT is all pg_dump needs to
+    -- produce a restorable dump; schema/DDL comes from the catalog, which any role reads.
+    GRANT CONNECT ON DATABASE $POSTGRES_DB TO bookwheel_backup;
+    GRANT USAGE ON SCHEMA public TO bookwheel_backup;
+    GRANT SELECT ON ALL TABLES IN SCHEMA public TO bookwheel_backup;
+    GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO bookwheel_backup;
+    ALTER DEFAULT PRIVILEGES FOR ROLE bookwheel_migrator IN SCHEMA public
+        GRANT SELECT ON TABLES TO bookwheel_backup;
+    ALTER DEFAULT PRIVILEGES FOR ROLE bookwheel_migrator IN SCHEMA public
+        GRANT SELECT ON SEQUENCES TO bookwheel_backup;
 EOSQL
 
-echo "bookwheel_migrator and bookwheel_app roles provisioned; the bootstrap $POSTGRES_USER role is no longer used by the application."
+echo "bookwheel_migrator, bookwheel_app and bookwheel_backup roles provisioned; the bootstrap $POSTGRES_USER role is no longer used by the application."

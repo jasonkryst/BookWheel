@@ -19,6 +19,8 @@ services:
       # these are provisioned (see scripts/postgres/init-least-privilege-roles.sh).
       POSTGRES_MIGRATOR_PASSWORD: ${POSTGRES_MIGRATOR_PASSWORD:-bookwheel_migrator}
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-bookwheel_app}
+      # Read-only role the optional `backup` sidecar connects as (SELECT only).
+      POSTGRES_BACKUP_PASSWORD: ${POSTGRES_BACKUP_PASSWORD:-bookwheel_backup}
     volumes:
       - bookwheel_pg_data:/var/lib/postgresql/data
     healthcheck:
@@ -114,15 +116,18 @@ services:
   # To DISABLE: comment out this whole service (and the bookwheel_pg_backups volume below),
   # or set BACKUP_SCHEDULE in your .env to something rare (e.g. "@yearly").
   backup:
-    image: prodrigestivill/postgres-backup-local:16
+    # Third-party image pinned by digest (not just the mutable :16 tag) for supply-chain
+    # integrity. To upgrade, re-resolve the digest for the tag you want and update it here.
+    image: prodrigestivill/postgres-backup-local:16@sha256:a0103fbce0c48ccc7693ddbb2a2bfa733048db845354f635efef9e4566de185d
     container_name: bookwheel-backup
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_DB: bookwheel
-      # Uses the bootstrap role, NOT the least-privilege bookwheel_app role: pg_dump needs
-      # read access to every object, which the DML-only app role does not have.
-      POSTGRES_USER: bookwheel
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bookwheel}
+      # Dedicated READ-ONLY role (SELECT only) provisioned by
+      # scripts/postgres/init-least-privilege-roles.sh — least privilege for pg_dump, which
+      # only needs to read. NOT the bootstrap superuser and NOT the DML app role.
+      POSTGRES_USER: bookwheel_backup
+      POSTGRES_PASSWORD: ${POSTGRES_BACKUP_PASSWORD:-bookwheel_backup}
       # --clean --if-exists makes dumps restorable over an existing database
       # (-Z1 is the image's default gzip level).
       POSTGRES_EXTRA_OPTS: "-Z1 --clean --if-exists"
