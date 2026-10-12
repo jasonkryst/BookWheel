@@ -1,12 +1,14 @@
 using BookWheel.Models;
 using BookWheel.Services;
 using BookWheel.Storage;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
 namespace BookWheel.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public sealed class BooksController : ControllerBase
 {
