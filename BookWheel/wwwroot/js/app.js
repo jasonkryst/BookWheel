@@ -1506,6 +1506,16 @@ async function loadRecentPicks(options = {}) {
   }
 }
 
+// Clears the current user's Recent Picks and last-spin line from the home view so a
+// previous account's data never lingers across a sign-out / sign-in on the same tab (#263).
+function resetHomeView() {
+  recentPicks = [];
+  const { t } = window.BookWheelI18n;
+  recentPicksEmptyEl.textContent = t('wheel.recentPicksEmpty');
+  renderRecentPicks();
+  selectedBookEl.textContent = '';
+}
+
 async function refreshBooks(options = {}) {
   const data = await requestJson('/api/books');
   activeBooks = data.activeBooks || data.books || [];
@@ -2268,7 +2278,11 @@ loginForm.addEventListener('submit', async event => {
     await loadAndApplyPreferences();
     showApp(true);
     showToast(authMode === 'setup' ? t('auth.accountCreatedToast') : t('auth.signedInToast'), 'success');
+    // Clear any prior account's home-view state before loading this user's own, so a
+    // sign-in on a tab that was signed in as someone else never shows their picks (#263).
+    resetHomeView();
     await refreshBooks();
+    await loadRecentPicks({ restoreSelection: true });
     setAuthMode('login');
   } catch (error) {
     loginError.textContent = error.message === 'Failed to fetch'
@@ -2565,6 +2579,7 @@ logoutBtn.addEventListener('click', async () => {
   await requestJson('/api/auth/logout', { method: 'POST' });
   currentPage = 1;
   applyCurrentUser(null);
+  resetHomeView();
   resetAuthForm();
   setAuthMode('login');
   showApp(false);
