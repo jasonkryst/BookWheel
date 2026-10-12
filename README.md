@@ -440,9 +440,17 @@ Each line is a JSON object with structured fields such as timestamp, level, cate
 
 Backup and restore guidance:
 
-- Back up PostgreSQL with `pg_dump`/`pg_restore` (or your managed Postgres provider's snapshot tooling) on the schedule your data warrants.
-- Back up `BookWheel/App_Data/logs/` and `BookWheel/App_Data/DataProtection-Keys/` (or your configured `DataProtection:KeyDirectory`) separately — these remain file-based.
-- Restore by stopping the app, restoring the PostgreSQL database from a `pg_dump` backup, replacing the log/Data-Protection-key directories from their file backups, and starting the app again.
+- **Automated backups (docker-compose):** the `backup` service (`prodrigestivill/postgres-backup-local`) runs `pg_dump` against the `postgres` service on a schedule and writes gzipped SQL dumps (`*.sql.gz`) to `/backups` in the `bookwheel_pg_backups` named volume. By default it runs `@daily`, so `docker compose up` produces a dump within 24 hours. It connects as a dedicated **read-only** `bookwheel_backup` role (SELECT only — provisioned by `scripts/postgres/init-least-privilege-roles.sh`), not the bootstrap superuser. On an existing deployment whose data volume predates this role, run that script manually (and set `POSTGRES_BACKUP_PASSWORD`) before enabling the sidecar — same caveat as the `bookwheel_migrator`/`bookwheel_app` roles.
+- Tune it from your `.env` file: `BACKUP_SCHEDULE` (cron expression or `@daily`/`@hourly`, default `@daily`), `BACKUP_KEEP_DAYS` (7), `BACKUP_KEEP_WEEKS` (4), `BACKUP_KEEP_MONTHS` (6). To disable it, comment out the `backup` service in `docker-compose.yml` (or set `BACKUP_SCHEDULE` to something rare like `@yearly`).
+- List and copy dumps out of the volume - a backup on the same Docker host is not off-site, so copy them elsewhere regularly: `docker compose exec backup ls -l /backups/daily` and `docker cp bookwheel-backup:/backups/last/bookwheel-latest.sql.gz .`
+- If you use managed Postgres or skip the sidecar, back up with `pg_dump`/`pg_restore` (or your provider's snapshot tooling) on the schedule your data warrants.
+- Back up `BookWheel/App_Data/logs/` and `BookWheel/App_Data/DataProtection-Keys/` (or your configured `DataProtection:KeyDirectory`) separately - these remain file-based.
+- **Restore drill** (run it once before you need it):
+  1. Stop the app: `docker compose stop bookwheel`
+  2. Make Postgres reachable from where you run the script (for example, temporarily add `ports: ["5432:5432"]` to the `postgres` service, or run the script from a container on the compose network).
+  3. Restore: `PGPASSWORD=<postgres password> scripts/restore.sh ./bookwheel-latest.sql.gz --host localhost --port 5432 --db bookwheel --user bookwheel`. The script needs `psql` and `gunzip`, and refuses to run if the database already contains tables unless you add `--force` (sidecar dumps use `--clean --if-exists`, so `--force` replaces the existing objects).
+  4. Replace the log/Data-Protection-key directories from their file backups if needed, then start the app: `docker compose start bookwheel`.
+- CI takes a dump and restores it with `scripts/restore.sh` on every push (`backup-restore-test` job), so the restore path stays working.
 
 Filesystem permission guidance for logs:
 
