@@ -113,9 +113,18 @@ public sealed class BooksController : ControllerBase
             var added = 0;
             var restored = 0;
             var skipped = 0;
+            var warnings = 0;
 
             foreach (var item in request.Books)
             {
+                // Exports include removed books with a deletedAtUtc stamp; importing must not
+                // put them back on the wheel as active, so skip them entirely.
+                if (item.DeletedAtUtc is not null)
+                {
+                    skipped += 1;
+                    continue;
+                }
+
                 var title = item.Title?.Trim();
                 if (string.IsNullOrEmpty(title))
                 {
@@ -145,11 +154,18 @@ public sealed class BooksController : ControllerBase
                     continue;
                 }
 
-                await _store.AddAsync(userId, title, normalizedIsbn, NormalizeOptional(item.Author), NormalizeOptional(item.CoverUrl), bookTypeId: item.BookTypeId ?? 1);
+                var bookTypeId = item.BookTypeId ?? 1;
+                if (item.BookTypeId is < 1 or > 3)
+                {
+                    bookTypeId = 1;
+                    warnings += 1;
+                }
+
+                await _store.AddAsync(userId, title, normalizedIsbn, NormalizeOptional(item.Author), NormalizeOptional(item.CoverUrl), bookTypeId: bookTypeId);
                 added += 1;
             }
 
-            return Ok(new { added, restored, skipped });
+            return Ok(new { added, restored, skipped, warnings });
         }
         catch (CorruptedDataException ex)
         {

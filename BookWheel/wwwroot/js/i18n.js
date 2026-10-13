@@ -247,6 +247,7 @@
         linkExpires24h: 'Link expires in 24 hours.',
         noResetLinkError: 'No reset link is available.',
         linkCopiedMessage: 'Reset link copied to clipboard.',
+        inviteEmailQueued: 'Invite email sent to the new user.',
         copyFailedMessage: 'Copy failed. Select and copy the link manually.'
       },
       transfer: {
@@ -265,6 +266,7 @@
         emptyFileError: 'The selected file is empty.',
         noTitlesError: 'No valid titles found in JSON.',
         importCompleteMessage: 'Import complete. Added {added}, restored {restored}, skipped {skipped} matches.',
+        importTypeWarning: '{count} had an unknown book type and were imported as the default type.',
         exportStartedMessage: 'Export file download started.',
         accountMismatchWarning: 'Note: this file was exported from a different account ({username}); it was imported into your current account.'
       },
@@ -580,6 +582,7 @@
         linkExpires24h: 'El enlace caduca en 24 horas.',
         noResetLinkError: 'No hay ningún enlace de restablecimiento disponible.',
         linkCopiedMessage: 'Enlace de restablecimiento copiado al portapapeles.',
+        inviteEmailQueued: 'Se envió un correo de invitación al nuevo usuario.',
         copyFailedMessage: 'Error al copiar. Selecciona y copia el enlace manualmente.'
       },
       transfer: {
@@ -598,6 +601,7 @@
         emptyFileError: 'El archivo seleccionado está vacío.',
         noTitlesError: 'No se encontraron títulos válidos en el JSON.',
         importCompleteMessage: 'Importación completa. Añadidos {added}, restaurados {restored}, omitidas {skipped} coincidencias.',
+        importTypeWarning: '{count} tenían un tipo de libro desconocido y se importaron con el tipo predeterminado.',
         exportStartedMessage: 'Se inició la descarga del archivo de exportación.',
         accountMismatchWarning: 'Nota: este archivo se exportó desde otra cuenta ({username}); se importó en tu cuenta actual.'
       },
@@ -913,6 +917,7 @@
         linkExpires24h: 'Link wygasa za 24 godziny.',
         noResetLinkError: 'Brak dostępnego linku resetującego.',
         linkCopiedMessage: 'Link resetujący skopiowany do schowka.',
+        inviteEmailQueued: 'Wysłano e-mail z zaproszeniem do nowego użytkownika.',
         copyFailedMessage: 'Kopiowanie nie powiodło się. Zaznacz i skopiuj link ręcznie.'
       },
       transfer: {
@@ -931,6 +936,7 @@
         emptyFileError: 'Wybrany plik jest pusty.',
         noTitlesError: 'Nie znaleziono prawidłowych tytułów w pliku JSON.',
         importCompleteMessage: 'Import zakończony. Dodano {added}, przywrócono {restored}, pominięto {skipped} dopasowań.',
+        importTypeWarning: '{count} miały nieznany typ książki i zaimportowano je z typem domyślnym.',
         exportStartedMessage: 'Rozpoczęto pobieranie pliku eksportu.',
         accountMismatchWarning: 'Uwaga: ten plik wyeksportowano z innego konta ({username}); zaimportowano go na Twoje bieżące konto.'
       },

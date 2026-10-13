@@ -13,15 +13,16 @@ public static class AuthDefaults
 	public const string SecurityStampClaimType = "security_stamp";
 	public const string IssuedAtClaimType = "auth_issued_at";
 
-	// Absolute session lifetime. Pinned at sign-in via the issued-at claim (which survives
+	// Default absolute session lifetime (configurable via Security:AbsoluteSessionLifetimeHours;
+	// the sliding idle timeout is separate, Security:IdleTimeoutHours). Pinned at sign-in via the issued-at claim (which survives
 	// sliding renewals, unlike the ticket's IssuedUtc), and enforced in OnValidatePrincipal
 	// so an actively-used session cannot slide indefinitely.
-	public static readonly TimeSpan AbsoluteSessionLifetime = TimeSpan.FromHours(8);
+	public static readonly TimeSpan AbsoluteSessionLifetime = TimeSpan.FromHours(24);
 
 	// A ticket is past its absolute cap when it has no issued-at stamp (defensive: pre-upgrade
 	// or malformed) or was issued longer ago than the absolute lifetime.
-	public static bool IsBeyondAbsoluteLifetime(DateTimeOffset? issuedAt, DateTimeOffset now) =>
-		issuedAt is null || now - issuedAt.Value > AbsoluteSessionLifetime;
+	public static bool IsBeyondAbsoluteLifetime(DateTimeOffset? issuedAt, DateTimeOffset now, TimeSpan absoluteLifetime) =>
+		issuedAt is null || now - issuedAt.Value > absoluteLifetime;
 }
 
 public static class ClaimsPrincipalExtensions

@@ -205,7 +205,7 @@ public sealed class AuthService
         _ = _accountEmailService.SendForgottenUsernameEmailAsync(email, username, CancellationToken.None);
     }
 
-    public async Task<(string ResetLink, DateTimeOffset ExpiresAtUtc, string Username)> CreatePasswordResetLinkAsync(Guid userId, string appBaseUrl)
+    public async Task<(string ResetLink, DateTimeOffset ExpiresAtUtc, string Username, bool EmailQueued)> CreatePasswordResetLinkAsync(Guid userId, string appBaseUrl, PasswordLinkPurpose purpose = PasswordLinkPurpose.Reset, string? inviterUsername = null)
     {
         var user = await _credentialRepository.MarkForPasswordResetAsync(userId);
         var (rawToken, expiresAtUtc) = await _resetTokenRepository.CreateAsync(userId);
@@ -213,7 +213,8 @@ public sealed class AuthService
         var trimmedBaseUrl = appBaseUrl.TrimEnd('/');
         var resetLink = $"{trimmedBaseUrl}/?resetToken={Uri.EscapeDataString(rawToken)}";
 
-        if (!string.IsNullOrWhiteSpace(user.Email))
+        var emailQueued = !string.IsNullOrWhiteSpace(user.Email);
+        if (emailQueued)
         {
             // Fire-and-forget: awaiting a live SMTP round trip here would make "account
             // exists and has an email" measurably slower than every other outcome for
@@ -224,10 +225,17 @@ public sealed class AuthService
             // singletons, so this detached task safely outlives the HTTP request.
             // CancellationToken.None is deliberate — the send must not be cut short
             // by the request's own lifetime.
-            _ = _accountEmailService.SendPasswordResetEmailAsync(user.Email, user.Username, resetLink, expiresAtUtc, CancellationToken.None);
+            if (purpose == PasswordLinkPurpose.Invitation)
+            {
+                _ = _accountEmailService.SendInvitationEmailAsync(user.Email!, user.Username, inviterUsername ?? "An administrator", resetLink, expiresAtUtc, CancellationToken.None);
+            }
+            else
+            {
+                _ = _accountEmailService.SendPasswordResetEmailAsync(user.Email!, user.Username, resetLink, expiresAtUtc, CancellationToken.None);
+            }
         }
 
-        return (resetLink, expiresAtUtc, user.Username);
+        return (resetLink, expiresAtUtc, user.Username, emailQueued);
     }
 
     public async Task<string> CompletePasswordResetAsync(string token, string newPassword)

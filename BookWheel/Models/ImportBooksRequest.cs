@@ -12,4 +12,5 @@ public sealed class ImportBookItem
     public string? Author { get; set; }
     public string? CoverUrl { get; set; }
     public int? BookTypeId { get; set; }
+    public DateTimeOffset? DeletedAtUtc { get; set; }
 }

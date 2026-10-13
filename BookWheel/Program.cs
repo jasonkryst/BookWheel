@@ -131,7 +131,7 @@ builder.Services.AddAuthentication(AuthDefaults.Scheme)
 		options.Cookie.SecurePolicy = authSecurityOptions.AlwaysSecureCookie
 			? CookieSecurePolicy.Always
 			: CookieSecurePolicy.SameAsRequest;
-		options.ExpireTimeSpan = TimeSpan.FromHours(8);
+		options.ExpireTimeSpan = TimeSpan.FromHours(authSecurityOptions.IdleTimeoutHours);
 		options.SlidingExpiration = true;
 
 		// API/SPA: never redirect to an HTML login/access-denied page.
@@ -158,6 +158,7 @@ builder.Services.AddAuthentication(AuthDefaults.Scheme)
 
 			var account = userId == Guid.Empty ? null : await repository.FindByIdAsync(userId);
 			var issuedAt = principal?.GetIssuedAt();
+			var absoluteLifetime = TimeSpan.FromHours(authSecurityOptions.AbsoluteSessionLifetimeHours);
 			var isRevoked =
 				account is null ||
 				account.IsDisabled ||
@@ -166,7 +167,7 @@ builder.Services.AddAuthentication(AuthDefaults.Scheme)
 				string.IsNullOrEmpty(stamp) ||
 				!string.Equals(account.SecurityStamp, stamp, StringComparison.Ordinal) ||
 				// Absolute lifetime cap: sliding expiry must not let a session live indefinitely.
-				AuthDefaults.IsBeyondAbsoluteLifetime(issuedAt, DateTimeOffset.UtcNow);
+				AuthDefaults.IsBeyondAbsoluteLifetime(issuedAt, DateTimeOffset.UtcNow, absoluteLifetime);
 
 			if (isRevoked)
 			{
