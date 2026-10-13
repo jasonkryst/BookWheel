@@ -623,6 +623,9 @@ function openResetLinkDialog(result) {
 
   resetLinkMessage.textContent = t('users.resetLinkCreated', { username: result.username, expiryText });
   resetLinkValue.value = result.resetLink || '';
+  if (result.inviteEmailQueued) {
+    resetLinkMessage.textContent += ` ${t('users.inviteEmailQueued')}`;
+  }
 
   openDialog(resetLinkDialog, resetLinkValue);
 }
@@ -2039,6 +2042,7 @@ function parseImportBooks(rawJson) {
     let coverUrl;
 
     let bookTypeId;
+    let deletedAtUtc;
     if (typeof item === 'string') {
       title = item;
     } else if (item && typeof item.title === 'string') {
@@ -2047,11 +2051,12 @@ function parseImportBooks(rawJson) {
       author = typeof item.author === 'string' ? item.author : undefined;
       coverUrl = typeof item.coverUrl === 'string' ? item.coverUrl : undefined;
       bookTypeId = typeof item.bookTypeId === 'number' ? item.bookTypeId : undefined;
+      deletedAtUtc = typeof item.deletedAtUtc === 'string' ? item.deletedAtUtc : undefined;
     }
 
     const trimmed = title.trim();
     if (trimmed) {
-      books.push({ title: trimmed, isbn, author, coverUrl, bookTypeId });
+      books.push({ title: trimmed, isbn, author, coverUrl, bookTypeId, deletedAtUtc });
     }
   });
 
@@ -2095,6 +2100,9 @@ async function importBooksFromJsonFile() {
   }
 
   const messages = [t('transfer.importCompleteMessage', { added: result.added, restored: result.restored || 0, skipped: result.skipped })];
+  if (result.warnings > 0) {
+    messages.push(t('transfer.importTypeWarning', { count: result.warnings }));
+  }
   if (account && typeof account.username === 'string' && currentUser && account.username !== currentUser.username) {
     messages.push(t('transfer.accountMismatchWarning', { username: account.username }));
   }
@@ -2642,7 +2650,8 @@ if (createUserForm) {
       openResetLinkDialog({
         username: result.username,
         resetLink: result.setupLink,
-        expiresAtUtc: result.setupLinkExpiresAtUtc
+        expiresAtUtc: result.setupLinkExpiresAtUtc,
+        inviteEmailQueued: result.inviteEmailQueued
       });
       createUserForm.reset();
       await loadUsers();

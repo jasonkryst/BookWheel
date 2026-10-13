@@ -22,6 +22,19 @@ public sealed class AccountEmailService
         return _emailSender.SendAsync(toAddress, subject, body, cancellationToken);
     }
 
+    public Task SendInvitationEmailAsync(string toAddress, string username, string inviterUsername, string setupLink, DateTimeOffset expiresAtUtc, CancellationToken cancellationToken = default)
+    {
+        const string subject = "You've been invited to Book Wheel";
+        var body =
+            $"Hello {username},\n\n" +
+            $"{inviterUsername} invited you to Book Wheel. Use the link below to set your password and get started:\n\n" +
+            $"{setupLink}\n\n" +
+            $"This link expires at {expiresAtUtc:u}.\n\n" +
+            "If you weren't expecting this, you can ignore this email.";
+
+        return _emailSender.SendAsync(toAddress, subject, body, cancellationToken);
+    }
+
     public Task SendForgottenUsernameEmailAsync(string toAddress, string username, CancellationToken cancellationToken = default)
     {
         const string subject = "Your Book Wheel username";

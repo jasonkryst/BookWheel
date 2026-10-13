@@ -52,7 +52,7 @@ public sealed class UsersController : ControllerBase
             // Deliberately NOT derived from Request.Scheme/Request.Host: AllowedHosts is "*",
             // so that header is attacker-controlled. Use the operator-configured App:BaseUrl instead.
             var appBaseUrl = _appOptions.BaseUrl.TrimEnd('/');
-            var setupLink = await _authService.CreatePasswordResetLinkAsync(user.UserId, appBaseUrl);
+            var setupLink = await _authService.CreatePasswordResetLinkAsync(user.UserId, appBaseUrl, PasswordLinkPurpose.Invitation, inviterUsername: User.GetUsername());
             _logger.LogInformation(
                 "User account created with setup link. Actor {ActorUsername} target {TargetUsername} role {IsAdmin} request {RequestId}",
                 LogSanitizer.Sanitize(User.GetUsername()),
@@ -70,7 +70,8 @@ public sealed class UsersController : ControllerBase
                 user.LockedUntilUtc,
                 user.CreatedAtUtc,
                 setupLink = setupLink.ResetLink,
-                setupLinkExpiresAtUtc = setupLink.ExpiresAtUtc
+                setupLinkExpiresAtUtc = setupLink.ExpiresAtUtc,
+                inviteEmailQueued = setupLink.EmailQueued
             });
         }
         catch (InvalidOperationException ex)

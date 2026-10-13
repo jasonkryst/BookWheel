@@ -1773,6 +1773,113 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
     }
 
     [Fact]
+    public async Task Import_Replaces_Out_Of_Range_BookTypeId_With_Default_And_Reports_A_Warning()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "test-setup@example.com"
+        });
+
+        await LoginAsync(client);
+
+        var importResponse = await client.PostAsJsonAsync("/api/books/import", new
+        {
+            books = new object[]
+            {
+                new { title = "Bad Type", bookTypeId = 99 },
+                new { title = "Audio Type", bookTypeId = 3 },
+                new { title = "No Type" }
+            }
+        });
+
+        Assert.Equal(HttpStatusCode.OK, importResponse.StatusCode);
+        using var doc = await ReadJsonAsync(importResponse);
+        Assert.Equal(3, doc.RootElement.GetProperty("added").GetInt32());
+        Assert.Equal(1, doc.RootElement.GetProperty("warnings").GetInt32());
+
+        using var booksDoc = await GetBooksDocumentAsync(client);
+        var books = booksDoc.RootElement.GetProperty("activeBooks").EnumerateArray().ToList();
+        int TypeOf(string title) => books.Single(b => b.GetProperty("title").GetString() == title).GetProperty("bookTypeId").GetInt32();
+        Assert.Equal(1, TypeOf("Bad Type"));
+        Assert.Equal(3, TypeOf("Audio Type"));
+        Assert.Equal(1, TypeOf("No Type"));
+    }
+
+    [Fact]
+    public async Task Import_Skips_Entries_Marked_Deleted_In_The_File()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "test-setup@example.com"
+        });
+
+        await LoginAsync(client);
+        var removedId = await AddBookAsync(client, "Removed Before Export");
+        await AddBookAsync(client, "Kept At Export");
+        await client.DeleteAsync($"/api/books/{removedId}");
+
+        var exportResponse = await client.GetAsync("/api/books/export");
+        var exportJson = await exportResponse.Content.ReadAsStringAsync();
+
+        // Re-import the export into the same (reset) account; the removed book must stay removed.
+        await factory.ResetAsync();
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "test-setup@example.com"
+        });
+        await LoginAsync(client);
+
+        using var exportDoc = JsonDocument.Parse(exportJson);
+        Assert.Contains(exportDoc.RootElement.GetProperty("books").EnumerateArray(), b => b.TryGetProperty("deletedAtUtc", out var d) && d.ValueKind == JsonValueKind.String);
+
+        var importResponse = await client.PostAsync("/api/books/import", new StringContent(
+            "{\"books\":" + exportDoc.RootElement.GetProperty("books").GetRawText() + "}", System.Text.Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.OK, importResponse.StatusCode);
+        using var doc = await ReadJsonAsync(importResponse);
+        Assert.Equal(1, doc.RootElement.GetProperty("added").GetInt32());
+        Assert.Equal(1, doc.RootElement.GetProperty("skipped").GetInt32());
+
+        using var booksDoc = await GetBooksDocumentAsync(client);
+        var titles = booksDoc.RootElement.GetProperty("activeBooks").EnumerateArray().Select(b => b.GetProperty("title").GetString()).ToList();
+        Assert.Equal(new[] { "Kept At Export" }, titles);
+    }
+
+    [Fact]
+    public async Task CreateUser_With_Email_Sends_An_Invite_Email_Not_A_Password_Reset_Email()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
+        factory.FakeEmailSender.SentEmails.Clear();
+
+        var response = await client.PostAsJsonAsync("/api/users", new { username = "invitee", isAdmin = false, email = "invitee@example.com" });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var doc = await ReadJsonAsync(response);
+        Assert.True(doc.RootElement.GetProperty("inviteEmailQueued").GetBoolean());
+        Assert.False(string.IsNullOrEmpty(doc.RootElement.GetProperty("setupLink").GetString()));
+
+        var sent = Assert.Single(factory.FakeEmailSender.SentEmails);
+        Assert.Equal("invitee@example.com", sent.ToAddress);
+        Assert.Equal("You've been invited to Book Wheel", sent.Subject);
+        Assert.DoesNotContain("Reset your Book Wheel password", sent.Subject);
+        Assert.Contains("test-admin invited you", sent.Body);
+    }
+
+    [Fact]
     public async Task Deleted_Endpoint_Returns_Only_The_Callers_Removed_Books()
     {
         var factory = _factory;
