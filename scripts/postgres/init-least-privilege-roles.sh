@@ -14,10 +14,10 @@
 #
 # For an EXISTING deployment's volume (tables already exist, owned by the
 # bootstrap role), run this script manually AND transfer table ownership
-# explicitly afterward — see the "Migrating an existing deployment" section in
-# README.md's Data Storage documentation for the exact commands (REASSIGN
-# OWNED cannot be used here: Postgres refuses it because the bootstrap role
-# also owns the database itself, which REASSIGN OWNED cannot touch).
+# explicitly afterward — see the "Data Storage" section in
+# docs/self-hosting.md for the exact commands (REASSIGN OWNED cannot be used
+# here: Postgres refuses it because the bootstrap role also owns the
+# database itself, which REASSIGN OWNED cannot touch).
 set -euo pipefail
 
 : "${POSTGRES_DB:?POSTGRES_DB must be set}"
