@@ -20,7 +20,9 @@
         unknownVersion: 'unknown',
         connectionError: 'Cannot connect to the server. Make sure the app is running, then try again.',
         offlineToast: 'You are offline. Some features will not work until you reconnect.',
-        onlineToast: 'Back online.'
+        onlineToast: 'Back online.',
+        updateAvailableToast: 'Update available.',
+        reloadBtn: 'Reload'
       },
       app: {
         title: 'Book Wheel'
@@ -381,7 +383,9 @@
         unknownVersion: 'desconocida',
         connectionError: 'No se puede conectar con el servidor. Asegúrate de que la aplicación esté en ejecución e inténtalo de nuevo.',
         offlineToast: 'Estás sin conexión. Algunas funciones no estarán disponibles hasta que te reconectes.',
-        onlineToast: 'De nuevo en línea.'
+        onlineToast: 'De nuevo en línea.',
+        updateAvailableToast: 'Actualización disponible.',
+        reloadBtn: 'Recargar'
       },
       app: {
         title: 'Book Wheel'
@@ -742,7 +746,9 @@
         unknownVersion: 'nieznana',
         connectionError: 'Nie można połączyć się z serwerem. Upewnij się, że aplikacja działa, a następnie spróbuj ponownie.',
         offlineToast: 'Jesteś offline. Niektóre funkcje będą niedostępne, dopóki nie połączysz się ponownie.',
-        onlineToast: 'Znowu online.'
+        onlineToast: 'Znowu online.',
+        updateAvailableToast: 'Dostępna aktualizacja.',
+        reloadBtn: 'Odśwież'
       },
       app: {
         title: 'Book Wheel'

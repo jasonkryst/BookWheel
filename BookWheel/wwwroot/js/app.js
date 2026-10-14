@@ -3995,8 +3995,46 @@ window.addEventListener('popstate', () => {
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {
+    navigator.serviceWorker.register('/sw.js').then(registration => {
+      const notifyUpdateReady = worker => {
+        const { t } = window.BookWheelI18n;
+        showToast(t('common.updateAvailableToast'), 'info', {
+          actionLabel: t('common.reloadBtn'),
+          durationMs: 600000,
+          onAction: () => worker.postMessage('SKIP_WAITING')
+        });
+      };
+
+      // A worker can already be sitting in 'waiting' if this tab was open
+      // across a previous deploy; navigator.serviceWorker.controller is only
+      // set once a worker has previously taken control, so it distinguishes
+      // "a newer version is available" from "this is the very first install".
+      if (registration.waiting && navigator.serviceWorker.controller) {
+        notifyUpdateReady(registration.waiting);
+      }
+
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        if (!newWorker) {
+          return;
+        }
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            notifyUpdateReady(newWorker);
+          }
+        });
+      });
+    }).catch(() => {
       // Installability/offline caching is a progressive enhancement; ignore registration failures.
+    });
+
+    let refreshingAfterSwUpdate = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshingAfterSwUpdate) {
+        return;
+      }
+      refreshingAfterSwUpdate = true;
+      window.location.reload();
     });
   });
 }
