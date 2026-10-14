@@ -153,6 +153,7 @@
 body {
   margin: 0;
   min-height: 100vh;
+  overflow-x: hidden;
   background: radial-gradient(circle at top, var(--bg-accent), var(--bg));
   color: var(--text);
   transition: background 220ms ease, color 220ms ease;
@@ -768,7 +769,7 @@ button:disabled {
 
 .user-directory-tools {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(160px, 220px) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 220px) minmax(160px, 220px) auto;
   align-items: end;
   gap: 10px;
   padding: 10px;

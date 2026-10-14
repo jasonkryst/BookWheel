@@ -758,6 +758,38 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
     }
 
     [Fact]
+    public async Task Frontend_Styles_Should_Prevent_The_Page_From_Growing_Wider_Than_The_Viewport()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/css/site.css");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var css = await response.Content.ReadAsStringAsync();
+
+        // Positive: a safety-net clip on the document so no descendant —
+        // including transformed/absolutely-positioned content that isn't
+        // clipped by its own containing block, such as the spin confetti
+        // burst — can widen the page and cause horizontal scroll on mobile.
+        var bodyStart = css.IndexOf("body {", StringComparison.Ordinal);
+        Assert.True(bodyStart >= 0, "Expected a body rule.");
+        var bodyRule = css.Substring(bodyStart, css.IndexOf('}', bodyStart) - bodyStart);
+        Assert.Contains("overflow-x: hidden;", bodyRule, StringComparison.Ordinal);
+
+        // Positive: the admin user-directory toolbar grid lists an explicit
+        // column for all four of its fields (search, status filter, sort,
+        // clear), not just three — an under-specified grid-template-columns
+        // left the fourth field to an auto-sized implicit column that could
+        // grow past the container on narrower-than-900px layouts where the
+        // single-column mobile override doesn't apply.
+        var toolsStart = css.IndexOf(".user-directory-tools {", StringComparison.Ordinal);
+        Assert.True(toolsStart >= 0, "Expected a .user-directory-tools rule.");
+        var toolsRule = css.Substring(toolsStart, css.IndexOf('}', toolsStart) - toolsStart);
+        Assert.Contains("grid-template-columns: minmax(0, 1fr) minmax(160px, 220px) minmax(160px, 220px) auto;", toolsRule, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Frontend_Styles_Should_Keep_Settings_Dialog_Responsive()
     {
         var factory = _factory;
