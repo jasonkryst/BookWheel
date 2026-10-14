@@ -20,7 +20,9 @@
         unknownVersion: 'unknown',
         connectionError: 'Cannot connect to the server. Make sure the app is running, then try again.',
         offlineToast: 'You are offline. Some features will not work until you reconnect.',
-        onlineToast: 'Back online.'
+        onlineToast: 'Back online.',
+        updateAvailableToast: 'Update available.',
+        reloadBtn: 'Reload'
       },
       app: {
         title: 'Book Wheel'
@@ -88,6 +90,7 @@
         themeLabel: 'Theme',
         languageLabel: 'Language',
         analyticsLabel: 'Allow anonymous usage analytics',
+        spinCelebrationLabel: 'Spin celebration effects (sound, vibration, confetti)',
         bookInfoProviderLabel: 'Book info source',
         tabsLabel: 'Settings sections',
         manageUsersTab: 'Manage users',
@@ -232,6 +235,12 @@
         roleStandard: 'Standard user',
         createdOn: 'Created {date}',
         createdUnavailable: 'Created date unavailable',
+        lastLoginOn: 'Last login {date}',
+        neverLoggedIn: 'Never logged in',
+        sortLabel: 'Sort by',
+        sortCreatedAsc: 'Account created (oldest first)',
+        sortLastLoginDesc: 'Last login (most recent)',
+        sortLastLoginAsc: 'Last login (oldest, never last)',
         adminCheckbox: 'Admin',
         disabledCheckbox: 'Disabled',
         requireResetCheckbox: 'Require reset',
@@ -255,7 +264,7 @@
         deleteDialogTitle: 'Remove user account',
         deleteWarning: 'This action permanently removes the account and all books assigned to this user.',
         removeUserBtn: 'Remove user',
-        deleteConfirmMessage: 'Remove user "{username}" and all of their books?',
+        deleteConfirmMessage: 'Remove user "{username}"? {count} books will be removed.',
         removedUserMessage: 'Removed user {username}. Deleted {count} books.',
         removedUserToast: 'Removed user {username}.',
         resetLinkDialogTitle: 'Password reset link',
@@ -375,7 +384,9 @@
         unknownVersion: 'desconocida',
         connectionError: 'No se puede conectar con el servidor. Asegúrate de que la aplicación esté en ejecución e inténtalo de nuevo.',
         offlineToast: 'Estás sin conexión. Algunas funciones no estarán disponibles hasta que te reconectes.',
-        onlineToast: 'De nuevo en línea.'
+        onlineToast: 'De nuevo en línea.',
+        updateAvailableToast: 'Actualización disponible.',
+        reloadBtn: 'Recargar'
       },
       app: {
         title: 'Book Wheel'
@@ -443,6 +454,7 @@
         themeLabel: 'Tema',
         languageLabel: 'Idioma',
         analyticsLabel: 'Permitir análisis de uso anónimo',
+        spinCelebrationLabel: 'Efectos de celebración del giro (sonido, vibración, confeti)',
         bookInfoProviderLabel: 'Fuente de información del libro',
         tabsLabel: 'Secciones de configuración',
         manageUsersTab: 'Gestionar usuarios',
@@ -587,6 +599,12 @@
         roleStandard: 'Usuario estándar',
         createdOn: 'Creado el {date}',
         createdUnavailable: 'Fecha de creación no disponible',
+        lastLoginOn: 'Último inicio de sesión {date}',
+        neverLoggedIn: 'Nunca ha iniciado sesión',
+        sortLabel: 'Ordenar por',
+        sortCreatedAsc: 'Cuenta creada (más antigua primero)',
+        sortLastLoginDesc: 'Último inicio de sesión (más reciente)',
+        sortLastLoginAsc: 'Último inicio de sesión (más antiguo, nunca al final)',
         adminCheckbox: 'Admin',
         disabledCheckbox: 'Deshabilitado',
         requireResetCheckbox: 'Requerir restablecimiento',
@@ -610,7 +628,7 @@
         deleteDialogTitle: 'Eliminar cuenta de usuario',
         deleteWarning: 'Esta acción elimina permanentemente la cuenta y todos los libros asignados a este usuario.',
         removeUserBtn: 'Eliminar usuario',
-        deleteConfirmMessage: '¿Eliminar al usuario "{username}" y todos sus libros?',
+        deleteConfirmMessage: '¿Eliminar al usuario "{username}"? Se eliminarán {count} libros.',
         removedUserMessage: 'Usuario {username} eliminado. Se eliminaron {count} libros.',
         removedUserToast: 'Usuario {username} eliminado.',
         resetLinkDialogTitle: 'Enlace de restablecimiento de contraseña',
@@ -730,7 +748,9 @@
         unknownVersion: 'nieznana',
         connectionError: 'Nie można połączyć się z serwerem. Upewnij się, że aplikacja działa, a następnie spróbuj ponownie.',
         offlineToast: 'Jesteś offline. Niektóre funkcje będą niedostępne, dopóki nie połączysz się ponownie.',
-        onlineToast: 'Znowu online.'
+        onlineToast: 'Znowu online.',
+        updateAvailableToast: 'Dostępna aktualizacja.',
+        reloadBtn: 'Odśwież'
       },
       app: {
         title: 'Book Wheel'
@@ -798,6 +818,7 @@
         themeLabel: 'Motyw',
         languageLabel: 'Język',
         analyticsLabel: 'Zezwól na anonimową analitykę użytkowania',
+        spinCelebrationLabel: 'Efekty świętowania losowania (dźwięk, wibracje, konfetti)',
         bookInfoProviderLabel: 'Źródło informacji o książce',
         tabsLabel: 'Sekcje ustawień',
         manageUsersTab: 'Zarządzaj użytkownikami',
@@ -942,6 +963,12 @@
         roleStandard: 'Użytkownik standardowy',
         createdOn: 'Utworzono {date}',
         createdUnavailable: 'Data utworzenia niedostępna',
+        lastLoginOn: 'Ostatnie logowanie {date}',
+        neverLoggedIn: 'Nigdy się nie zalogował',
+        sortLabel: 'Sortuj według',
+        sortCreatedAsc: 'Data utworzenia konta (najstarsze najpierw)',
+        sortLastLoginDesc: 'Ostatnie logowanie (najnowsze)',
+        sortLastLoginAsc: 'Ostatnie logowanie (najstarsze, nigdy na końcu)',
         adminCheckbox: 'Admin',
         disabledCheckbox: 'Wyłączony',
         requireResetCheckbox: 'Wymagaj resetu',
@@ -965,7 +992,7 @@
         deleteDialogTitle: 'Usuń konto użytkownika',
         deleteWarning: 'Ta czynność trwale usuwa konto i wszystkie książki przypisane do tego użytkownika.',
         removeUserBtn: 'Usuń użytkownika',
-        deleteConfirmMessage: 'Usunąć użytkownika „{username}" i wszystkie jego książki?',
+        deleteConfirmMessage: 'Usunąć użytkownika „{username}"? Zostanie usuniętych {count} książek.',
         removedUserMessage: 'Usunięto użytkownika {username}. Usunięto {count} książek.',
         removedUserToast: 'Usunięto użytkownika {username}.',
         resetLinkDialogTitle: 'Link resetowania hasła',

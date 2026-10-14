@@ -305,6 +305,85 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
     }
 
     [Fact]
+    public async Task GetUsers_Reports_Null_LastLogin_And_Zero_Books_For_A_Fresh_User()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "test-setup@example.com" });
+
+        using var listResponse = await client.GetAsync("/api/users");
+        using var usersDoc = await ReadJsonAsync(listResponse);
+        var admin = usersDoc.RootElement.GetProperty("users").EnumerateArray()
+            .Single(user => user.GetProperty("username").GetString() == "test-admin");
+
+        Assert.Equal(JsonValueKind.Null, admin.GetProperty("lastLoginAtUtc").ValueKind);
+        Assert.Equal(0, admin.GetProperty("bookCount").GetInt32());
+    }
+
+    [Fact]
+    public async Task GetUsers_Reports_LastLogin_And_Book_Count_Including_Soft_Deleted_Books()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "test-setup@example.com" });
+        await client.PostAsJsonAsync("/api/books", new { title = "Active Book" });
+        var secondBookResponse = await client.PostAsJsonAsync("/api/books", new { title = "Removed Book" });
+        using var secondBookDoc = await ReadJsonAsync(secondBookResponse);
+        var removedBookId = secondBookDoc.RootElement.GetProperty("id").GetGuid();
+        await client.DeleteAsync($"/api/books/{removedBookId}");
+
+        await client.PostAsync("/api/auth/logout", content: null);
+        var beforeLogin = DateTimeOffset.UtcNow;
+        await LoginAsync(client, "test-admin", "test-password");
+
+        using var listResponse = await client.GetAsync("/api/users");
+        using var usersDoc = await ReadJsonAsync(listResponse);
+        var admin = usersDoc.RootElement.GetProperty("users").EnumerateArray()
+            .Single(user => user.GetProperty("username").GetString() == "test-admin");
+
+        // Soft-deleted books still count here, matching what DELETE /api/users/{id}
+        // actually removes (BookWheelApiTests.DeleteUser_Removes_All_Of_Their_Books
+        // covers that count via IgnoreQueryFilters()).
+        Assert.Equal(2, admin.GetProperty("bookCount").GetInt32());
+        var lastLoginAtUtc = admin.GetProperty("lastLoginAtUtc").GetDateTimeOffset();
+        Assert.True(lastLoginAtUtc >= beforeLogin);
+    }
+
+    [Fact]
+    public async Task GetUsers_Book_Count_Matches_Books_Actually_Removed_On_Delete()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "test-setup@example.com" });
+        var (readerId, readerSetupLink) = await CreateUserAsync(client, "reader-one");
+        await SetPasswordFromSetupLinkAsync(client, readerSetupLink, "reader-pass-1");
+        await client.PostAsync("/api/auth/logout", content: null);
+        await LoginAsync(client, "reader-one", "reader-pass-1");
+        await client.PostAsJsonAsync("/api/books", new { title = "Reader Book One" });
+        var secondResponse = await client.PostAsJsonAsync("/api/books", new { title = "Reader Book Two" });
+        using var secondDoc = await ReadJsonAsync(secondResponse);
+        await client.DeleteAsync($"/api/books/{secondDoc.RootElement.GetProperty("id").GetGuid()}");
+
+        await client.PostAsync("/api/auth/logout", content: null);
+        await LoginAsync(client, "test-admin", "test-password");
+
+        using var beforeListResponse = await client.GetAsync("/api/users");
+        using var beforeUsersDoc = await ReadJsonAsync(beforeListResponse);
+        var readerBefore = beforeUsersDoc.RootElement.GetProperty("users").EnumerateArray()
+            .Single(user => user.GetProperty("username").GetString() == "reader-one");
+        var reportedBookCount = readerBefore.GetProperty("bookCount").GetInt32();
+
+        var deleteResponse = await client.DeleteAsync($"/api/users/{readerId}");
+        using var deleteDoc = await ReadJsonAsync(deleteResponse);
+
+        Assert.Equal(2, reportedBookCount);
+        Assert.Equal(reportedBookCount, deleteDoc.RootElement.GetProperty("removedBooks").GetInt32());
+    }
+
+    [Fact]
     public async Task System_ConfigStatus_Is_Forbidden_For_NonAdmin_And_Returns_Booleans_For_Admin()
     {
         var factory = _factory;

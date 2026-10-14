@@ -23,6 +23,20 @@
       "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
     },
     {
+      "name": "Add a Book",
+      "short_name": "Add book",
+      "description": "Jump straight to the add-book form.",
+      "url": "/?view=add-book",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Scan a Book",
+      "short_name": "Scan",
+      "description": "Scan a barcode to look up a book.",
+      "url": "/?view=scan",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
       "name": "Books",
       "short_name": "Books",
       "description": "View your list of books.",
@@ -36,5 +50,14 @@
       "url": "/?view=stats",
       "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
     }
-  ]
+  ],
+  "share_target": {
+    "action": "/?view=search",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
 }

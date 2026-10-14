@@ -58,6 +58,7 @@ const recentPicksListEl = document.getElementById('recentPicksList');
 const recentPicksEmptyEl = document.getElementById('recentPicksEmpty');
 const canvas = document.getElementById('wheelCanvas');
 const ctx = canvas.getContext('2d');
+const wheelStage = document.querySelector('.wheel-wrap');
 const editDialog = document.getElementById('editDialog');
 const editForm = document.getElementById('editForm');
 const editBookId = document.getElementById('editBookId');
@@ -121,6 +122,7 @@ const createUserEmail = document.getElementById('createUserEmail');
 const createUserIsAdmin = document.getElementById('createUserIsAdmin');
 const userSearchInput = document.getElementById('userSearchInput');
 const userStatusFilter = document.getElementById('userStatusFilter');
+const userSortSelect = document.getElementById('userSortSelect');
 const clearUserFiltersBtn = document.getElementById('clearUserFiltersBtn');
 const userCountBadge = document.getElementById('userCountBadge');
 const userList = document.getElementById('userList');
@@ -138,6 +140,7 @@ const settingsManageUsersPanel = document.getElementById('settingsManageUsersPan
 const settingsImportExportPanel = document.getElementById('settingsImportExportPanel');
 const settingsPreferencesPanel = document.getElementById('settingsPreferencesPanel');
 const analyticsConsentCheckbox = document.getElementById('analyticsConsentCheckbox');
+const spinCelebrationCheckbox = document.getElementById('spinCelebrationCheckbox');
 const bookInfoProviderSelect = document.getElementById('bookInfoProviderSelect');
 const appVersionEl = document.getElementById('appVersion');
 const toastRegion = document.getElementById('toastRegion');
@@ -213,6 +216,7 @@ const THEME_CYCLE = [SYSTEM_THEME, DARK_THEME, LIGHT_THEME, HIGH_CONTRAST_THEME]
 const THEME_ICONS = { [SYSTEM_THEME]: '🖥', [DARK_THEME]: '☾', [LIGHT_THEME]: '☀', [HIGH_CONTRAST_THEME]: '◐' };
 const THEME_LABEL_KEYS = { [SYSTEM_THEME]: 'theme.system', [DARK_THEME]: 'theme.dark', [LIGHT_THEME]: 'theme.light', [HIGH_CONTRAST_THEME]: 'theme.highContrast' };
 const ANALYTICS_CONSENT_STORAGE_KEY = 'bookwheel-analytics-consent';
+const SPIN_CELEBRATION_STORAGE_KEY = 'bookwheel-spin-celebration';
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const prefersColorSchemeDark = window.matchMedia('(prefers-color-scheme: dark)');
 const prefersContrastMore = window.matchMedia('(prefers-contrast: more)');
@@ -478,6 +482,25 @@ function applyAnalyticsConsent() {
   }
 }
 
+function isSpinCelebrationOptedOut() {
+  return localStorage.getItem(SPIN_CELEBRATION_STORAGE_KEY) === 'false';
+}
+
+function isSpinCelebrationEnabled() {
+  return !isSpinCelebrationOptedOut() && !isReducedMotionEnabled();
+}
+
+function applySpinCelebrationPreference() {
+  if (spinCelebrationCheckbox) {
+    spinCelebrationCheckbox.checked = !isSpinCelebrationOptedOut();
+  }
+}
+
+function setSpinCelebrationConsent(optedIn) {
+  localStorage.setItem(SPIN_CELEBRATION_STORAGE_KEY, optedIn ? 'true' : 'false');
+  applySpinCelebrationPreference();
+}
+
 function setAnalyticsConsent(optedIn) {
   localStorage.setItem(ANALYTICS_CONSENT_STORAGE_KEY, optedIn ? 'true' : 'false');
   applyAnalyticsConsent();
@@ -493,6 +516,12 @@ function applyPreferences(preferences) {
   setAnalyticsConsent(!preferences.analyticsConsentOptedOut);
   if (bookInfoProviderSelect) {
     bookInfoProviderSelect.value = String(preferences.preferredBookInfoProviderId || 1);
+  }
+  if (preferences.locale && window.BookWheelI18n.SUPPORTED_LOCALES.includes(preferences.locale)) {
+    window.BookWheelI18n.setLocale(preferences.locale);
+    if (langSelect) {
+      langSelect.value = preferences.locale;
+    }
   }
 }
 
@@ -517,7 +546,8 @@ async function savePreferencesIfAuthenticated() {
       body: JSON.stringify({
         theme: getPreferredTheme(),
         analyticsConsentOptedOut: isAnalyticsOptedOut(),
-        preferredBookInfoProviderId: bookInfoProviderSelect ? (parseInt(bookInfoProviderSelect.value, 10) || null) : null
+        preferredBookInfoProviderId: bookInfoProviderSelect ? (parseInt(bookInfoProviderSelect.value, 10) || null) : null,
+        locale: window.BookWheelI18n.getCurrentLocale()
       })
     });
   } catch (error) {
@@ -853,6 +883,9 @@ function resetUserManagementState() {
   if (userStatusFilter) {
     userStatusFilter.value = 'all';
   }
+  if (userSortSelect) {
+    userSortSelect.value = 'created-asc';
+  }
 }
 
 function setUserManagementTab(tabName) {
@@ -919,7 +952,7 @@ function closeDeleteUserDialog() {
 function openDeleteUserDialog(user) {
   pendingDeleteUser = user;
   deleteUserError.textContent = '';
-  deleteUserConfirmMessage.textContent = window.BookWheelI18n.t('users.deleteConfirmMessage', { username: user.username });
+  deleteUserConfirmMessage.textContent = window.BookWheelI18n.t('users.deleteConfirmMessage', { username: user.username, count: user.bookCount || 0 });
 
   openDialog(deleteUserDialog, cancelDeleteUserBtn);
 }
@@ -961,6 +994,16 @@ function renderUserRows(users) {
 
     return matchesSearch && matchesStatus;
   });
+
+  const sortValue = userSortSelect?.value || 'created-asc';
+  const time = value => new Date(value).getTime();
+  if (sortValue === 'last-login-desc') {
+    visibleUsers.sort((a, b) => compareNullsLast(a.lastLoginAtUtc, b.lastLoginAtUtc, (x, y) => time(y) - time(x)));
+  } else if (sortValue === 'last-login-asc') {
+    visibleUsers.sort((a, b) => compareNullsLast(a.lastLoginAtUtc, b.lastLoginAtUtc, (x, y) => time(x) - time(y)));
+  } else {
+    visibleUsers.sort((a, b) => time(a.createdAtUtc) - time(b.createdAtUtc));
+  }
 
   renderUserCount(visibleUsers.length, users.length);
 
@@ -1005,9 +1048,14 @@ function renderUserRows(users) {
     }
 
     const createdDate = user.createdAtUtc ? new Date(user.createdAtUtc) : null;
-    metaLine.textContent = createdDate && !Number.isNaN(createdDate.getTime())
+    const createdText = createdDate && !Number.isNaN(createdDate.getTime())
       ? t('users.createdOn', { date: createdDate.toLocaleDateString(window.BookWheelI18n.getCurrentLocale()) })
       : t('users.createdUnavailable');
+    const lastLoginDate = user.lastLoginAtUtc ? new Date(user.lastLoginAtUtc) : null;
+    const lastLoginText = lastLoginDate && !Number.isNaN(lastLoginDate.getTime())
+      ? t('users.lastLoginOn', { date: lastLoginDate.toLocaleDateString(window.BookWheelI18n.getCurrentLocale()) })
+      : t('users.neverLoggedIn');
+    metaLine.textContent = `${createdText} · ${lastLoginText}`;
 
     const username = document.createElement('input');
     username.className = 'user-input';
@@ -2715,6 +2763,86 @@ booksNextPageBtn.addEventListener('click', () => {
   renderActiveBooks();
 });
 
+const WHEEL_TRANSITION_MS = 4000;
+const STOP_VIBRATE_PATTERN = [15, 40, 15, 40, 80];
+const CONFETTI_COLORS = ['#ff6b6b', '#4ecdc4', '#ffe66d', '#1a936f', '#845ec2'];
+let spinEffectTimers = [];
+let spinAudioContext = null;
+
+function clearScheduledSpinEffects() {
+  spinEffectTimers.forEach(id => clearTimeout(id));
+  spinEffectTimers = [];
+}
+
+function getSpinAudioContext() {
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) {
+    return null;
+  }
+  if (!spinAudioContext) {
+    spinAudioContext = new Ctx();
+  }
+  if (spinAudioContext.state === 'suspended') {
+    spinAudioContext.resume().catch(() => {});
+  }
+  return spinAudioContext;
+}
+
+function playSpinTick() {
+  const ctx = getSpinAudioContext();
+  if (!ctx) {
+    return;
+  }
+  const oscillator = ctx.createOscillator();
+  const gain = ctx.createGain();
+  oscillator.type = 'square';
+  oscillator.frequency.value = 1200;
+  gain.gain.setValueAtTime(0.08, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.04);
+  oscillator.connect(gain).connect(ctx.destination);
+  oscillator.start();
+  oscillator.stop(ctx.currentTime + 0.05);
+}
+
+// Slices pass the pointer at even angle intervals, but the CSS transition
+// decelerates (cubic-bezier ease-out), so equal-angle ticks need increasing
+// time gaps. easeOutCubic(x) = 1 - (1-x)^3 approximates that curve and is
+// cheaply invertible, so each tick's delay is solved directly instead of
+// polling the animation every frame.
+function scheduleSpinTicks(rotationDelta, sliceDegrees, durationMs) {
+  const tickCount = Math.floor(rotationDelta / sliceDegrees);
+  for (let tick = 1; tick <= tickCount; tick++) {
+    const angleProgress = tick / tickCount;
+    const timeProgress = 1 - Math.cbrt(1 - angleProgress);
+    spinEffectTimers.push(setTimeout(playSpinTick, timeProgress * durationMs));
+  }
+}
+
+function burstSpinConfetti() {
+  if (!wheelStage) {
+    return;
+  }
+  for (let i = 0; i < 24; i++) {
+    const piece = document.createElement('span');
+    piece.className = 'confetti-piece';
+    const angle = Math.random() * Math.PI * 2;
+    const distance = 80 + Math.random() * 110;
+    piece.style.setProperty('--confetti-x', `${Math.cos(angle) * distance}px`);
+    piece.style.setProperty('--confetti-y', `${Math.sin(angle) * distance}px`);
+    piece.style.setProperty('--confetti-rot', `${Math.random() * 540 - 270}deg`);
+    piece.style.background = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+    piece.addEventListener('animationend', () => piece.remove());
+    wheelStage.appendChild(piece);
+  }
+}
+
+function playSpinStopCelebration() {
+  if (navigator.vibrate) {
+    navigator.vibrate(STOP_VIBRATE_PATTERN);
+  }
+  burstSpinConfetti();
+}
+
 spinBtn.addEventListener('click', async () => {
   if (spinning || !activeBooks.length) {
     return;
@@ -2725,6 +2853,7 @@ spinBtn.addEventListener('click', async () => {
   spinBtn.disabled = true;
   spinBtn.textContent = t('wheel.spinningBusy');
   selectedBookEl.textContent = t('wheel.spinningBusy');
+  clearScheduledSpinEffects();
 
   try {
     const result = await requestJson('/api/books/spin', { method: 'POST' });
@@ -2743,13 +2872,19 @@ spinBtn.addEventListener('click', async () => {
     const slice = 360 / wheelBooks.length;
     const targetAngle = 360 - ((selectedIndex * slice) + slice / 2);
     const normalizedRotation = ((currentRotation % 360) + 360) % 360;
-    const fullSpins = isReducedMotionEnabled() ? 1 : 5;
+    const reducedMotion = isReducedMotionEnabled();
+    const fullSpins = reducedMotion ? 1 : 5;
     const rotationDelta = 360 * fullSpins + targetAngle - normalizedRotation;
-    const spinDelayMs = isReducedMotionEnabled() ? 120 : 4200;
+    const spinDelayMs = reducedMotion ? 120 : WHEEL_TRANSITION_MS + 200;
     currentRotation += rotationDelta;
     canvas.style.transform = `rotate(${currentRotation}deg)`;
 
-    setTimeout(async () => {
+    const celebrationEnabled = isSpinCelebrationEnabled();
+    if (celebrationEnabled) {
+      scheduleSpinTicks(rotationDelta, slice, WHEEL_TRANSITION_MS);
+    }
+
+    const revealResult = () => {
       activeBooks = result.activeBooks || [];
       clampCurrentPage();
       drawWheel();
@@ -2760,7 +2895,31 @@ spinBtn.addEventListener('click', async () => {
       spinBtn.disabled = activeBooks.length === 0;
       spinBtn.textContent = t('wheel.spinBtn');
       showToast(t('wheel.selectedToast', { title: selected.title }), 'success');
-    }, spinDelayMs);
+      if (celebrationEnabled) {
+        playSpinStopCelebration();
+      }
+    };
+
+    if (reducedMotion) {
+      // #wheelCanvas has `transition: none` under reduced motion, so no
+      // transitionend event will ever fire for this rotation.
+      spinEffectTimers.push(setTimeout(revealResult, spinDelayMs));
+    } else {
+      const onTransitionEnd = event => {
+        if (event.target !== canvas || event.propertyName !== 'transform') {
+          return;
+        }
+        canvas.removeEventListener('transitionend', onTransitionEnd);
+        clearTimeout(fallbackTimer);
+        revealResult();
+      };
+      canvas.addEventListener('transitionend', onTransitionEnd);
+      const fallbackTimer = setTimeout(() => {
+        canvas.removeEventListener('transitionend', onTransitionEnd);
+        revealResult();
+      }, spinDelayMs);
+      spinEffectTimers.push(fallbackTimer);
+    }
   } catch (error) {
     spinning = false;
     selectedBookEl.textContent = error.message;
@@ -3094,10 +3253,19 @@ if (userStatusFilter) {
   });
 }
 
+if (userSortSelect) {
+  userSortSelect.addEventListener('change', () => {
+    renderUserRows(allUsers);
+  });
+}
+
 if (clearUserFiltersBtn) {
   clearUserFiltersBtn.addEventListener('click', () => {
     userSearchInput.value = '';
     userStatusFilter.value = 'all';
+    if (userSortSelect) {
+      userSortSelect.value = 'created-asc';
+    }
     renderUserRows(allUsers);
     userSearchInput.focus();
   });
@@ -3268,6 +3436,7 @@ if (settingsPreferencesTabBtn) {
 if (langSelect) {
   langSelect.addEventListener('change', () => {
     window.BookWheelI18n.setLocale(langSelect.value);
+    savePreferencesIfAuthenticated();
   });
 }
 
@@ -3275,6 +3444,12 @@ if (analyticsConsentCheckbox) {
   analyticsConsentCheckbox.addEventListener('change', () => {
     setAnalyticsConsent(analyticsConsentCheckbox.checked);
     savePreferencesIfAuthenticated();
+  });
+}
+
+if (spinCelebrationCheckbox) {
+  spinCelebrationCheckbox.addEventListener('change', () => {
+    setSpinCelebrationConsent(spinCelebrationCheckbox.checked);
   });
 }
 
@@ -3647,8 +3822,47 @@ function setRequestedView(view) {
   window.history.pushState({}, document.title, url.pathname + url.search + url.hash);
 }
 
+// A 978/979-prefixed run of 13 digits is almost always an ISBN-13 (shared
+// from Goodreads/Amazon/Google Books links or text), so it's matched on its
+// own. A bare ISBN-10 has no comparable tell, so it's only matched right
+// after the literal word "ISBN" to avoid misreading a shared phone number
+// or other unrelated 10-digit run as one.
+const SHARED_ISBN_13_PATTERN = /\b97[89](?:[- ]?\d){10}\b/;
+const SHARED_ISBN_10_PATTERN = /\bISBN[-:\s]*(\d(?:[- ]?\d){8}[- ]?[\dXx])\b/i;
+
+function extractSharedIsbn(...values) {
+  const combined = values.filter(Boolean).join(' ');
+  const isbn13 = combined.match(SHARED_ISBN_13_PATTERN);
+  if (isbn13) {
+    return isbn13[0].replace(/[- ]/g, '');
+  }
+  const isbn10 = combined.match(SHARED_ISBN_10_PATTERN);
+  return isbn10 ? isbn10[1].replace(/[- ]/g, '') : null;
+}
+
+function applySharedBookInfoRequest(params) {
+  const sharedTitle = params.get('title') || '';
+  const sharedText = params.get('text') || '';
+  const sharedUrl = params.get('url') || '';
+
+  if (!sharedTitle && !sharedText && !sharedUrl) {
+    return;
+  }
+
+  openBookInfoDialog();
+
+  const isbn = extractSharedIsbn(sharedText, sharedUrl, sharedTitle);
+  if (isbn) {
+    bookInfoIsbn.value = isbn;
+    runBookInfoSearch();
+  } else if (sharedTitle || sharedText) {
+    bookInfoTitle.value = sharedTitle || sharedText;
+  }
+}
+
 function applyRequestedView() {
-  const view = new URLSearchParams(window.location.search).get('view');
+  const params = new URLSearchParams(window.location.search);
+  const view = params.get('view');
   const targets = {
     wheel: document.getElementById('wheel'),
     books: document.getElementById('books')
@@ -3658,6 +3872,24 @@ function applyRequestedView() {
     openStatsDialog(false);
   } else if (view === 'preferences') {
     openSettingsDialog(false);
+  } else if (view === 'add-book') {
+    closeStatsDialog(false);
+    closeSettingsDialog(false);
+    targets.books.scrollIntoView({ block: 'start' });
+    bookTitle.focus();
+  } else if (view === 'scan') {
+    closeStatsDialog(false);
+    closeSettingsDialog(false);
+    openBookInfoDialog();
+    openBarcodeScanner({
+      isbnInput: bookInfoIsbn,
+      messageEl: bookInfoSearchMessage,
+      onDetected: async () => runBookInfoSearch()
+    });
+  } else if (view === 'search') {
+    closeStatsDialog(false);
+    closeSettingsDialog(false);
+    applySharedBookInfoRequest(params);
   } else if (targets[view]) {
     closeStatsDialog(false);
     closeSettingsDialog(false);
@@ -3665,6 +3897,14 @@ function applyRequestedView() {
   } else {
     closeStatsDialog(false);
     closeSettingsDialog(false);
+  }
+
+  if (view === 'search' && (params.has('title') || params.has('text') || params.has('url'))) {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('title');
+    url.searchParams.delete('text');
+    url.searchParams.delete('url');
+    window.history.replaceState({}, document.title, url.pathname + url.search);
   }
 }
 
@@ -3740,6 +3980,7 @@ syncLangSelect();
 
   applyTheme(getPreferredTheme());
   applyAnalyticsConsent();
+  applySpinCelebrationPreference();
   await loadAppVersion();
 
   try {
@@ -3775,8 +4016,46 @@ window.addEventListener('popstate', () => {
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {
+    navigator.serviceWorker.register('/sw.js').then(registration => {
+      const notifyUpdateReady = worker => {
+        const { t } = window.BookWheelI18n;
+        showToast(t('common.updateAvailableToast'), 'info', {
+          actionLabel: t('common.reloadBtn'),
+          durationMs: 600000,
+          onAction: () => worker.postMessage('SKIP_WAITING')
+        });
+      };
+
+      // A worker can already be sitting in 'waiting' if this tab was open
+      // across a previous deploy; navigator.serviceWorker.controller is only
+      // set once a worker has previously taken control, so it distinguishes
+      // "a newer version is available" from "this is the very first install".
+      if (registration.waiting && navigator.serviceWorker.controller) {
+        notifyUpdateReady(registration.waiting);
+      }
+
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        if (!newWorker) {
+          return;
+        }
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            notifyUpdateReady(newWorker);
+          }
+        });
+      });
+    }).catch(() => {
       // Installability/offline caching is a progressive enhancement; ignore registration failures.
+    });
+
+    let refreshingAfterSwUpdate = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshingAfterSwUpdate) {
+        return;
+      }
+      refreshingAfterSwUpdate = true;
+      window.location.reload();
     });
   });
 }

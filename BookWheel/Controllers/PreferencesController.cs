@@ -34,7 +34,8 @@ public sealed class PreferencesController : ControllerBase
             userId,
             request.Theme,
             request.AnalyticsConsentOptedOut,
-            request.PreferredBookInfoProviderId);
+            request.PreferredBookInfoProviderId,
+            request.Locale);
         return Ok(preferences);
     }
 }

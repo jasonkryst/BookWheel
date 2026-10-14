@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace BookWheel.Tests;
 
@@ -41,6 +42,49 @@ public sealed class BookWheelPwaTests : IClassFixture<BookWheelWebAppFactory>, I
         var icons = root.GetProperty("icons").EnumerateArray().ToList();
         Assert.True(icons.Count >= 3);
         Assert.Contains(icons, icon => icon.TryGetProperty("purpose", out var purpose) && purpose.GetString() == "maskable");
+    }
+
+    [Fact]
+    public async Task Manifest_Should_Declare_Add_Book_And_Scan_Shortcuts_Routed_Via_View_Param()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/manifest.webmanifest");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        var shortcuts = document.RootElement.GetProperty("shortcuts").EnumerateArray().ToList();
+
+        // Positive: the three shortcuts named in GH #243 (Spin, Add book, Scan)
+        // exist and route through the existing ?view= handling, not a dedicated
+        // standalone page.
+        Assert.Contains(shortcuts, s => s.GetProperty("short_name").GetString() == "Spin Wheel" && s.GetProperty("url").GetString() == "/?view=wheel");
+        Assert.Contains(shortcuts, s => s.GetProperty("short_name").GetString() == "Add book" && s.GetProperty("url").GetString() == "/?view=add-book");
+        Assert.Contains(shortcuts, s => s.GetProperty("short_name").GetString() == "Scan" && s.GetProperty("url").GetString() == "/?view=scan");
+
+        // Negative: every shortcut must resolve to a same-origin app route, never
+        // an absolute external URL (the manifest.action validator below also
+        // depends on this for share_target).
+        Assert.All(shortcuts, s => Assert.StartsWith("/?view=", s.GetProperty("url").GetString(), StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Manifest_Should_Declare_A_Get_Share_Target_Into_Book_Search()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/manifest.webmanifest");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.True(document.RootElement.TryGetProperty("share_target", out var shareTarget));
+        Assert.Equal("/?view=search", shareTarget.GetProperty("action").GetString());
+        Assert.Equal("GET", shareTarget.GetProperty("method").GetString());
+
+        var shareParams = shareTarget.GetProperty("params");
+        Assert.Equal("title", shareParams.GetProperty("title").GetString());
+        Assert.Equal("text", shareParams.GetProperty("text").GetString());
+        Assert.Equal("url", shareParams.GetProperty("url").GetString());
     }
 
     [Fact]
@@ -187,6 +231,77 @@ public sealed class BookWheelPwaTests : IClassFixture<BookWheelWebAppFactory>, I
         var guardIndex = script.IndexOf("'serviceWorker' in navigator", StringComparison.Ordinal);
         var registerIndex = script.IndexOf("navigator.serviceWorker.register('/sw.js')", StringComparison.Ordinal);
         Assert.True(guardIndex >= 0 && registerIndex >= 0 && guardIndex < registerIndex);
+    }
+
+    [Fact]
+    public async Task Service_Worker_Should_Wait_For_SkipWaiting_Message_Instead_Of_Taking_Over_Immediately()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/sw.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: the new worker waits in the 'waiting' state until told to
+        // activate, and listens for that instruction from the page.
+        Assert.Contains("addEventListener('message'", script, StringComparison.Ordinal);
+        Assert.Contains("event.data === 'SKIP_WAITING'", script, StringComparison.Ordinal);
+        Assert.Contains("self.skipWaiting()", script, StringComparison.Ordinal);
+
+        // Negative: install must not call skipWaiting() unconditionally anymore —
+        // that's what silently swapped the worker under an open tab (GH #233).
+        // It should only ever appear inside the message handler's body.
+        var skipWaitingCount = Regex.Matches(script, Regex.Escape("self.skipWaiting()")).Count;
+        Assert.Equal(1, skipWaitingCount);
+        var installHandlerIndex = script.IndexOf("addEventListener('install'", StringComparison.Ordinal);
+        var activateHandlerIndex = script.IndexOf("addEventListener('activate'", StringComparison.Ordinal);
+        Assert.True(installHandlerIndex >= 0 && activateHandlerIndex >= 0);
+        var installHandlerBody = script.Substring(installHandlerIndex, activateHandlerIndex - installHandlerIndex);
+        Assert.DoesNotContain("skipWaiting", installHandlerBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Script_Should_Show_An_Update_Toast_And_Reload_After_SkipWaiting()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: a waiting or newly-installed worker (only once this tab is
+        // already controlled, i.e. an update rather than the first install)
+        // triggers a toast whose action posts SKIP_WAITING to that worker; the
+        // page reloads itself once the new worker actually takes control.
+        Assert.Contains("registration.waiting && navigator.serviceWorker.controller", script, StringComparison.Ordinal);
+        Assert.Contains("addEventListener('updatefound'", script, StringComparison.Ordinal);
+        Assert.Contains("newWorker.state === 'installed' && navigator.serviceWorker.controller", script, StringComparison.Ordinal);
+        Assert.Contains("worker.postMessage('SKIP_WAITING')", script, StringComparison.Ordinal);
+        Assert.Contains("t('common.updateAvailableToast')", script, StringComparison.Ordinal);
+        Assert.Contains("actionLabel: t('common.reloadBtn')", script, StringComparison.Ordinal);
+        Assert.Contains("addEventListener('controllerchange'", script, StringComparison.Ordinal);
+        Assert.Contains("window.location.reload()", script, StringComparison.Ordinal);
+
+        // Negative: the controllerchange handler must guard against firing the
+        // reload more than once (it can fire multiple times in some browsers).
+        Assert.Contains("refreshingAfterSwUpdate", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task I18n_Catalog_Should_Include_Update_Available_Toast_Strings_For_All_Locales()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/i18n.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("updateAvailableToast: 'Update available.'", script, StringComparison.Ordinal);
+        Assert.Contains("reloadBtn: 'Reload'", script, StringComparison.Ordinal);
+        Assert.Contains("updateAvailableToast: 'Actualización disponible.'", script, StringComparison.Ordinal);
+        Assert.Contains("reloadBtn: 'Recargar'", script, StringComparison.Ordinal);
+        Assert.Contains("updateAvailableToast: 'Dostępna aktualizacja.'", script, StringComparison.Ordinal);
+        Assert.Contains("reloadBtn: 'Odśwież'", script, StringComparison.Ordinal);
     }
 
     [Fact]

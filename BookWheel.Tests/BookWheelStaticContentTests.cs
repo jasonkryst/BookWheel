@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.RegularExpressions;
 
 namespace BookWheel.Tests;
 
@@ -79,6 +80,41 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
     }
 
     [Fact]
+    public async Task Admin_User_Directory_Should_Expose_Last_Login_Sort_And_Delete_Book_Count()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var htmlResponse = await client.GetAsync("/");
+        var html = await htmlResponse.Content.ReadAsStringAsync();
+
+        // Positive: a sort control for the admin user directory exists, including
+        // the two new last-login sort orders.
+        Assert.Contains("id=\"userSortSelect\"", html, StringComparison.Ordinal);
+        Assert.Contains("value=\"last-login-desc\"", html, StringComparison.Ordinal);
+        Assert.Contains("value=\"last-login-asc\"", html, StringComparison.Ordinal);
+
+        var scriptResponse = await client.GetAsync("/js/app.js");
+        var script = await scriptResponse.Content.ReadAsStringAsync();
+
+        // Positive: the directory row shows a last-login value (or "never"), the sort
+        // select re-renders from the cached list, and the delete-confirmation dialog is
+        // given the user's book count so it can state how many books will be removed.
+        Assert.Contains("users.lastLoginOn", script, StringComparison.Ordinal);
+        Assert.Contains("users.neverLoggedIn", script, StringComparison.Ordinal);
+        Assert.Contains("userSortSelect.addEventListener('change'", script, StringComparison.Ordinal);
+        Assert.Contains("users.deleteConfirmMessage", script, StringComparison.Ordinal);
+        Assert.Contains("count: user.bookCount || 0", script, StringComparison.Ordinal);
+
+        var i18nResponse = await client.GetAsync("/js/i18n.js");
+        var i18n = await i18nResponse.Content.ReadAsStringAsync();
+
+        // Negative: the delete-confirmation copy must not be the old count-free wording
+        // in any of the three catalogs, since a stale copy would silently drop the count.
+        Assert.DoesNotContain("and all of their books?", i18n, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Frontend_Script_Should_Support_Shareable_App_View_Routes()
     {
         using var client = _factory.CreateClient();
@@ -93,6 +129,64 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
         Assert.Contains("wheel: document.getElementById('wheel')", script, StringComparison.Ordinal);
         Assert.Contains("books: document.getElementById('books')", script, StringComparison.Ordinal);
         Assert.Contains("window.addEventListener('popstate'", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Script_Should_Route_Add_Book_And_Scan_Shortcuts_To_Their_Entry_Points()
+    {
+        using var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: the "Add book" shortcut scrolls to the books panel and
+        // focuses the quick-add title field (not a dedicated page); the "Scan"
+        // shortcut opens Book Search and starts the scanner immediately,
+        // targeting its ISBN field, reusing the dialog's own scan handler.
+        Assert.Contains("view === 'add-book'", script, StringComparison.Ordinal);
+        Assert.Contains("view === 'scan'", script, StringComparison.Ordinal);
+
+        var addBookStart = script.IndexOf("view === 'add-book'", StringComparison.Ordinal);
+        var addBookBranch = script.Substring(addBookStart, Math.Min(250, script.Length - addBookStart));
+        Assert.Contains("targets.books.scrollIntoView", addBookBranch, StringComparison.Ordinal);
+        Assert.Contains("bookTitle.focus()", addBookBranch, StringComparison.Ordinal);
+
+        var scanStart = script.IndexOf("view === 'scan'", StringComparison.Ordinal);
+        var scanBranch = script.Substring(scanStart, Math.Min(300, script.Length - scanStart));
+        Assert.Contains("openBookInfoDialog()", scanBranch, StringComparison.Ordinal);
+        Assert.Contains("openBarcodeScanner({", scanBranch, StringComparison.Ordinal);
+        Assert.Contains("isbnInput: bookInfoIsbn", scanBranch, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Script_Should_Prefill_Book_Search_From_A_Shared_Isbn_Or_Title()
+    {
+        using var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: an ISBN-13 (978/979 prefix) found in the shared text, url,
+        // or title auto-triggers the lookup (GH #243 acceptance criterion).
+        Assert.Contains("function extractSharedIsbn(", script, StringComparison.Ordinal);
+        Assert.Contains("SHARED_ISBN_13_PATTERN", script, StringComparison.Ordinal);
+        Assert.Contains("function applySharedBookInfoRequest(params)", script, StringComparison.Ordinal);
+        Assert.Contains("bookInfoIsbn.value = isbn;", script, StringComparison.Ordinal);
+        Assert.Contains("runBookInfoSearch();", script, StringComparison.Ordinal);
+
+        // Negative: a bare ISBN-10 (no "978"/"979" prefix) is only trusted right
+        // after the literal word "ISBN", so an unrelated 10-digit run shared in
+        // plain text (e.g. a phone number) can't be misread as a lookup.
+        Assert.Contains("SHARED_ISBN_10_PATTERN = /\\bISBN", script, StringComparison.Ordinal);
+
+        // Positive: the view=search route feeds share_target's title/text/url
+        // params into the Book Search dialog and then scrubs them from the URL
+        // so a later reload or back-navigation doesn't replay the same lookup.
+        Assert.Contains("view === 'search'", script, StringComparison.Ordinal);
+        Assert.Contains("applySharedBookInfoRequest(params)", script, StringComparison.Ordinal);
+        Assert.Contains("url.searchParams.delete('title')", script, StringComparison.Ordinal);
+        Assert.Contains("url.searchParams.delete('text')", script, StringComparison.Ordinal);
+        Assert.Contains("url.searchParams.delete('url')", script, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -143,6 +237,32 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
         // single setLocale() entry point, not by writing localStorage directly —
         // otherwise static text and the Accept-Language header could fall out of sync.
         Assert.DoesNotContain("langSelect.addEventListener('change', () => localStorage.setItem", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Script_Should_Round_Trip_Locale_Through_Server_Preferences()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: a locale change while signed in is persisted server-side
+        // (same pattern as the theme toggle), and a fetched preference payload
+        // is applied back onto the i18n module and the <select> on login/bootstrap.
+        var langChangeHandlerStart = script.IndexOf("langSelect.addEventListener('change'", StringComparison.Ordinal);
+        Assert.True(langChangeHandlerStart >= 0, "langSelect change handler not found");
+        var langChangeHandlerBody = script.Substring(langChangeHandlerStart, 200);
+        Assert.Contains("window.BookWheelI18n.setLocale(langSelect.value)", langChangeHandlerBody, StringComparison.Ordinal);
+        Assert.Contains("savePreferencesIfAuthenticated()", langChangeHandlerBody, StringComparison.Ordinal);
+        Assert.Contains("locale: window.BookWheelI18n.getCurrentLocale()", script, StringComparison.Ordinal);
+        Assert.Contains("window.BookWheelI18n.setLocale(preferences.locale)", script, StringComparison.Ordinal);
+
+        // Negative: an unsupported/unknown locale value from the server must not
+        // be handed to setLocale (which itself also guards, but the call site
+        // should not rely solely on that — the SUPPORTED_LOCALES check must be inline).
+        Assert.Contains("window.BookWheelI18n.SUPPORTED_LOCALES.includes(preferences.locale)", script, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -290,6 +410,54 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
         // not rendered unconditionally.
         Assert.Contains("if (book.coverUrl)", script, StringComparison.Ordinal);
         Assert.Contains("if (book.author)", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Should_Reveal_Spin_Result_On_Transitionend_With_Opt_In_Celebration_Effects()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var htmlResponse = await client.GetAsync("/");
+        var html = await htmlResponse.Content.ReadAsStringAsync();
+
+        // Positive: a Preferences toggle exists for the celebration effects,
+        // defaulted on like the other opt-out preference checkboxes.
+        Assert.Contains("id=\"spinCelebrationCheckbox\" type=\"checkbox\" checked", html, StringComparison.Ordinal);
+
+        var scriptResponse = await client.GetAsync("/js/app.js");
+        var script = await scriptResponse.Content.ReadAsStringAsync();
+
+        // Positive: the spin result is revealed by a transitionend listener
+        // (filtered to the wheel's own transform transition) rather than a
+        // bare setTimeout, so it can't desync from the CSS animation; a
+        // fallback timer still exists in case the event never fires.
+        var spinHandlerStart = script.IndexOf("spinBtn.addEventListener('click'", StringComparison.Ordinal);
+        Assert.True(spinHandlerStart >= 0, "Expected a spinBtn click handler.");
+        var spinHandlerBody = script.Substring(spinHandlerStart, Math.Min(4000, script.Length - spinHandlerStart));
+        Assert.Contains("addEventListener('transitionend'", spinHandlerBody, StringComparison.Ordinal);
+        Assert.Contains("event.propertyName !== 'transform'", spinHandlerBody, StringComparison.Ordinal);
+        Assert.Contains("fallbackTimer", spinHandlerBody, StringComparison.Ordinal);
+
+        // Positive: celebration effects (tick audio, haptics, confetti) are
+        // gated behind both the reduced-motion check and the preference toggle.
+        Assert.Contains("function isSpinCelebrationEnabled() {", script, StringComparison.Ordinal);
+        Assert.Contains("!isSpinCelebrationOptedOut() && !isReducedMotionEnabled()", script, StringComparison.Ordinal);
+        Assert.Contains("navigator.vibrate(STOP_VIBRATE_PATTERN)", script, StringComparison.Ordinal);
+        Assert.Contains("scheduleSpinTicks(rotationDelta, slice, WHEEL_TRANSITION_MS)", spinHandlerBody, StringComparison.Ordinal);
+
+        // Negative: the tick/vibrate/confetti calls must be conditional on
+        // celebrationEnabled, not unconditional on every spin.
+        var celebrationGateCount = Regex.Matches(spinHandlerBody, Regex.Escape("if (celebrationEnabled) {")).Count;
+        Assert.Equal(2, celebrationGateCount);
+        Assert.Contains("scheduleSpinTicks(rotationDelta, slice, WHEEL_TRANSITION_MS);", spinHandlerBody, StringComparison.Ordinal);
+        Assert.Contains("playSpinStopCelebration();", spinHandlerBody, StringComparison.Ordinal);
+
+        var cssResponse = await client.GetAsync("/css/site.css");
+        var css = await cssResponse.Content.ReadAsStringAsync();
+
+        Assert.Contains(".confetti-piece", css, StringComparison.Ordinal);
+        Assert.Contains("@keyframes confetti-burst", css, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -11,4 +11,7 @@ public sealed class UpdatePreferencesRequest
 
     [Range(1, 2, ErrorMessage = "Book info provider must be a valid provider.")]
     public int? PreferredBookInfoProviderId { get; set; }
+
+    [RegularExpression("^(en|es|pl)$", ErrorMessage = "Locale must be a supported language.")]
+    public string? Locale { get; set; }
 }

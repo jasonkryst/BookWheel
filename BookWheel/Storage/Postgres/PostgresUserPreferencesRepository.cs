@@ -21,7 +21,7 @@ public sealed class PostgresUserPreferencesRepository : IUserPreferencesReposito
         return ToPreferences(entity);
     }
 
-    public async Task<UserPreferences> UpdateAsync(Guid userId, string? theme, bool analyticsConsentOptedOut, int? preferredBookInfoProviderId)
+    public async Task<UserPreferences> UpdateAsync(Guid userId, string? theme, bool analyticsConsentOptedOut, int? preferredBookInfoProviderId, string? locale)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
         var entity = await context.Users.FirstOrDefaultAsync(u => u.Id == userId)
@@ -30,6 +30,7 @@ public sealed class PostgresUserPreferencesRepository : IUserPreferencesReposito
         entity.Theme = theme;
         entity.AnalyticsConsentOptedOut = analyticsConsentOptedOut;
         entity.PreferredBookInfoProviderId = preferredBookInfoProviderId;
+        entity.Locale = locale;
         await context.SaveChangesAsync();
 
         return ToPreferences(entity);
@@ -39,6 +40,7 @@ public sealed class PostgresUserPreferencesRepository : IUserPreferencesReposito
     {
         Theme = entity.Theme,
         AnalyticsConsentOptedOut = entity.AnalyticsConsentOptedOut,
-        PreferredBookInfoProviderId = entity.PreferredBookInfoProviderId
+        PreferredBookInfoProviderId = entity.PreferredBookInfoProviderId,
+        Locale = entity.Locale
     };
 }
