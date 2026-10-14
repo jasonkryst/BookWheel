@@ -491,6 +491,27 @@ public sealed class JsonCredentialRepository : ICredentialRepository
         }
     }
 
+    public async Task RecordLoginAsync(Guid userId, DateTimeOffset loginAtUtc)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var users = await ReadUsersUnsafeAsync();
+            var user = users.FirstOrDefault(existingUser => existingUser.UserId == userId);
+            if (user is null)
+            {
+                return;
+            }
+
+            user.LastLoginAtUtc = loginAtUtc;
+            await WriteUsersUnsafeAsync(users);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     public async Task<CredentialRecord?> FindByUsernameAsync(string username)
     {
         await _gate.WaitAsync();

@@ -263,6 +263,9 @@ namespace BookWheel.Migrations
                     b.Property<bool>("IsLocked")
                         .HasColumnType("boolean");
 
+                    b.Property<DateTimeOffset?>("LastLoginAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTimeOffset?>("LockedUntilUtc")
                         .HasColumnType("timestamp with time zone");
 

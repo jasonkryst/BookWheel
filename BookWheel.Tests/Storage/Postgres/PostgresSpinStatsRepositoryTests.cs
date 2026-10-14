@@ -11,6 +11,7 @@ public sealed class PostgresSpinStatsRepositoryTests : IAsyncLifetime
     private PostgresSpinStatsRepository _statsRepository = null!;
     private PostgresBookRepository _bookRepository = null!;
     private PostgresSpinHistoryRepository _spinHistoryRepository = null!;
+    private PostgresCredentialRepository _credentialRepository = null!;
 
     public PostgresSpinStatsRepositoryTests(PostgresTestFixture fixture)
     {
@@ -26,6 +27,22 @@ public sealed class PostgresSpinStatsRepositoryTests : IAsyncLifetime
         _statsRepository = new PostgresSpinStatsRepository(contextFactory);
         _bookRepository = new PostgresBookRepository(contextFactory);
         _spinHistoryRepository = new PostgresSpinHistoryRepository(contextFactory);
+        _credentialRepository = new PostgresCredentialRepository(contextFactory);
+
+        // Every aggregate test needs at least one account to exist before CreateUserAsync
+        // is usable; a non-admin test subject is never also the forced-admin seed account.
+        await _credentialRepository.CreateInitialAccountAsync("seed-admin", "correct-password-1", "seed-admin@example.com");
+    }
+
+    private async Task<Guid> CreateUserAsync(string username, bool disabled = false, bool locked = false)
+    {
+        var user = await _credentialRepository.CreateUserAsync(username, isAdmin: false, email: $"{username}@example.com");
+        if (disabled || locked)
+        {
+            await _credentialRepository.UpdateUserAsync(user.UserId, username, isAdmin: false, isDisabled: disabled, forcePasswordReset: false, isLocked: locked, email: null);
+        }
+
+        return user.UserId;
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -236,5 +253,99 @@ public sealed class PostgresSpinStatsRepositoryTests : IAsyncLifetime
         Assert.Equal("Never Touched", neverSpun.Title);
         var topBook = Assert.Single(stats.TopBooks);
         Assert.Equal("Was Spun", topBook.Title);
+    }
+
+    [Fact]
+    public async Task GetAggregateAsync_TotalUserCount_CountsEveryAccountRegardlessOfStatus()
+    {
+        // seed-admin (from InitializeAsync) + two more, one of them disabled.
+        await CreateUserAsync("total-count-active");
+        await CreateUserAsync("total-count-disabled", disabled: true);
+
+        var aggregate = await _statsRepository.GetAggregateAsync();
+
+        Assert.Equal(3, aggregate.TotalUserCount);
+    }
+
+    [Fact]
+    public async Task GetAggregateAsync_ActiveUserCount_CountsUserWithRecentLoginAndNoSpins()
+    {
+        var userId = await CreateUserAsync("recent-login-no-spins");
+        await _credentialRepository.RecordLoginAsync(userId, DateTimeOffset.UtcNow);
+
+        var aggregate = await _statsRepository.GetAggregateAsync();
+
+        Assert.Equal(1, aggregate.ActiveUserCount);
+    }
+
+    [Fact]
+    public async Task GetAggregateAsync_ActiveUserCount_CountsUserWithRecentSpinAndNoLogin()
+    {
+        var userId = await CreateUserAsync("recent-spin-no-login");
+        var book = await _bookRepository.AddAsync(userId, "Spun Recently");
+        await _spinHistoryRepository.RecordAsync(userId, book.Id, DateTimeOffset.UtcNow);
+
+        var aggregate = await _statsRepository.GetAggregateAsync();
+
+        Assert.Equal(1, aggregate.ActiveUserCount);
+    }
+
+    [Fact]
+    public async Task GetAggregateAsync_ActiveUserCount_ExcludesDisabledUserDespiteRecentActivity()
+    {
+        var userId = await CreateUserAsync("disabled-but-recent", disabled: true);
+        await _credentialRepository.RecordLoginAsync(userId, DateTimeOffset.UtcNow);
+        var book = await _bookRepository.AddAsync(userId, "Spun By Disabled User");
+        await _spinHistoryRepository.RecordAsync(userId, book.Id, DateTimeOffset.UtcNow);
+
+        var aggregate = await _statsRepository.GetAggregateAsync();
+
+        Assert.Equal(0, aggregate.ActiveUserCount);
+        Assert.Equal(2, aggregate.TotalUserCount);
+    }
+
+    [Fact]
+    public async Task GetAggregateAsync_ActiveUserCount_ExcludesLockedUserDespiteRecentLogin()
+    {
+        var userId = await CreateUserAsync("locked-but-recent", locked: true);
+        await _credentialRepository.RecordLoginAsync(userId, DateTimeOffset.UtcNow);
+
+        var aggregate = await _statsRepository.GetAggregateAsync();
+
+        Assert.Equal(0, aggregate.ActiveUserCount);
+    }
+
+    [Fact]
+    public async Task GetAggregateAsync_ActiveUserCount_ExcludesActivityOlderThan30Days()
+    {
+        var staleLoginUser = await CreateUserAsync("stale-login");
+        await _credentialRepository.RecordLoginAsync(staleLoginUser, DateTimeOffset.UtcNow.AddDays(-31));
+
+        var staleSpinUser = await CreateUserAsync("stale-spin");
+        var book = await _bookRepository.AddAsync(staleSpinUser, "Spun Long Ago");
+        await _spinHistoryRepository.RecordAsync(staleSpinUser, book.Id, DateTimeOffset.UtcNow.AddDays(-31));
+
+        var aggregate = await _statsRepository.GetAggregateAsync();
+
+        Assert.Equal(0, aggregate.ActiveUserCount);
+        Assert.Equal(3, aggregate.TotalUserCount);
+    }
+
+    [Fact]
+    public async Task GetAggregateAsync_ActiveUserCount_MixedUsers_CountsOnlyQualifyingOnes()
+    {
+        await CreateUserAsync("never-active");
+        var active = await CreateUserAsync("active-user");
+        await _credentialRepository.RecordLoginAsync(active, DateTimeOffset.UtcNow.AddDays(-1));
+        var disabledActive = await CreateUserAsync("disabled-active-user", disabled: true);
+        await _credentialRepository.RecordLoginAsync(disabledActive, DateTimeOffset.UtcNow);
+        var staleUser = await CreateUserAsync("stale-user");
+        await _credentialRepository.RecordLoginAsync(staleUser, DateTimeOffset.UtcNow.AddDays(-45));
+
+        var aggregate = await _statsRepository.GetAggregateAsync();
+
+        // seed-admin + 4 created users = 5 total; only "active-user" qualifies as active.
+        Assert.Equal(5, aggregate.TotalUserCount);
+        Assert.Equal(1, aggregate.ActiveUserCount);
     }
 }

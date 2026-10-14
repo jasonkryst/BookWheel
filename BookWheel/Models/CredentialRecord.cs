@@ -12,5 +12,6 @@ public sealed class CredentialRecord
     public bool IsLocked { get; set; }
     public DateTimeOffset? LockedUntilUtc { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
+    public DateTimeOffset? LastLoginAtUtc { get; set; }
     public string SecurityStamp { get; set; } = string.Empty;
 }

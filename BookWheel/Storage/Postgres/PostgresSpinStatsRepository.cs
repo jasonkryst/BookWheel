@@ -6,6 +6,8 @@ namespace BookWheel.Storage.Postgres;
 
 public sealed class PostgresSpinStatsRepository : ISpinStatsRepository
 {
+    private const int ActiveUserWindowDays = 30;
+
     private readonly IDbContextFactory<BookWheelDbContext> _contextFactory;
 
     public PostgresSpinStatsRepository(IDbContextFactory<BookWheelDbContext> contextFactory)
@@ -115,9 +117,20 @@ public sealed class PostgresSpinStatsRepository : ISpinStatsRepository
     public async Task<AdminSpinStatsRecord> GetAggregateAsync()
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
+        var now = DateTimeOffset.UtcNow;
+        var activeSinceUtc = now.AddDays(-ActiveUserWindowDays);
 
         var totalSpins = await context.SpinSelections.CountAsync();
-        var activeUserCount = await context.Users.CountAsync();
+        var totalUserCount = await context.Users.CountAsync();
+
+        // "Active" = not disabled/locked, and either logged in or spun within the window.
+        // A disabled or locked account never counts, even if it was active before an admin
+        // flagged it.
+        var activeUserCount = await context.Users.CountAsync(u =>
+            !u.IsDisabled &&
+            !u.IsLocked &&
+            (u.LastLoginAtUtc >= activeSinceUtc ||
+                context.SpinSelections.Any(s => s.UserId == u.Id && s.SelectedAtUtc >= activeSinceUtc)));
 
         var topUsers = await (
             from s in context.SpinSelections
@@ -130,6 +143,7 @@ public sealed class PostgresSpinStatsRepository : ISpinStatsRepository
         return new AdminSpinStatsRecord
         {
             TotalSpinsAllUsers = totalSpins,
+            TotalUserCount = totalUserCount,
             ActiveUserCount = activeUserCount,
             TopUsers = topUsers.Select(u => new UserSpinCountRecord
             {

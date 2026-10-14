@@ -521,6 +521,60 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
     }
 
     [Fact]
+    public async Task Login_Success_Stamps_LastLoginAtUtc()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
+        var repo = factory.Services.GetRequiredService<ICredentialRepository>();
+        var admin = await repo.FindByUsernameAsync("test-admin");
+        Assert.NotNull(admin);
+        Assert.Null(admin!.LastLoginAtUtc);
+
+        var beforeLogin = DateTimeOffset.UtcNow;
+        await client.PostAsJsonAsync("/api/auth/login", new { username = "test-admin", password = "test-password" });
+
+        var reloaded = await repo.FindByIdAsync(admin.UserId);
+        Assert.NotNull(reloaded!.LastLoginAtUtc);
+        Assert.True(reloaded.LastLoginAtUtc >= beforeLogin);
+    }
+
+    [Fact]
+    public async Task Login_Failure_Does_Not_Stamp_LastLoginAtUtc()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
+        var repo = factory.Services.GetRequiredService<ICredentialRepository>();
+        var admin = await repo.FindByUsernameAsync("test-admin");
+        Assert.NotNull(admin);
+
+        var response = await client.PostAsJsonAsync("/api/auth/login", new { username = "test-admin", password = "wrong-password" });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        var reloaded = await repo.FindByIdAsync(admin!.UserId);
+        Assert.Null(reloaded!.LastLoginAtUtc);
+    }
+
+    [Fact]
+    public async Task Login_Attempt_On_Disabled_Account_Does_Not_Stamp_LastLoginAtUtc()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password", email = "admin@example.com" });
+        var repo = factory.Services.GetRequiredService<ICredentialRepository>();
+        var admin = await repo.FindByUsernameAsync("test-admin");
+        Assert.NotNull(admin);
+        await repo.UpdateUserAsync(admin!.UserId, admin.Username, isAdmin: true, isDisabled: true, forcePasswordReset: false, isLocked: false, email: null);
+
+        var response = await client.PostAsJsonAsync("/api/auth/login", new { username = "test-admin", password = "test-password" });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        var reloaded = await repo.FindByIdAsync(admin.UserId);
+        Assert.Null(reloaded!.LastLoginAtUtc);
+    }
+
+    [Fact]
     public async Task Setup_Without_Email_Returns_BadRequest()
     {
         var factory = _factory;
@@ -2903,6 +2957,7 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
 
         using var doc = await ReadJsonAsync(response);
         Assert.True(doc.RootElement.TryGetProperty("totalSpinsAllUsers", out _));
+        Assert.True(doc.RootElement.TryGetProperty("totalUserCount", out _));
         Assert.True(doc.RootElement.TryGetProperty("activeUserCount", out _));
         Assert.True(doc.RootElement.TryGetProperty("topUsers", out _));
     }
@@ -2936,7 +2991,39 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
 
         using var doc = await ReadJsonAsync(response);
         Assert.Equal(3, doc.RootElement.GetProperty("totalSpinsAllUsers").GetInt32());
+        Assert.Equal(2, doc.RootElement.GetProperty("totalUserCount").GetInt32());
+        // Both accounts logged in (or spun) within the last 30 days during this test.
         Assert.Equal(2, doc.RootElement.GetProperty("activeUserCount").GetInt32());
+    }
+
+    [Fact]
+    public async Task Aggregate_Stats_ActiveUserCount_Excludes_Disabled_User_With_Recent_Activity()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
+
+        var (readerUserId, readerSetupLink) = await CreateUserAsync(client, "reader-one");
+        await SetPasswordFromSetupLinkAsync(client, readerSetupLink, "reader-pass-1");
+
+        await client.PostAsync("/api/auth/logout", content: null);
+        await LoginAsync(client, "reader-one", "reader-pass-1");
+        await AddBookAsync(client, "Reader Book");
+        await client.PostAsync("/api/books/spin", null);
+
+        await client.PostAsync("/api/auth/logout", content: null);
+        await LoginAsync(client);
+        var repo = factory.Services.GetRequiredService<ICredentialRepository>();
+        await repo.UpdateUserAsync(readerUserId, "reader-one", isAdmin: false, isDisabled: true, forcePasswordReset: false, isLocked: false, email: null);
+
+        var response = await client.GetAsync("/api/stats/aggregate");
+
+        using var doc = await ReadJsonAsync(response);
+        Assert.Equal(2, doc.RootElement.GetProperty("totalUserCount").GetInt32());
+        // reader-one logged in and spun moments ago but is now disabled, so only the admin counts as active.
+        Assert.Equal(1, doc.RootElement.GetProperty("activeUserCount").GetInt32());
     }
 
     // ── Stats: negative cases ────────────────────────────────────────────────

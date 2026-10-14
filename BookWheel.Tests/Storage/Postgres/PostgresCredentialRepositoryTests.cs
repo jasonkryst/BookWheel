@@ -233,4 +233,37 @@ public sealed class PostgresCredentialRepositoryTests : IAsyncLifetime
 
         Assert.Null(username);
     }
+
+    [Fact]
+    public async Task RecordLoginAsync_Sets_LastLoginAtUtc()
+    {
+        var admin = await _repository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");
+        var loginAt = DateTimeOffset.UtcNow;
+
+        await _repository.RecordLoginAsync(admin.UserId, loginAt);
+
+        var reloaded = await _repository.FindByIdAsync(admin.UserId);
+        Assert.NotNull(reloaded);
+        Assert.NotNull(reloaded!.LastLoginAtUtc);
+        // Postgres "timestamp with time zone" only stores microsecond precision, so a
+        // round-tripped value can be a fraction of a microsecond off .NET's 100ns ticks.
+        Assert.True((loginAt - reloaded.LastLoginAtUtc!.Value).Duration() < TimeSpan.FromMilliseconds(1));
+    }
+
+    [Fact]
+    public async Task RecordLoginAsync_For_Unknown_User_DoesNotThrow()
+    {
+        await _repository.RecordLoginAsync(Guid.NewGuid(), DateTimeOffset.UtcNow);
+    }
+
+    [Fact]
+    public async Task FindByIdAsync_Before_Any_Login_Has_Null_LastLoginAtUtc()
+    {
+        var admin = await _repository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");
+
+        var reloaded = await _repository.FindByIdAsync(admin.UserId);
+
+        Assert.NotNull(reloaded);
+        Assert.Null(reloaded!.LastLoginAtUtc);
+    }
 }

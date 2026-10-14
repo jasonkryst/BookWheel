@@ -105,6 +105,7 @@ public sealed class AuthService
             return new LoginValidationResult { RequiresPasswordReset = true };
         }
 
+        await _credentialRepository.RecordLoginAsync(user.UserId, DateTimeOffset.UtcNow);
         return new LoginValidationResult { User = ToAuthenticatedUser(user) };
     }
 

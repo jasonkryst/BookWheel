@@ -3568,6 +3568,7 @@ async function fetchAndRenderStats() {
           statsAdminSection.classList.remove('hidden');
 
           statsAdminContent.appendChild(makeSummaryCard(agg.totalSpinsAllUsers, 'stats.adminTotalSpins'));
+          statsAdminContent.appendChild(makeSummaryCard(agg.totalUserCount, 'stats.adminTotalUsers'));
           statsAdminContent.appendChild(makeSummaryCard(agg.activeUserCount, 'stats.adminActiveUsers'));
 
           if (agg.topUsers?.length) {

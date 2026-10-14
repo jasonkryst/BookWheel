@@ -329,6 +329,19 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
             .FirstOrDefaultAsync();
     }
 
+    public async Task RecordLoginAsync(Guid userId, DateTimeOffset loginAtUtc)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var entity = await context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        if (entity is null)
+        {
+            return;
+        }
+
+        entity.LastLoginAtUtc = loginAtUtc;
+        await context.SaveChangesAsync();
+    }
+
     private static bool IsUniqueViolation(DbUpdateException ex)
     {
         return ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
@@ -353,6 +366,7 @@ public sealed class PostgresCredentialRepository : ICredentialRepository
         IsLocked = entity.IsLocked,
         LockedUntilUtc = entity.LockedUntilUtc,
         CreatedAtUtc = entity.CreatedAtUtc,
+        LastLoginAtUtc = entity.LastLoginAtUtc,
         SecurityStamp = entity.SecurityStamp
     };
 

@@ -3,6 +3,7 @@ namespace BookWheel.Models;
 public sealed class AdminSpinStatsRecord
 {
     public int TotalSpinsAllUsers { get; set; }
+    public int TotalUserCount { get; set; }
     public int ActiveUserCount { get; set; }
     public IReadOnlyList<UserSpinCountRecord> TopUsers { get; set; } = [];
 }
