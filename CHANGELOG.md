@@ -10,6 +10,16 @@ This file was introduced alongside the README split in GH #198. Entries from
 (including everything before 3.2.0) predate a consistent per-commit version tag
 in this repository — see `git log` or the GitHub Releases page for that history.
 
+## [3.16.1]
+
+- Fixed long book titles and author names not truncating with an ellipsis in
+  the active-books list, Book Search's multi-result picker, and recent-pick
+  rows that share the same markup. The title/author elements are a `<button>`
+  and `<span>`, which default to shrink-to-fit sizing with no width of their
+  own — without an explicit width, `white-space: nowrap` + `text-overflow:
+  ellipsis` had nothing to clip against, so a long title just grew past its
+  row (and, before the mobile `overflow-x: hidden` fix, past the page).
+
 ## [3.16.0]
 
 - Added configurable retailer links for Book Search: the retailer list (name,
