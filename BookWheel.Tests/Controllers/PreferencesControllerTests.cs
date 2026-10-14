@@ -71,6 +71,26 @@ public sealed class PreferencesControllerTests : IClassFixture<BookWheelWebAppFa
     }
 
     [Fact]
+    public async Task Put_Accepts_System_Theme()
+    {
+        using var client = _factory.CreateClient();
+        await AuthenticateAsync(client);
+
+        var putResponse = await client.PutAsJsonAsync("/api/preferences", new
+        {
+            theme = "system",
+            analyticsConsentOptedOut = false,
+            preferredBookInfoProviderId = (int?)null
+        });
+        putResponse.EnsureSuccessStatusCode();
+
+        var getResponse = await client.GetAsync("/api/preferences");
+        var preferences = await getResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal("system", preferences.GetProperty("theme").GetString());
+    }
+
+    [Fact]
     public async Task Put_Rejects_Unknown_Provider_Id()
     {
         using var client = _factory.CreateClient();

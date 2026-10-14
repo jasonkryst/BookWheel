@@ -4,7 +4,7 @@ namespace BookWheel.Models;
 
 public sealed class UpdatePreferencesRequest
 {
-    [RegularExpression("^(dark|light|high-contrast)$", ErrorMessage = "Theme must be a valid value.")]
+    [RegularExpression("^(system|dark|light|high-contrast)$", ErrorMessage = "Theme must be a valid value.")]
     public string? Theme { get; set; }
 
     public bool AnalyticsConsentOptedOut { get; set; }
