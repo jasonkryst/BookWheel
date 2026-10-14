@@ -438,6 +438,28 @@ button:disabled {
   gap: 10px;
 }
 
+.book-list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.book-list-toolbar .toolbar-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.book-list-toolbar .toolbar-search {
+  flex: 1 1 200px;
+}
+
+.book-list-toolbar label {
+  font-size: 0.8rem;
+}
+
 .book-add-fields {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);

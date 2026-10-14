@@ -150,6 +150,42 @@
             <input id="bookAuthor" type="hidden" />
             <input id="bookCoverUrl" type="hidden" />
           </form>
+          <div id="bookListToolbar" class="book-list-toolbar" role="group" aria-label="Filter and sort books" data-i18n-aria-label="books.toolbarLabel">
+            <div class="toolbar-field toolbar-search">
+              <label for="bookSearchInput" class="sr-only" data-i18n="books.searchLabel">Search books</label>
+              <input type="search" id="bookSearchInput" maxlength="200" autocomplete="off" placeholder="Search title, author, or ISBN" data-i18n-placeholder="books.searchPlaceholder" />
+            </div>
+            <div class="toolbar-field">
+              <label for="bookTypeFilter" data-i18n="books.filterTypeLabel">Type</label>
+              <select id="bookTypeFilter">
+                <option value="0" data-i18n="books.filterAllTypes">All types</option>
+                <option value="1" data-i18n="books.typePhysical">Physical</option>
+                <option value="2" data-i18n="books.typeDigital">Digital</option>
+                <option value="3" data-i18n="books.typeNookOnly">Nook Only</option>
+              </select>
+            </div>
+            <div class="toolbar-field">
+              <label for="bookSortSelect" data-i18n="books.sortLabel">Sort by</label>
+              <select id="bookSortSelect">
+                <option value="title-asc" data-i18n="books.sortTitleAsc">Title A-Z</option>
+                <option value="title-desc" data-i18n="books.sortTitleDesc">Title Z-A</option>
+                <option value="author-asc" data-i18n="books.sortAuthorAsc">Author A-Z</option>
+                <option value="added-desc" data-i18n="books.sortAddedNewest">Date added (newest)</option>
+                <option value="added-asc" data-i18n="books.sortAddedOldest">Date added (oldest)</option>
+                <option value="spun-desc" data-i18n="books.sortSpunRecent">Last spun (recent)</option>
+                <option value="spun-asc" data-i18n="books.sortSpunOldest">Last spun (never-spun last)</option>
+              </select>
+            </div>
+            <div class="toolbar-field">
+              <label for="bookPageSizeSelect" data-i18n="books.pageSizeLabel">Per page</label>
+              <select id="bookPageSizeSelect">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="all" data-i18n="books.pageSizeAll">All</option>
+              </select>
+            </div>
+          </div>
           <div id="activeBooks" class="book-list"></div>
           <div id="booksPagination" class="pagination hidden">
             <button id="booksPrevPageBtn" type="button" class="secondary" data-i18n="books.prevPage">Previous</button>

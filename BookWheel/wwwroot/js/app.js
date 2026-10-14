@@ -40,6 +40,10 @@ const activeBooksEl = document.getElementById('activeBooks');
 const booksPaginationEl = document.getElementById('booksPagination');
 const booksPrevPageBtn = document.getElementById('booksPrevPageBtn');
 const booksNextPageBtn = document.getElementById('booksNextPageBtn');
+const bookSearchInput = document.getElementById('bookSearchInput');
+const bookTypeFilter = document.getElementById('bookTypeFilter');
+const bookSortSelect = document.getElementById('bookSortSelect');
+const bookPageSizeSelect = document.getElementById('bookPageSizeSelect');
 const booksPageInfo = document.getElementById('booksPageInfo');
 const booksTotalCountEl = document.getElementById('booksTotalCount');
 const selectedBookEl = document.getElementById('selectedBook');
@@ -185,7 +189,21 @@ let allUsers = [];
 let bookAddLookupProviderId = null;
 let editBookLookupProviderId = null;
 let resetTokenFromUrl = null;
-const BOOKS_PER_PAGE = 10;
+const DEFAULT_BOOKS_PER_PAGE = 10;
+const BOOK_PAGE_SIZE_OPTIONS = ['10', '25', '50', 'all'];
+const BOOK_SORT_OPTIONS = ['title-asc', 'title-desc', 'author-asc', 'added-desc', 'added-asc', 'spun-desc', 'spun-asc'];
+const DEFAULT_BOOK_SORT = 'title-asc';
+const BOOK_TYPE_FILTER_OPTIONS = ['0', '1', '2', '3'];
+const BOOK_SEARCH_DEBOUNCE_MS = 200;
+const LIBRARY_SEARCH_STORAGE_KEY = 'bookwheel.library.search';
+const LIBRARY_TYPE_STORAGE_KEY = 'bookwheel.library.type';
+const LIBRARY_SORT_STORAGE_KEY = 'bookwheel.library.sort';
+const LIBRARY_PAGE_SIZE_STORAGE_KEY = 'bookwheel.library.pageSize';
+let bookSearchText = '';
+let bookTypeFilterValue = '0';
+let bookSortValue = DEFAULT_BOOK_SORT;
+let booksPageSizeValue = String(DEFAULT_BOOKS_PER_PAGE);
+let bookSearchDebounceTimer = null;
 const THEME_STORAGE_KEY = 'bookwheel-theme';
 const DARK_THEME = 'dark';
 const LIGHT_THEME = 'light';
@@ -495,17 +513,114 @@ function toggleTheme() {
   savePreferencesIfAuthenticated();
 }
 
-function getTotalPages() {
-  return Math.max(1, Math.ceil(activeBooks.length / BOOKS_PER_PAGE));
+function readLibraryPref(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeLibraryPref(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Storage can be unavailable (private mode); the view still works for this session.
+  }
+}
+
+function loadLibraryViewPrefs() {
+  const search = readLibraryPref(LIBRARY_SEARCH_STORAGE_KEY);
+  bookSearchText = typeof search === 'string' ? search : '';
+  const type = readLibraryPref(LIBRARY_TYPE_STORAGE_KEY);
+  bookTypeFilterValue = BOOK_TYPE_FILTER_OPTIONS.includes(type) ? type : '0';
+  const sort = readLibraryPref(LIBRARY_SORT_STORAGE_KEY);
+  bookSortValue = BOOK_SORT_OPTIONS.includes(sort) ? sort : DEFAULT_BOOK_SORT;
+  const pageSize = readLibraryPref(LIBRARY_PAGE_SIZE_STORAGE_KEY);
+  booksPageSizeValue = BOOK_PAGE_SIZE_OPTIONS.includes(pageSize) ? pageSize : String(DEFAULT_BOOKS_PER_PAGE);
+}
+
+function syncLibraryControls() {
+  bookSearchInput.value = bookSearchText;
+  bookTypeFilter.value = bookTypeFilterValue;
+  bookSortSelect.value = bookSortValue;
+  bookPageSizeSelect.value = booksPageSizeValue;
+}
+
+function compareNullsLast(aValue, bValue, compare) {
+  const aMissing = aValue === null || aValue === undefined || aValue === '';
+  const bMissing = bValue === null || bValue === undefined || bValue === '';
+  if (aMissing && bMissing) {
+    return 0;
+  }
+  if (aMissing) {
+    return 1;
+  }
+  if (bMissing) {
+    return -1;
+  }
+  return compare(aValue, bValue);
+}
+
+function getBookSortComparator() {
+  const locale = window.BookWheelI18n.getCurrentLocale();
+  const text = (a, b) => String(a).localeCompare(String(b), locale, { sensitivity: 'base', numeric: true });
+  const time = value => new Date(value).getTime();
+  switch (bookSortValue) {
+    case 'title-desc':
+      return (a, b) => text(b.title, a.title);
+    case 'author-asc':
+      return (a, b) => compareNullsLast(a.author, b.author, text) || text(a.title, b.title);
+    case 'added-desc':
+      return (a, b) => time(b.createdAtUtc) - time(a.createdAtUtc);
+    case 'added-asc':
+      return (a, b) => time(a.createdAtUtc) - time(b.createdAtUtc);
+    case 'spun-desc':
+      return (a, b) => compareNullsLast(a.lastSpunAtUtc, b.lastSpunAtUtc, (x, y) => time(y) - time(x)) || text(a.title, b.title);
+    case 'spun-asc':
+      return (a, b) => compareNullsLast(a.lastSpunAtUtc, b.lastSpunAtUtc, (x, y) => time(x) - time(y)) || text(a.title, b.title);
+    default:
+      return (a, b) => text(a.title, b.title);
+  }
+}
+
+function hasActiveBookFilters() {
+  return bookSearchText.trim() !== '' || bookTypeFilterValue !== '0';
+}
+
+function getVisibleBooks() {
+  const needle = bookSearchText.trim().toLowerCase();
+  const typeId = Number(bookTypeFilterValue);
+  const filtered = activeBooks.filter(book => {
+    if (typeId && book.bookTypeId !== typeId) {
+      return false;
+    }
+    if (!needle) {
+      return true;
+    }
+    return [book.title, book.author, book.isbn].some(value => value && String(value).toLowerCase().includes(needle));
+  });
+  return filtered.sort(getBookSortComparator());
+}
+
+function getBooksPageSize(visibleCount) {
+  if (booksPageSizeValue === 'all') {
+    return Math.max(1, visibleCount);
+  }
+  return Number(booksPageSizeValue) || DEFAULT_BOOKS_PER_PAGE;
+}
+
+function getTotalPages(visibleBooks = getVisibleBooks()) {
+  return Math.max(1, Math.ceil(visibleBooks.length / getBooksPageSize(visibleBooks.length)));
 }
 
 function clampCurrentPage() {
   currentPage = Math.min(Math.max(1, currentPage), getTotalPages());
 }
 
-function renderPagination() {
-  const totalPages = getTotalPages();
-  const hasMultiplePages = activeBooks.length > BOOKS_PER_PAGE;
+function renderPagination(visibleBooks = getVisibleBooks()) {
+  const totalPages = getTotalPages(visibleBooks);
+  const hasMultiplePages = visibleBooks.length > getBooksPageSize(visibleBooks.length);
 
   booksPaginationEl.classList.toggle('hidden', !hasMultiplePages);
   booksPageInfo.textContent = window.BookWheelI18n.t('books.pageInfo', { current: currentPage, total: totalPages });
@@ -513,13 +628,20 @@ function renderPagination() {
   booksNextPageBtn.disabled = !hasMultiplePages || currentPage >= totalPages;
 }
 
-function renderBookCount() {
+function renderBookCount(visibleBooks = getVisibleBooks()) {
   const { t } = window.BookWheelI18n;
-  const totalBooks = activeBooks.length;
-  const totalPages = getTotalPages();
-  const bookLabel = totalBooks === 1 ? t('books.countOne') : t('books.countOther', { count: totalBooks });
+  const totalBooks = visibleBooks.length;
+  const totalPages = getTotalPages(visibleBooks);
+  const bookLabel = hasActiveBookFilters()
+    ? t('books.countFiltered', { shown: totalBooks, total: activeBooks.length })
+    : (totalBooks === 1 ? t('books.countOne') : t('books.countOther', { count: totalBooks }));
   const pageInfo = t('books.pageInfo', { current: currentPage, total: totalPages });
   booksTotalCountEl.textContent = `${bookLabel} • ${pageInfo}`;
+}
+
+function onLibraryViewChanged() {
+  currentPage = 1;
+  renderActiveBooks();
 }
 
 function showApp(show) {
@@ -1305,6 +1427,7 @@ function drawWheel() {
 function renderActiveBooks() {
   const { t } = window.BookWheelI18n;
   activeBooksEl.innerHTML = '';
+  const visibleBooks = getVisibleBooks();
   if (!activeBooks.length) {
     activeBooksEl.innerHTML = `
       <div class="books-empty-state" role="status" aria-live="polite">
@@ -1313,14 +1436,33 @@ function renderActiveBooks() {
         <p class="message">${t('books.emptyHint2')}</p>
       </div>`;
     selectedBookEl.textContent = t('wheel.emptyPrompt');
-    renderBookCount();
-    renderPagination();
+    renderBookCount(visibleBooks);
+    renderPagination(visibleBooks);
+    return;
+  }
+
+  if (!visibleBooks.length) {
+    const emptyState = document.createElement('div');
+    emptyState.className = 'books-empty-state';
+    emptyState.setAttribute('role', 'status');
+    emptyState.setAttribute('aria-live', 'polite');
+    const heading = document.createElement('h3');
+    heading.textContent = t('books.noMatchesHeading');
+    const hint = document.createElement('p');
+    hint.className = 'message';
+    hint.textContent = t('books.noMatchesHint');
+    emptyState.append(heading, hint);
+    activeBooksEl.appendChild(emptyState);
+    currentPage = 1;
+    renderBookCount(visibleBooks);
+    renderPagination(visibleBooks);
     return;
   }
 
   clampCurrentPage();
-  const start = (currentPage - 1) * BOOKS_PER_PAGE;
-  const booksToShow = activeBooks.slice(start, start + BOOKS_PER_PAGE);
+  const pageSize = getBooksPageSize(visibleBooks.length);
+  const start = (currentPage - 1) * pageSize;
+  const booksToShow = visibleBooks.slice(start, start + pageSize);
 
   booksToShow.forEach(book => {
     const row = document.createElement('div');
@@ -1392,8 +1534,8 @@ function renderActiveBooks() {
     activeBooksEl.appendChild(row);
   });
 
-  renderBookCount();
-  renderPagination();
+  renderBookCount(visibleBooks);
+  renderPagination(visibleBooks);
 }
 
 function renderSelectedBookResult(book) {
@@ -1521,10 +1663,16 @@ function resetHomeView() {
 
 async function refreshBooks(options = {}) {
   const data = await requestJson('/api/books');
+  const previousIds = new Set(activeBooks.map(book => book.id));
   activeBooks = data.activeBooks || data.books || [];
   setWheelBooksFromActive(Boolean(options.shuffleWheel));
   if (options.goToLastPage) {
-    currentPage = getTotalPages();
+    // After an add/restore/import, show the page the new book sorts onto; fall back to the last page.
+    const visibleBooks = getVisibleBooks();
+    const newIndex = visibleBooks.findIndex(book => !previousIds.has(book.id));
+    currentPage = newIndex >= 0
+      ? Math.floor(newIndex / getBooksPageSize(visibleBooks.length)) + 1
+      : getTotalPages(visibleBooks);
   } else {
     clampCurrentPage();
   }
@@ -2479,12 +2627,53 @@ duplicateViewBtn.addEventListener('click', () => {
   }
   const { match } = pendingDuplicate;
   closeDuplicateDialog();
-  const index = activeBooks.findIndex(book => book.id === match.id);
+  let visibleBooks = getVisibleBooks();
+  let index = visibleBooks.findIndex(book => book.id === match.id);
+  if (index < 0 && activeBooks.some(book => book.id === match.id)) {
+    // The existing book is hidden by the current search/filter; clear them so it can be shown.
+    bookSearchText = '';
+    bookTypeFilterValue = '0';
+    writeLibraryPref(LIBRARY_SEARCH_STORAGE_KEY, bookSearchText);
+    writeLibraryPref(LIBRARY_TYPE_STORAGE_KEY, bookTypeFilterValue);
+    syncLibraryControls();
+    visibleBooks = getVisibleBooks();
+    index = visibleBooks.findIndex(book => book.id === match.id);
+  }
   if (index >= 0) {
-    currentPage = Math.floor(index / BOOKS_PER_PAGE) + 1;
+    currentPage = Math.floor(index / getBooksPageSize(visibleBooks.length)) + 1;
     renderActiveBooks();
   }
   activeBooksEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+loadLibraryViewPrefs();
+syncLibraryControls();
+
+bookSearchInput.addEventListener('input', () => {
+  clearTimeout(bookSearchDebounceTimer);
+  bookSearchDebounceTimer = setTimeout(() => {
+    bookSearchText = bookSearchInput.value;
+    writeLibraryPref(LIBRARY_SEARCH_STORAGE_KEY, bookSearchText);
+    onLibraryViewChanged();
+  }, BOOK_SEARCH_DEBOUNCE_MS);
+});
+
+bookTypeFilter.addEventListener('change', () => {
+  bookTypeFilterValue = bookTypeFilter.value;
+  writeLibraryPref(LIBRARY_TYPE_STORAGE_KEY, bookTypeFilterValue);
+  onLibraryViewChanged();
+});
+
+bookSortSelect.addEventListener('change', () => {
+  bookSortValue = bookSortSelect.value;
+  writeLibraryPref(LIBRARY_SORT_STORAGE_KEY, bookSortValue);
+  onLibraryViewChanged();
+});
+
+bookPageSizeSelect.addEventListener('change', () => {
+  booksPageSizeValue = bookPageSizeSelect.value;
+  writeLibraryPref(LIBRARY_PAGE_SIZE_STORAGE_KEY, booksPageSizeValue);
+  onLibraryViewChanged();
 });
 
 booksPrevPageBtn.addEventListener('click', () => {

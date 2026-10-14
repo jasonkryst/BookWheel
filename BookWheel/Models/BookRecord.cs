@@ -15,4 +15,5 @@ public sealed class BookRecord
     public Guid CreatedByUserId { get; set; }
     public DateTimeOffset? UpdatedAtUtc { get; set; }
     public Guid? LastUpdatedByUserId { get; set; }
+    public DateTimeOffset? LastSpunAtUtc { get; set; }
 }
