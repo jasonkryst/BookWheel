@@ -96,6 +96,64 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
     }
 
     [Fact]
+    public async Task Frontend_Script_Should_Route_Add_Book_And_Scan_Shortcuts_To_Their_Entry_Points()
+    {
+        using var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: the "Add book" shortcut scrolls to the books panel and
+        // focuses the quick-add title field (not a dedicated page); the "Scan"
+        // shortcut opens Book Search and starts the scanner immediately,
+        // targeting its ISBN field, reusing the dialog's own scan handler.
+        Assert.Contains("view === 'add-book'", script, StringComparison.Ordinal);
+        Assert.Contains("view === 'scan'", script, StringComparison.Ordinal);
+
+        var addBookStart = script.IndexOf("view === 'add-book'", StringComparison.Ordinal);
+        var addBookBranch = script.Substring(addBookStart, Math.Min(250, script.Length - addBookStart));
+        Assert.Contains("targets.books.scrollIntoView", addBookBranch, StringComparison.Ordinal);
+        Assert.Contains("bookTitle.focus()", addBookBranch, StringComparison.Ordinal);
+
+        var scanStart = script.IndexOf("view === 'scan'", StringComparison.Ordinal);
+        var scanBranch = script.Substring(scanStart, Math.Min(300, script.Length - scanStart));
+        Assert.Contains("openBookInfoDialog()", scanBranch, StringComparison.Ordinal);
+        Assert.Contains("openBarcodeScanner({", scanBranch, StringComparison.Ordinal);
+        Assert.Contains("isbnInput: bookInfoIsbn", scanBranch, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Script_Should_Prefill_Book_Search_From_A_Shared_Isbn_Or_Title()
+    {
+        using var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: an ISBN-13 (978/979 prefix) found in the shared text, url,
+        // or title auto-triggers the lookup (GH #243 acceptance criterion).
+        Assert.Contains("function extractSharedIsbn(", script, StringComparison.Ordinal);
+        Assert.Contains("SHARED_ISBN_13_PATTERN", script, StringComparison.Ordinal);
+        Assert.Contains("function applySharedBookInfoRequest(params)", script, StringComparison.Ordinal);
+        Assert.Contains("bookInfoIsbn.value = isbn;", script, StringComparison.Ordinal);
+        Assert.Contains("runBookInfoSearch();", script, StringComparison.Ordinal);
+
+        // Negative: a bare ISBN-10 (no "978"/"979" prefix) is only trusted right
+        // after the literal word "ISBN", so an unrelated 10-digit run shared in
+        // plain text (e.g. a phone number) can't be misread as a lookup.
+        Assert.Contains("SHARED_ISBN_10_PATTERN = /\\bISBN", script, StringComparison.Ordinal);
+
+        // Positive: the view=search route feeds share_target's title/text/url
+        // params into the Book Search dialog and then scrubs them from the URL
+        // so a later reload or back-navigation doesn't replay the same lookup.
+        Assert.Contains("view === 'search'", script, StringComparison.Ordinal);
+        Assert.Contains("applySharedBookInfoRequest(params)", script, StringComparison.Ordinal);
+        Assert.Contains("url.searchParams.delete('title')", script, StringComparison.Ordinal);
+        Assert.Contains("url.searchParams.delete('text')", script, StringComparison.Ordinal);
+        Assert.Contains("url.searchParams.delete('url')", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Home_Page_Language_Select_Should_List_Supported_Locales()
     {
         var factory = _factory;
