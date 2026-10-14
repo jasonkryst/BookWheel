@@ -11,4 +11,6 @@ public sealed class UserAccountSummary
     public bool IsLocked { get; set; }
     public DateTimeOffset? LockedUntilUtc { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
+    public DateTimeOffset? LastLoginAtUtc { get; set; }
+    public int BookCount { get; set; }
 }

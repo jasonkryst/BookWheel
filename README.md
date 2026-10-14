@@ -20,7 +20,7 @@ This solution is split into separate application and test projects:
 
 - First-run account creation plus cookie-based login/logout
 - First created account is automatically assigned administrator role
-- Administrator-only user management uses separate creation and account-management tabs, with searchable status filters and at-a-glance account-state indicators
+- Administrator-only user management uses separate creation and account-management tabs, with searchable status filters and at-a-glance account-state indicators; each entry shows its last-login date (or "Never logged in") and the directory can be sorted by it, and the remove-account confirmation dialog states how many books will be removed before an admin confirms (GH #197)
 - New-user onboarding uses admin-shared setup links instead of admin-supplied passwords
 - Signed-in users can change their own password (`POST /api/auth/password`, requires the current password; rate-limited to 5 attempts/minute per user); the current device stays signed in and all of the user's other sessions are signed out
 - Spin wheel renders crisply on HiDPI/retina displays, with arc-sized, contrast-checked slice labels that drop out gracefully on crowded wheels
@@ -534,7 +534,7 @@ Operational endpoint (admin only):
 
 User-management endpoints (administrator only):
 
-- `GET /api/users`
+- `GET /api/users` — includes `lastLoginAtUtc` (`null` if the account has never logged in) and `bookCount` (active plus soft-deleted books, i.e. what `DELETE /api/users/{id}` would actually remove) per user, alongside the existing status fields (GH #197)
 - `POST /api/users`
 - `PUT /api/users/{id}`
 - `DELETE /api/users/{id}`
