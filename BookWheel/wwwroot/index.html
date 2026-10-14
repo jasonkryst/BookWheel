@@ -252,6 +252,14 @@
                 <option value="reset" data-i18n="users.requireResetCheckbox">Require reset</option>
               </select>
             </label>
+            <label class="user-filter-label">
+              <span data-i18n="users.sortLabel">Sort by</span>
+              <select id="userSortSelect">
+                <option value="created-asc" data-i18n="users.sortCreatedAsc">Account created (oldest first)</option>
+                <option value="last-login-desc" data-i18n="users.sortLastLoginDesc">Last login (most recent)</option>
+                <option value="last-login-asc" data-i18n="users.sortLastLoginAsc">Last login (oldest, never last)</option>
+              </select>
+            </label>
             <button type="button" id="clearUserFiltersBtn" class="secondary user-filter-clear" data-i18n="common.clear">Clear</button>
           </div>
           <div id="userList" class="book-list"></div>

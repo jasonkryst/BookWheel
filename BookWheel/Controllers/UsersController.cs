@@ -39,7 +39,7 @@ public sealed class UsersController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetUsers()
     {
-        var users = await _credentialRepository.GetUsersAsync();
+        var users = await _userManagement.GetUserDirectoryAsync();
         return Ok(new { users });
     }
 

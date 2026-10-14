@@ -79,6 +79,41 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
     }
 
     [Fact]
+    public async Task Admin_User_Directory_Should_Expose_Last_Login_Sort_And_Delete_Book_Count()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var htmlResponse = await client.GetAsync("/");
+        var html = await htmlResponse.Content.ReadAsStringAsync();
+
+        // Positive: a sort control for the admin user directory exists, including
+        // the two new last-login sort orders.
+        Assert.Contains("id=\"userSortSelect\"", html, StringComparison.Ordinal);
+        Assert.Contains("value=\"last-login-desc\"", html, StringComparison.Ordinal);
+        Assert.Contains("value=\"last-login-asc\"", html, StringComparison.Ordinal);
+
+        var scriptResponse = await client.GetAsync("/js/app.js");
+        var script = await scriptResponse.Content.ReadAsStringAsync();
+
+        // Positive: the directory row shows a last-login value (or "never"), the sort
+        // select re-renders from the cached list, and the delete-confirmation dialog is
+        // given the user's book count so it can state how many books will be removed.
+        Assert.Contains("users.lastLoginOn", script, StringComparison.Ordinal);
+        Assert.Contains("users.neverLoggedIn", script, StringComparison.Ordinal);
+        Assert.Contains("userSortSelect.addEventListener('change'", script, StringComparison.Ordinal);
+        Assert.Contains("users.deleteConfirmMessage", script, StringComparison.Ordinal);
+        Assert.Contains("count: user.bookCount || 0", script, StringComparison.Ordinal);
+
+        var i18nResponse = await client.GetAsync("/js/i18n.js");
+        var i18n = await i18nResponse.Content.ReadAsStringAsync();
+
+        // Negative: the delete-confirmation copy must not be the old count-free wording
+        // in any of the three catalogs, since a stale copy would silently drop the count.
+        Assert.DoesNotContain("and all of their books?", i18n, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Frontend_Script_Should_Support_Shareable_App_View_Routes()
     {
         using var client = _factory.CreateClient();

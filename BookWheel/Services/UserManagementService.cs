@@ -14,6 +14,43 @@ public sealed class UserManagementService
         _contextFactory = contextFactory;
     }
 
+    // Admin user directory: adds LastLoginAtUtc and BookCount (including soft-deleted
+    // books, to match what DeleteUserWithDataAsync actually removes) on top of the plain
+    // account fields ICredentialRepository.GetUsersAsync() exposes.
+    public async Task<IReadOnlyList<UserAccountSummary>> GetUserDirectoryAsync()
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var users = await context.Users
+            .OrderBy(u => u.CreatedAtUtc)
+            .Select(u => new UserAccountSummary
+            {
+                UserId = u.Id,
+                Username = u.Username,
+                Email = u.Email,
+                IsAdmin = u.IsAdmin,
+                IsDisabled = u.IsDisabled,
+                ForcePasswordReset = u.ForcePasswordReset,
+                IsLocked = u.IsLocked,
+                LockedUntilUtc = u.LockedUntilUtc,
+                CreatedAtUtc = u.CreatedAtUtc,
+                LastLoginAtUtc = u.LastLoginAtUtc
+            })
+            .ToListAsync();
+
+        var bookCountsByUserId = await context.Books.IgnoreQueryFilters()
+            .GroupBy(b => b.UserId)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Count);
+
+        foreach (var user in users)
+        {
+            user.BookCount = bookCountsByUserId.GetValueOrDefault(user.UserId);
+        }
+
+        return users;
+    }
+
     // Deletes the user and all their data in a single transaction. Throws
     // InvalidOperationException if the user is not found or is the first account.
     // Returns the deleted user summary and the count of books removed.

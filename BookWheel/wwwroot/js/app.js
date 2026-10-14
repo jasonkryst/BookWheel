@@ -121,6 +121,7 @@ const createUserEmail = document.getElementById('createUserEmail');
 const createUserIsAdmin = document.getElementById('createUserIsAdmin');
 const userSearchInput = document.getElementById('userSearchInput');
 const userStatusFilter = document.getElementById('userStatusFilter');
+const userSortSelect = document.getElementById('userSortSelect');
 const clearUserFiltersBtn = document.getElementById('clearUserFiltersBtn');
 const userCountBadge = document.getElementById('userCountBadge');
 const userList = document.getElementById('userList');
@@ -832,6 +833,9 @@ function resetUserManagementState() {
   if (userStatusFilter) {
     userStatusFilter.value = 'all';
   }
+  if (userSortSelect) {
+    userSortSelect.value = 'created-asc';
+  }
 }
 
 function setUserManagementTab(tabName) {
@@ -898,7 +902,7 @@ function closeDeleteUserDialog() {
 function openDeleteUserDialog(user) {
   pendingDeleteUser = user;
   deleteUserError.textContent = '';
-  deleteUserConfirmMessage.textContent = window.BookWheelI18n.t('users.deleteConfirmMessage', { username: user.username });
+  deleteUserConfirmMessage.textContent = window.BookWheelI18n.t('users.deleteConfirmMessage', { username: user.username, count: user.bookCount || 0 });
 
   openDialog(deleteUserDialog, cancelDeleteUserBtn);
 }
@@ -940,6 +944,16 @@ function renderUserRows(users) {
 
     return matchesSearch && matchesStatus;
   });
+
+  const sortValue = userSortSelect?.value || 'created-asc';
+  const time = value => new Date(value).getTime();
+  if (sortValue === 'last-login-desc') {
+    visibleUsers.sort((a, b) => compareNullsLast(a.lastLoginAtUtc, b.lastLoginAtUtc, (x, y) => time(y) - time(x)));
+  } else if (sortValue === 'last-login-asc') {
+    visibleUsers.sort((a, b) => compareNullsLast(a.lastLoginAtUtc, b.lastLoginAtUtc, (x, y) => time(x) - time(y)));
+  } else {
+    visibleUsers.sort((a, b) => time(a.createdAtUtc) - time(b.createdAtUtc));
+  }
 
   renderUserCount(visibleUsers.length, users.length);
 
@@ -984,9 +998,14 @@ function renderUserRows(users) {
     }
 
     const createdDate = user.createdAtUtc ? new Date(user.createdAtUtc) : null;
-    metaLine.textContent = createdDate && !Number.isNaN(createdDate.getTime())
+    const createdText = createdDate && !Number.isNaN(createdDate.getTime())
       ? t('users.createdOn', { date: createdDate.toLocaleDateString(window.BookWheelI18n.getCurrentLocale()) })
       : t('users.createdUnavailable');
+    const lastLoginDate = user.lastLoginAtUtc ? new Date(user.lastLoginAtUtc) : null;
+    const lastLoginText = lastLoginDate && !Number.isNaN(lastLoginDate.getTime())
+      ? t('users.lastLoginOn', { date: lastLoginDate.toLocaleDateString(window.BookWheelI18n.getCurrentLocale()) })
+      : t('users.neverLoggedIn');
+    metaLine.textContent = `${createdText} · ${lastLoginText}`;
 
     const username = document.createElement('input');
     username.className = 'user-input';
@@ -3073,10 +3092,19 @@ if (userStatusFilter) {
   });
 }
 
+if (userSortSelect) {
+  userSortSelect.addEventListener('change', () => {
+    renderUserRows(allUsers);
+  });
+}
+
 if (clearUserFiltersBtn) {
   clearUserFiltersBtn.addEventListener('click', () => {
     userSearchInput.value = '';
     userStatusFilter.value = 'all';
+    if (userSortSelect) {
+      userSortSelect.value = 'created-asc';
+    }
     renderUserRows(allUsers);
     userSearchInput.focus();
   });
