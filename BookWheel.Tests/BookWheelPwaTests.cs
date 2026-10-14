@@ -206,6 +206,13 @@ public sealed class BookWheelPwaTests : IClassFixture<BookWheelWebAppFactory>, I
         Assert.Contains("`/js/app.js?v=${CACHE_VERSION}`", script, StringComparison.Ordinal);
         Assert.Contains("`/js/i18n.js?v=${CACHE_VERSION}`", script, StringComparison.Ordinal);
 
+        // GH #226: the locale list and the default locale's catalog are
+        // precached too, so an offline cold start still has a working
+        // language (es/pl are cached opportunistically on first use instead,
+        // matching the "only the active locale is downloaded" goal).
+        Assert.Contains("`/i18n/locales.json?v=${CACHE_VERSION}`", script, StringComparison.Ordinal);
+        Assert.Contains("`/i18n/en.json?v=${CACHE_VERSION}`", script, StringComparison.Ordinal);
+
         // Negative: bare (unversioned) paths for CSS/JS would be cached as separate
         // entries from the versioned ones, silently defeating the cache-first strategy.
         Assert.DoesNotContain("'/css/site.css'", script, StringComparison.Ordinal);
@@ -293,15 +300,16 @@ public sealed class BookWheelPwaTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync("/js/i18n.js");
-        var script = await response.Content.ReadAsStringAsync();
+        var en = await client.GetStringAsync("/i18n/en.json");
+        var es = await client.GetStringAsync("/i18n/es.json");
+        var pl = await client.GetStringAsync("/i18n/pl.json");
 
-        Assert.Contains("updateAvailableToast: 'Update available.'", script, StringComparison.Ordinal);
-        Assert.Contains("reloadBtn: 'Reload'", script, StringComparison.Ordinal);
-        Assert.Contains("updateAvailableToast: 'Actualización disponible.'", script, StringComparison.Ordinal);
-        Assert.Contains("reloadBtn: 'Recargar'", script, StringComparison.Ordinal);
-        Assert.Contains("updateAvailableToast: 'Dostępna aktualizacja.'", script, StringComparison.Ordinal);
-        Assert.Contains("reloadBtn: 'Odśwież'", script, StringComparison.Ordinal);
+        Assert.Contains("\"updateAvailableToast\": \"Update available.\"", en, StringComparison.Ordinal);
+        Assert.Contains("\"reloadBtn\": \"Reload\"", en, StringComparison.Ordinal);
+        Assert.Contains("\"updateAvailableToast\": \"Actualización disponible.\"", es, StringComparison.Ordinal);
+        Assert.Contains("\"reloadBtn\": \"Recargar\"", es, StringComparison.Ordinal);
+        Assert.Contains("\"updateAvailableToast\": \"Dostępna aktualizacja.\"", pl, StringComparison.Ordinal);
+        Assert.Contains("\"reloadBtn\": \"Odśwież\"", pl, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -325,14 +333,15 @@ public sealed class BookWheelPwaTests : IClassFixture<BookWheelWebAppFactory>, I
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync("/js/i18n.js");
-        var script = await response.Content.ReadAsStringAsync();
+        var en = await client.GetStringAsync("/i18n/en.json");
+        var es = await client.GetStringAsync("/i18n/es.json");
+        var pl = await client.GetStringAsync("/i18n/pl.json");
 
-        Assert.Contains("You are offline. Some features will not work until you reconnect.", script, StringComparison.Ordinal);
-        Assert.Contains("Back online.", script, StringComparison.Ordinal);
-        Assert.Contains("Estás sin conexión. Algunas funciones no estarán disponibles hasta que te reconectes.", script, StringComparison.Ordinal);
-        Assert.Contains("De nuevo en línea.", script, StringComparison.Ordinal);
-        Assert.Contains("Jesteś offline. Niektóre funkcje będą niedostępne, dopóki nie połączysz się ponownie.", script, StringComparison.Ordinal);
-        Assert.Contains("Znowu online.", script, StringComparison.Ordinal);
+        Assert.Contains("You are offline. Some features will not work until you reconnect.", en, StringComparison.Ordinal);
+        Assert.Contains("Back online.", en, StringComparison.Ordinal);
+        Assert.Contains("Estás sin conexión. Algunas funciones no estarán disponibles hasta que te reconectes.", es, StringComparison.Ordinal);
+        Assert.Contains("De nuevo en línea.", es, StringComparison.Ordinal);
+        Assert.Contains("Jesteś offline. Niektóre funkcje będą niedostępne, dopóki nie połączysz się ponownie.", pl, StringComparison.Ordinal);
+        Assert.Contains("Znowu online.", pl, StringComparison.Ordinal);
     }
 }
