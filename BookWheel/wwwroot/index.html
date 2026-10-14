@@ -648,8 +648,11 @@
     <span id="appVersion" class="message">Version: loading...</span>
   </footer>
 
+  <!-- app.js is loaded dynamically by i18n.js once the initial locale's
+       catalog has finished loading (see js/i18n.js) rather than as a static
+       tag here, since app.js calls into BookWheelI18n synchronously from
+       its first line. -->
   <script src="js/i18n.js?v=__ASSET_VERSION__"></script>
-  <script src="js/app.js?v=__ASSET_VERSION__"></script>
 
   <!-- Google tag (gtag.js) -->
   <script nonce="__CSP_NONCE__">

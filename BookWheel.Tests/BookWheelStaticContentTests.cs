@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace BookWheel.Tests;
@@ -21,8 +22,12 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
     public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
-    public async Task Frontend_Should_Serve_I18n_Script_With_All_Locale_Catalogs()
+    public async Task Frontend_Should_Serve_I18n_Loader_That_Lazy_Loads_Per_Locale_Catalogs()
     {
+        // GH #226: i18n.js used to embed all three locales' full catalogs inline,
+        // so every visitor downloaded Spanish and Polish strings even on an
+        // English-only visit. It now only loads the active locale's catalog
+        // (plus the default locale as a fallback for missing keys).
         var factory = _factory;
         using var client = factory.CreateClient();
 
@@ -31,25 +36,60 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
 
         var script = await response.Content.ReadAsStringAsync();
 
-        // Positive: the catalog structure, all three locales, and representative
-        // translated strings for each supported language are present.
-        Assert.Contains("SUPPORTED_LOCALES = ['en', 'es', 'pl']", script, StringComparison.Ordinal);
+        // Positive: the loader fetches the shared locale list and per-locale
+        // catalogs by URL, rather than defining them inline.
         Assert.Contains("BookWheelI18n", script, StringComparison.Ordinal);
-        Assert.Contains("Iniciar sesión", script, StringComparison.Ordinal);
-        Assert.Contains("Zaloguj się", script, StringComparison.Ordinal);
-        Assert.Contains("Book title is required.", script, StringComparison.Ordinal);
-        Assert.Contains("Create your Book Wheel account", script, StringComparison.Ordinal);
-        Assert.Contains("Selected: {title}", script, StringComparison.Ordinal);
-        Assert.Contains("By Media Type", script, StringComparison.Ordinal);
-        Assert.Contains("Version: {version}", script, StringComparison.Ordinal);
-        Assert.Contains("Page {current} of {total}", script, StringComparison.Ordinal);
-        Assert.Contains("Generate reset link", script, StringComparison.Ordinal);
-        Assert.Contains("Fuente de información del libro", script, StringComparison.Ordinal);
-        Assert.Contains("Źródło informacji o książce", script, StringComparison.Ordinal);
+        Assert.Contains("i18n/locales.json", script, StringComparison.Ordinal);
+        Assert.Contains("i18n/${locale}.json", script, StringComparison.Ordinal);
 
-        // Negative: locale data lives only in this catalog file, not duplicated
-        // as a second hardcoded English-only copy anywhere in the same file.
+        // Negative: no catalog content is embedded in the loader itself — this
+        // is the whole point of the split (only the active locale, fetched
+        // separately, is ever downloaded).
+        Assert.DoesNotContain("SUPPORTED_LOCALES = ['en', 'es', 'pl']", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("Iniciar sesión", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("Zaloguj się", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("Book title is required.", script, StringComparison.Ordinal);
         Assert.DoesNotContain("const LEGACY_EN_ONLY_STRINGS", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Should_Serve_A_Locales_List_And_A_Catalog_Per_Supported_Locale()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var localesResponse = await client.GetAsync("/i18n/locales.json");
+        Assert.Equal(HttpStatusCode.OK, localesResponse.StatusCode);
+        var localesJson = await localesResponse.Content.ReadAsStringAsync();
+        var locales = JsonSerializer.Deserialize<List<string>>(localesJson);
+
+        Assert.NotNull(locales);
+        Assert.Equal(new[] { "en", "es", "pl" }, locales);
+
+        foreach (var locale in locales!)
+        {
+            var catalogResponse = await client.GetAsync($"/i18n/{locale}.json");
+            Assert.Equal(HttpStatusCode.OK, catalogResponse.StatusCode);
+            Assert.Contains("application/json", catalogResponse.Content.Headers.ContentType?.MediaType ?? string.Empty, StringComparison.Ordinal);
+        }
+
+        // Positive: representative translated strings for each supported
+        // language live in that locale's own catalog file.
+        var en = await client.GetStringAsync("/i18n/en.json");
+        Assert.Contains("Create your Book Wheel account", en, StringComparison.Ordinal);
+        Assert.Contains("Selected: {title}", en, StringComparison.Ordinal);
+        Assert.Contains("By Media Type", en, StringComparison.Ordinal);
+        Assert.Contains("Version: {version}", en, StringComparison.Ordinal);
+        Assert.Contains("Page {current} of {total}", en, StringComparison.Ordinal);
+        Assert.Contains("Generate reset link", en, StringComparison.Ordinal);
+
+        var es = await client.GetStringAsync("/i18n/es.json");
+        Assert.Contains("Iniciar sesión", es, StringComparison.Ordinal);
+        Assert.Contains("Fuente de información del libro", es, StringComparison.Ordinal);
+
+        var pl = await client.GetStringAsync("/i18n/pl.json");
+        Assert.Contains("Zaloguj się", pl, StringComparison.Ordinal);
+        Assert.Contains("Źródło informacji o książce", pl, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -72,11 +112,15 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
         Assert.Contains("data-i18n=\"books.heading\"", html, StringComparison.Ordinal);
         Assert.Contains("src=\"js/i18n.js", html, StringComparison.Ordinal);
 
-        // Negative: the i18n script must load before app.js, since app.js calls
-        // BookWheelI18n at init time.
-        var i18nIndex = html.IndexOf("src=\"js/i18n.js", StringComparison.Ordinal);
-        var appJsIndex = html.IndexOf("src=\"js/app.js", StringComparison.Ordinal);
-        Assert.True(i18nIndex >= 0 && appJsIndex >= 0 && i18nIndex < appJsIndex);
+        // Negative: app.js is no longer a static <script> tag. It calls into
+        // BookWheelI18n synchronously from its first line, so i18n.js now loads
+        // it dynamically itself only once the initial locale's catalog has
+        // finished loading — document order alone couldn't guarantee that.
+        Assert.DoesNotContain("src=\"js/app.js", html, StringComparison.Ordinal);
+
+        var i18nScript = await client.GetStringAsync("/js/i18n.js");
+        Assert.Contains("appScript.src", i18nScript, StringComparison.Ordinal);
+        Assert.Contains("js/app.js", i18nScript, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -106,12 +150,14 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
         Assert.Contains("users.deleteConfirmMessage", script, StringComparison.Ordinal);
         Assert.Contains("count: user.bookCount || 0", script, StringComparison.Ordinal);
 
-        var i18nResponse = await client.GetAsync("/js/i18n.js");
-        var i18n = await i18nResponse.Content.ReadAsStringAsync();
-
         // Negative: the delete-confirmation copy must not be the old count-free wording
-        // in any of the three catalogs, since a stale copy would silently drop the count.
-        Assert.DoesNotContain("and all of their books?", i18n, StringComparison.Ordinal);
+        // in any of the three locale catalogs, since a stale copy would silently drop
+        // the count.
+        foreach (var locale in new[] { "en", "es", "pl" })
+        {
+            var catalog = await client.GetStringAsync($"/i18n/{locale}.json");
+            Assert.DoesNotContain("and all of their books?", catalog, StringComparison.Ordinal);
+        }
     }
 
     [Fact]
@@ -1081,25 +1127,29 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync("/js/i18n.js");
-        var script = await response.Content.ReadAsStringAsync();
+        var en = await client.GetStringAsync("/i18n/en.json");
+        var es = await client.GetStringAsync("/i18n/es.json");
+        var pl = await client.GetStringAsync("/i18n/pl.json");
 
         // Positive: the new consolidated tab labels are translated for every
         // supported locale, not just English.
-        Assert.Contains("manageUsersTab: 'Manage users'", script, StringComparison.Ordinal);
-        Assert.Contains("importExportTab: 'Import / Export'", script, StringComparison.Ordinal);
-        Assert.Contains("preferencesTab: 'Preferences'", script, StringComparison.Ordinal);
-        Assert.Contains("manageUsersTab: 'Gestionar usuarios'", script, StringComparison.Ordinal);
-        Assert.Contains("importExportTab: 'Importar / Exportar'", script, StringComparison.Ordinal);
-        Assert.Contains("preferencesTab: 'Preferencias'", script, StringComparison.Ordinal);
-        Assert.Contains("manageUsersTab: 'Zarządzaj użytkownikami'", script, StringComparison.Ordinal);
-        Assert.Contains("importExportTab: 'Importuj / Eksportuj'", script, StringComparison.Ordinal);
-        Assert.Contains("preferencesTab: 'Preferencje'", script, StringComparison.Ordinal);
+        Assert.Contains("\"manageUsersTab\": \"Manage users\"", en, StringComparison.Ordinal);
+        Assert.Contains("\"importExportTab\": \"Import / Export\"", en, StringComparison.Ordinal);
+        Assert.Contains("\"preferencesTab\": \"Preferences\"", en, StringComparison.Ordinal);
+        Assert.Contains("\"manageUsersTab\": \"Gestionar usuarios\"", es, StringComparison.Ordinal);
+        Assert.Contains("\"importExportTab\": \"Importar / Exportar\"", es, StringComparison.Ordinal);
+        Assert.Contains("\"preferencesTab\": \"Preferencias\"", es, StringComparison.Ordinal);
+        Assert.Contains("\"manageUsersTab\": \"Zarządzaj użytkownikami\"", pl, StringComparison.Ordinal);
+        Assert.Contains("\"importExportTab\": \"Importuj / Eksportuj\"", pl, StringComparison.Ordinal);
+        Assert.Contains("\"preferencesTab\": \"Preferencje\"", pl, StringComparison.Ordinal);
 
         // Negative: the retired standalone dialog titles/kicker strings for the
         // old "User management" dialog should not linger as unused translations.
-        Assert.DoesNotContain("managementDialogTitle", script, StringComparison.Ordinal);
-        Assert.DoesNotContain("adminWorkspaceKicker", script, StringComparison.Ordinal);
+        foreach (var catalog in new[] { en, es, pl })
+        {
+            Assert.DoesNotContain("managementDialogTitle", catalog, StringComparison.Ordinal);
+            Assert.DoesNotContain("adminWorkspaceKicker", catalog, StringComparison.Ordinal);
+        }
     }
 
     [Fact]
@@ -1108,12 +1158,13 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync("/js/i18n.js");
-        var script = await response.Content.ReadAsStringAsync();
+        var en = await client.GetStringAsync("/i18n/en.json");
+        var es = await client.GetStringAsync("/i18n/es.json");
+        var pl = await client.GetStringAsync("/i18n/pl.json");
 
-        Assert.Contains("accountMismatchWarning: 'Note: this file was exported from a different account", script, StringComparison.Ordinal);
-        Assert.Contains("accountMismatchWarning: 'Nota: este archivo se exportó desde otra cuenta", script, StringComparison.Ordinal);
-        Assert.Contains("accountMismatchWarning: 'Uwaga: ten plik wyeksportowano z innego konta", script, StringComparison.Ordinal);
+        Assert.Contains("\"accountMismatchWarning\": \"Note: this file was exported from a different account", en, StringComparison.Ordinal);
+        Assert.Contains("\"accountMismatchWarning\": \"Nota: este archivo se exportó desde otra cuenta", es, StringComparison.Ordinal);
+        Assert.Contains("\"accountMismatchWarning\": \"Uwaga: ten plik wyeksportowano z innego konta", pl, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1244,39 +1295,35 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync("/js/i18n.js");
-        var script = await response.Content.ReadAsStringAsync();
+        var en = await client.GetStringAsync("/i18n/en.json");
+        var es = await client.GetStringAsync("/i18n/es.json");
+        var pl = await client.GetStringAsync("/i18n/pl.json");
 
         // Positive: all three locales carry a scanner section with the
         // strings needed by the scanner dialog and scan buttons.
-        Assert.Contains("scanBtnTitle: 'Scan ISBN barcode'", script, StringComparison.Ordinal);
-        Assert.Contains("scanBtnTitle: 'Escanear código ISBN'", script, StringComparison.Ordinal);
-        Assert.Contains("scanBtnTitle: 'Skanuj kod ISBN'", script, StringComparison.Ordinal);
+        Assert.Contains("\"scanBtnTitle\": \"Scan ISBN barcode\"", en, StringComparison.Ordinal);
+        Assert.Contains("\"scanBtnTitle\": \"Escanear código ISBN\"", es, StringComparison.Ordinal);
+        Assert.Contains("\"scanBtnTitle\": \"Skanuj kod ISBN\"", pl, StringComparison.Ordinal);
 
-        Assert.Contains("notSupportedError: 'Barcode scanning is not supported", script, StringComparison.Ordinal);
-        Assert.Contains("notSupportedError: 'El escaneo de códigos de barras", script, StringComparison.Ordinal);
-        Assert.Contains("notSupportedError: 'Skanowanie kodów kreskowych", script, StringComparison.Ordinal);
+        Assert.Contains("\"notSupportedError\": \"Barcode scanning is not supported", en, StringComparison.Ordinal);
+        Assert.Contains("\"notSupportedError\": \"El escaneo de códigos de barras", es, StringComparison.Ordinal);
+        Assert.Contains("\"notSupportedError\": \"Skanowanie kodów kreskowych", pl, StringComparison.Ordinal);
 
-        Assert.Contains("cameraAccessError: 'Camera access was denied", script, StringComparison.Ordinal);
-        Assert.Contains("cameraAccessError: 'El acceso a la cámara fue denegado", script, StringComparison.Ordinal);
-        Assert.Contains("cameraAccessError: 'Dostęp do kamery", script, StringComparison.Ordinal);
+        Assert.Contains("\"cameraAccessError\": \"Camera access was denied", en, StringComparison.Ordinal);
+        Assert.Contains("\"cameraAccessError\": \"El acceso a la cámara fue denegado", es, StringComparison.Ordinal);
+        Assert.Contains("\"cameraAccessError\": \"Dostęp do kamery", pl, StringComparison.Ordinal);
 
         // Positive: all three locales carry the scanner badge strings for books added by scan.
-        Assert.Contains("scannedBadgeTitle: 'Added via barcode scan'", script, StringComparison.Ordinal);
-        Assert.Contains("scannedBadgeTitle: 'Añadido mediante escaneo", script, StringComparison.Ordinal);
-        Assert.Contains("scannedBadgeTitle: 'Dodano przez skanowanie", script, StringComparison.Ordinal);
+        Assert.Contains("\"scannedBadgeTitle\": \"Added via barcode scan\"", en, StringComparison.Ordinal);
+        Assert.Contains("\"scannedBadgeTitle\": \"Añadido mediante escaneo", es, StringComparison.Ordinal);
+        Assert.Contains("\"scannedBadgeTitle\": \"Dodano przez skanowanie", pl, StringComparison.Ordinal);
 
         // Negative: scanner strings must not fall back to English text in the
         // non-English locales (would mean the translation was accidentally skipped).
-        var esStart = script.IndexOf("es: {", StringComparison.Ordinal);
-        var plStart = script.IndexOf("pl: {", StringComparison.Ordinal);
-        Assert.True(esStart >= 0 && plStart >= 0);
-
-        var esSection = script.Substring(esStart, plStart - esStart);
-        Assert.DoesNotContain("scanBtnTitle: 'Scan ISBN barcode'", esSection, StringComparison.Ordinal);
-
-        var plSection = script.Substring(plStart);
-        Assert.DoesNotContain("scanBtnTitle: 'Scan ISBN barcode'", plSection, StringComparison.Ordinal);
+        // Each locale is now its own file, so this is a direct check rather than
+        // slicing substrings out of one shared blob.
+        Assert.DoesNotContain("\"scanBtnTitle\": \"Scan ISBN barcode\"", es, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"scanBtnTitle\": \"Scan ISBN barcode\"", pl, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1369,15 +1416,16 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync("/js/i18n.js");
-        var script = await response.Content.ReadAsStringAsync();
+        var en = await client.GetStringAsync("/i18n/en.json");
+        var es = await client.GetStringAsync("/i18n/es.json");
+        var pl = await client.GetStringAsync("/i18n/pl.json");
 
-        Assert.Contains("forgotPasswordLink: 'Forgot password?'", script, StringComparison.Ordinal);
-        Assert.Contains("forgotPasswordLink: '¿Olvidaste tu contraseña?'", script, StringComparison.Ordinal);
-        Assert.Contains("forgotPasswordLink: 'Nie pamiętasz hasła?'", script, StringComparison.Ordinal);
-        Assert.Contains("forgotUsernameLink: 'Forgot username?'", script, StringComparison.Ordinal);
-        Assert.Contains("forgotUsernameLink: '¿Olvidaste tu nombre de usuario?'", script, StringComparison.Ordinal);
-        Assert.Contains("forgotUsernameLink: 'Nie pamiętasz nazwy użytkownika?'", script, StringComparison.Ordinal);
+        Assert.Contains("\"forgotPasswordLink\": \"Forgot password?\"", en, StringComparison.Ordinal);
+        Assert.Contains("\"forgotPasswordLink\": \"¿Olvidaste tu contraseña?\"", es, StringComparison.Ordinal);
+        Assert.Contains("\"forgotPasswordLink\": \"Nie pamiętasz hasła?\"", pl, StringComparison.Ordinal);
+        Assert.Contains("\"forgotUsernameLink\": \"Forgot username?\"", en, StringComparison.Ordinal);
+        Assert.Contains("\"forgotUsernameLink\": \"¿Olvidaste tu nombre de usuario?\"", es, StringComparison.Ordinal);
+        Assert.Contains("\"forgotUsernameLink\": \"Nie pamiętasz nazwy użytkownika?\"", pl, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1611,18 +1659,20 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
         var factory = _factory;
         using var client = factory.CreateClient();
 
-        var script = await client.GetStringAsync("/js/i18n.js");
+        var en = await client.GetStringAsync("/i18n/en.json");
+        var es = await client.GetStringAsync("/i18n/es.json");
+        var pl = await client.GetStringAsync("/i18n/pl.json");
 
         // Positive: all three locales carry stats dialog strings.
-        Assert.Contains("dialogTitle: 'Wheel Stats'", script, StringComparison.Ordinal);
-        Assert.Contains("totalSpins: 'Total Spins'", script, StringComparison.Ordinal);
-        Assert.Contains("uniqueBooks: 'Unique Books Spun'", script, StringComparison.Ordinal);
-        Assert.Contains("neverSpun: 'Never Spun'", script, StringComparison.Ordinal);
-        Assert.Contains("typeBreakdownHeading: 'By Media Type'", script, StringComparison.Ordinal);
+        Assert.Contains("\"dialogTitle\": \"Wheel Stats\"", en, StringComparison.Ordinal);
+        Assert.Contains("\"totalSpins\": \"Total Spins\"", en, StringComparison.Ordinal);
+        Assert.Contains("\"uniqueBooks\": \"Unique Books Spun\"", en, StringComparison.Ordinal);
+        Assert.Contains("\"neverSpun\": \"Never Spun\"", en, StringComparison.Ordinal);
+        Assert.Contains("\"typeBreakdownHeading\": \"By Media Type\"", en, StringComparison.Ordinal);
 
         // Positive: Spanish and Polish stats sections are present and translated.
-        Assert.Contains("typeBreakdownHeading: 'Por tipo de soporte'", script, StringComparison.Ordinal);
-        Assert.Contains("typeBreakdownHeading: 'Według formatu'", script, StringComparison.Ordinal);
+        Assert.Contains("\"typeBreakdownHeading\": \"Por tipo de soporte\"", es, StringComparison.Ordinal);
+        Assert.Contains("\"typeBreakdownHeading\": \"Według formatu\"", pl, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1683,8 +1733,13 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
         // Negative: the fixed page-size constant is gone.
         Assert.DoesNotContain("BOOKS_PER_PAGE;", script.Replace("DEFAULT_BOOKS_PER_PAGE", ""), StringComparison.Ordinal);
 
-        var i18n = await client.GetStringAsync("/js/i18n.js");
-        Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(i18n, "noMatchesHeading:").Count);
-        Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(i18n, "countFiltered:").Count);
+        // Each locale catalog carries its own copy of these two keys exactly
+        // once (previously checked as 3 occurrences within one shared file).
+        foreach (var locale in new[] { "en", "es", "pl" })
+        {
+            var catalog = await client.GetStringAsync($"/i18n/{locale}.json");
+            Assert.Single(Regex.Matches(catalog, "\"noMatchesHeading\":"));
+            Assert.Single(Regex.Matches(catalog, "\"countFiltered\":"));
+        }
     }
 }

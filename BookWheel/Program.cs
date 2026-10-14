@@ -503,10 +503,11 @@ app.Use(async (context, next) =>
 app.UseRateLimiter();
 app.UseResponseCompression();
 
-var supportedCultures = new[] { "en", "es", "pl" }.Select(c => new CultureInfo(c)).ToList();
+SupportedLocales.Initialize(app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot"));
+var supportedCultures = SupportedLocales.Values.Select(c => new CultureInfo(c)).ToList();
 app.UseRequestLocalization(new RequestLocalizationOptions
 {
-	DefaultRequestCulture = new RequestCulture("en"),
+	DefaultRequestCulture = new RequestCulture(SupportedLocales.Default),
 	SupportedCultures = supportedCultures,
 	SupportedUICultures = supportedCultures
 });

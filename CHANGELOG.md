@@ -10,6 +10,21 @@ This file was introduced alongside the README split in GH #198. Entries from
 (including everything before 3.2.0) predate a consistent per-commit version tag
 in this repository — see `git log` or the GitHub Releases page for that history.
 
+## [3.17.0]
+
+- Split the frontend's translation catalogs out of `wwwroot/js/i18n.js` into
+  one JSON file per locale (`wwwroot/i18n/{en,es,pl}.json`), loaded on demand:
+  a visitor now only downloads their active locale's strings (plus the
+  default locale in the background, as a fallback for any key missing from a
+  non-default catalog) instead of every visitor downloading all three
+  locales' full text inline. `wwwroot/i18n/locales.json` is now the single
+  source of truth for the supported-locale list, read by both the frontend
+  loader and `Program.cs`'s request localization setup. A new CI test
+  (`I18nCatalogConsistencyTests`) fails the build if a locale's JSON catalog
+  or `SharedErrors*.resx` file is missing a key present in the others. GH
+  #226; opening these catalogs to community/native-speaker review is tracked
+  separately in GH #288.
+
 ## [3.16.1]
 
 - Fixed long book titles and author names not truncating with an ellipsis in

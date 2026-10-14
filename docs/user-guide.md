@@ -57,15 +57,16 @@ Book Wheel supports English, Spanish, and Polish.
 - A gear-icon Settings button opens the consolidated Settings dialog; its Preferences tab holds the theme switcher and a language dropdown. The button is positioned inline in the toolbar when logged in, and in the corner of the login/setup card when logged out. When logged out, or when the signed-in user isn't an administrator, the Manage users and/or Import/Export tabs are hidden and Preferences is the only tab shown.
 - On first visit, the language defaults to the browser's language if it's one of the supported three, otherwise English; the choice is cached in the browser's `localStorage` for logged-out use, but for a signed-in user it is also saved server-side (alongside theme) and takes precedence on login, so it follows that user to a new device.
 - The frontend sends the selected language as an `Accept-Language` header on every API call, so server-generated error messages (e.g. "Book title is required.") come back already translated.
-- Frontend strings live in `BookWheel/wwwroot/js/i18n.js`; backend error-message translations live in `BookWheel/Resources/SharedErrors*.resx`, looked up through `ApiMessageLocalizer`.
+- Frontend strings live one file per locale under `BookWheel/wwwroot/i18n/` (`en.json`, `es.json`, `pl.json`); `BookWheel/wwwroot/js/i18n.js` is just the loader — it fetches `i18n/locales.json` for the supported-locale list, then lazily fetches only the active locale's catalog (plus the default locale in the background, as a fallback for any key missing from a non-default catalog). Backend error-message translations live in `BookWheel/Resources/SharedErrors*.resx`, looked up through `ApiMessageLocalizer`.
+- `BookWheel/wwwroot/i18n/locales.json` is the single source of truth for which locales exist: both the frontend loader and `Program.cs`'s `RequestLocalizationOptions` (via `BookWheel.Models.SupportedLocales`) read it at startup, instead of each keeping its own hard-coded list.
 
 ### Adding a new language
 
-1. Add the locale code to `SUPPORTED_LOCALES` in `BookWheel/wwwroot/js/i18n.js` and add a full `TRANSLATIONS.<locale>` catalog (copy the `en` object as a starting point — every key must be present or that string falls back to English).
-2. Add a `BookWheel/Resources/SharedErrors.<locale>.resx` file with all of the same resource keys as `SharedErrors.resx`.
-3. Add the locale code to the `supportedCultures` array in `BookWheel/Program.cs`'s `RequestLocalizationOptions` setup.
+1. Add the locale code to `BookWheel/wwwroot/i18n/locales.json`.
+2. Add `BookWheel/wwwroot/i18n/<locale>.json` with the same nested keys as `en.json` (copy it as a starting point — every key must be present or that string falls back to English). A CI test (`I18nCatalogConsistencyTests`) fails the build if any locale's key set doesn't match.
+3. Add a `BookWheel/Resources/SharedErrors.<locale>.resx` file with all of the same resource keys as `SharedErrors.resx` (also checked by `I18nCatalogConsistencyTests`).
 
-Spanish and Polish translations were authored by the assistant as a first pass and have not been reviewed by native speakers — treat them as a solid starting point, not final copy.
+Spanish and Polish translations were authored by the assistant as a first pass and have not been reviewed by native speakers — treat them as a solid starting point, not final copy. Opening these catalogs to community/native-speaker review via a platform like Weblate or Crowdin is tracked separately (see GH #288).
 
 ## Analytics
 
