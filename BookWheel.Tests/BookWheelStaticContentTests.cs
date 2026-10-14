@@ -146,6 +146,32 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
     }
 
     [Fact]
+    public async Task Frontend_Script_Should_Round_Trip_Locale_Through_Server_Preferences()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: a locale change while signed in is persisted server-side
+        // (same pattern as the theme toggle), and a fetched preference payload
+        // is applied back onto the i18n module and the <select> on login/bootstrap.
+        var langChangeHandlerStart = script.IndexOf("langSelect.addEventListener('change'", StringComparison.Ordinal);
+        Assert.True(langChangeHandlerStart >= 0, "langSelect change handler not found");
+        var langChangeHandlerBody = script.Substring(langChangeHandlerStart, 200);
+        Assert.Contains("window.BookWheelI18n.setLocale(langSelect.value)", langChangeHandlerBody, StringComparison.Ordinal);
+        Assert.Contains("savePreferencesIfAuthenticated()", langChangeHandlerBody, StringComparison.Ordinal);
+        Assert.Contains("locale: window.BookWheelI18n.getCurrentLocale()", script, StringComparison.Ordinal);
+        Assert.Contains("window.BookWheelI18n.setLocale(preferences.locale)", script, StringComparison.Ordinal);
+
+        // Negative: an unsupported/unknown locale value from the server must not
+        // be handed to setLocale (which itself also guards, but the call site
+        // should not rely solely on that — the SUPPORTED_LOCALES check must be inline).
+        Assert.Contains("window.BookWheelI18n.SUPPORTED_LOCALES.includes(preferences.locale)", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Home_Page_Should_Render_Main_UI_Structure()
     {
         var factory = _factory;

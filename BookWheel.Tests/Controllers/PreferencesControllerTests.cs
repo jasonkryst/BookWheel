@@ -45,6 +45,7 @@ public sealed class PreferencesControllerTests : IClassFixture<BookWheelWebAppFa
         Assert.Equal(JsonValueKind.Null, preferences.GetProperty("theme").ValueKind);
         Assert.False(preferences.GetProperty("analyticsConsentOptedOut").GetBoolean());
         Assert.Equal(JsonValueKind.Null, preferences.GetProperty("preferredBookInfoProviderId").ValueKind);
+        Assert.Equal(JsonValueKind.Null, preferences.GetProperty("locale").ValueKind);
     }
 
     [Fact]
@@ -57,7 +58,8 @@ public sealed class PreferencesControllerTests : IClassFixture<BookWheelWebAppFa
         {
             theme = "light",
             analyticsConsentOptedOut = true,
-            preferredBookInfoProviderId = 2
+            preferredBookInfoProviderId = 2,
+            locale = "es"
         });
         putResponse.EnsureSuccessStatusCode();
 
@@ -68,6 +70,53 @@ public sealed class PreferencesControllerTests : IClassFixture<BookWheelWebAppFa
         Assert.Equal("light", preferences.GetProperty("theme").GetString());
         Assert.True(preferences.GetProperty("analyticsConsentOptedOut").GetBoolean());
         Assert.Equal(2, preferences.GetProperty("preferredBookInfoProviderId").GetInt32());
+        Assert.Equal("es", preferences.GetProperty("locale").GetString());
+    }
+
+    [Fact]
+    public async Task Put_Allows_Clearing_Locale_Back_To_Null()
+    {
+        using var client = _factory.CreateClient();
+        await AuthenticateAsync(client);
+
+        await client.PutAsJsonAsync("/api/preferences", new
+        {
+            theme = (string?)null,
+            analyticsConsentOptedOut = false,
+            preferredBookInfoProviderId = (int?)null,
+            locale = "pl"
+        });
+
+        var clearResponse = await client.PutAsJsonAsync("/api/preferences", new
+        {
+            theme = (string?)null,
+            analyticsConsentOptedOut = false,
+            preferredBookInfoProviderId = (int?)null,
+            locale = (string?)null
+        });
+        clearResponse.EnsureSuccessStatusCode();
+
+        var getResponse = await client.GetAsync("/api/preferences");
+        var preferences = await getResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(JsonValueKind.Null, preferences.GetProperty("locale").ValueKind);
+    }
+
+    [Fact]
+    public async Task Put_Rejects_Unknown_Locale()
+    {
+        using var client = _factory.CreateClient();
+        await AuthenticateAsync(client);
+
+        var response = await client.PutAsJsonAsync("/api/preferences", new
+        {
+            theme = (string?)null,
+            analyticsConsentOptedOut = false,
+            preferredBookInfoProviderId = (int?)null,
+            locale = "fr"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
