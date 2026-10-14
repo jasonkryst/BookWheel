@@ -3801,8 +3801,47 @@ function setRequestedView(view) {
   window.history.pushState({}, document.title, url.pathname + url.search + url.hash);
 }
 
+// A 978/979-prefixed run of 13 digits is almost always an ISBN-13 (shared
+// from Goodreads/Amazon/Google Books links or text), so it's matched on its
+// own. A bare ISBN-10 has no comparable tell, so it's only matched right
+// after the literal word "ISBN" to avoid misreading a shared phone number
+// or other unrelated 10-digit run as one.
+const SHARED_ISBN_13_PATTERN = /\b97[89](?:[- ]?\d){10}\b/;
+const SHARED_ISBN_10_PATTERN = /\bISBN[-:\s]*(\d(?:[- ]?\d){8}[- ]?[\dXx])\b/i;
+
+function extractSharedIsbn(...values) {
+  const combined = values.filter(Boolean).join(' ');
+  const isbn13 = combined.match(SHARED_ISBN_13_PATTERN);
+  if (isbn13) {
+    return isbn13[0].replace(/[- ]/g, '');
+  }
+  const isbn10 = combined.match(SHARED_ISBN_10_PATTERN);
+  return isbn10 ? isbn10[1].replace(/[- ]/g, '') : null;
+}
+
+function applySharedBookInfoRequest(params) {
+  const sharedTitle = params.get('title') || '';
+  const sharedText = params.get('text') || '';
+  const sharedUrl = params.get('url') || '';
+
+  if (!sharedTitle && !sharedText && !sharedUrl) {
+    return;
+  }
+
+  openBookInfoDialog();
+
+  const isbn = extractSharedIsbn(sharedText, sharedUrl, sharedTitle);
+  if (isbn) {
+    bookInfoIsbn.value = isbn;
+    runBookInfoSearch();
+  } else if (sharedTitle || sharedText) {
+    bookInfoTitle.value = sharedTitle || sharedText;
+  }
+}
+
 function applyRequestedView() {
-  const view = new URLSearchParams(window.location.search).get('view');
+  const params = new URLSearchParams(window.location.search);
+  const view = params.get('view');
   const targets = {
     wheel: document.getElementById('wheel'),
     books: document.getElementById('books')
@@ -3812,6 +3851,24 @@ function applyRequestedView() {
     openStatsDialog(false);
   } else if (view === 'preferences') {
     openSettingsDialog(false);
+  } else if (view === 'add-book') {
+    closeStatsDialog(false);
+    closeSettingsDialog(false);
+    targets.books.scrollIntoView({ block: 'start' });
+    bookTitle.focus();
+  } else if (view === 'scan') {
+    closeStatsDialog(false);
+    closeSettingsDialog(false);
+    openBookInfoDialog();
+    openBarcodeScanner({
+      isbnInput: bookInfoIsbn,
+      messageEl: bookInfoSearchMessage,
+      onDetected: async () => runBookInfoSearch()
+    });
+  } else if (view === 'search') {
+    closeStatsDialog(false);
+    closeSettingsDialog(false);
+    applySharedBookInfoRequest(params);
   } else if (targets[view]) {
     closeStatsDialog(false);
     closeSettingsDialog(false);
@@ -3819,6 +3876,14 @@ function applyRequestedView() {
   } else {
     closeStatsDialog(false);
     closeSettingsDialog(false);
+  }
+
+  if (view === 'search' && (params.has('title') || params.has('text') || params.has('url'))) {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('title');
+    url.searchParams.delete('text');
+    url.searchParams.delete('url');
+    window.history.replaceState({}, document.title, url.pathname + url.search);
   }
 }
 

@@ -44,6 +44,49 @@ public sealed class BookWheelPwaTests : IClassFixture<BookWheelWebAppFactory>, I
     }
 
     [Fact]
+    public async Task Manifest_Should_Declare_Add_Book_And_Scan_Shortcuts_Routed_Via_View_Param()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/manifest.webmanifest");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        var shortcuts = document.RootElement.GetProperty("shortcuts").EnumerateArray().ToList();
+
+        // Positive: the three shortcuts named in GH #243 (Spin, Add book, Scan)
+        // exist and route through the existing ?view= handling, not a dedicated
+        // standalone page.
+        Assert.Contains(shortcuts, s => s.GetProperty("short_name").GetString() == "Spin Wheel" && s.GetProperty("url").GetString() == "/?view=wheel");
+        Assert.Contains(shortcuts, s => s.GetProperty("short_name").GetString() == "Add book" && s.GetProperty("url").GetString() == "/?view=add-book");
+        Assert.Contains(shortcuts, s => s.GetProperty("short_name").GetString() == "Scan" && s.GetProperty("url").GetString() == "/?view=scan");
+
+        // Negative: every shortcut must resolve to a same-origin app route, never
+        // an absolute external URL (the manifest.action validator below also
+        // depends on this for share_target).
+        Assert.All(shortcuts, s => Assert.StartsWith("/?view=", s.GetProperty("url").GetString(), StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Manifest_Should_Declare_A_Get_Share_Target_Into_Book_Search()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/manifest.webmanifest");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.True(document.RootElement.TryGetProperty("share_target", out var shareTarget));
+        Assert.Equal("/?view=search", shareTarget.GetProperty("action").GetString());
+        Assert.Equal("GET", shareTarget.GetProperty("method").GetString());
+
+        var shareParams = shareTarget.GetProperty("params");
+        Assert.Equal("title", shareParams.GetProperty("title").GetString());
+        Assert.Equal("text", shareParams.GetProperty("text").GetString());
+        Assert.Equal("url", shareParams.GetProperty("url").GetString());
+    }
+
+    [Fact]
     public async Task Manifest_Icons_Should_All_Resolve_To_Real_Files()
     {
         var factory = _factory;
