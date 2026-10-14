@@ -218,11 +218,23 @@ const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)
 const prefersColorSchemeDark = window.matchMedia('(prefers-color-scheme: dark)');
 const prefersContrastMore = window.matchMedia('(prefers-contrast: more)');
 const dialogFocusReturnMap = new WeakMap();
-const BARCODE_SCANNER_SUPPORTED = typeof BarcodeDetector !== 'undefined';
+// GH #187: the native BarcodeDetector API (Chrome, Edge, Android) isn't
+// available on iOS Safari or Firefox. Those browsers fall back to a WASM
+// decoder (zxing-wasm), lazy-loaded only when the scanner is actually opened.
+const NATIVE_BARCODE_DETECTOR_SUPPORTED = typeof BarcodeDetector !== 'undefined';
+const WASM_BARCODE_SCANNER_SUPPORTED = typeof WebAssembly !== 'undefined';
+const BARCODE_SCANNER_SUPPORTED = NATIVE_BARCODE_DETECTOR_SUPPORTED || WASM_BARCODE_SCANNER_SUPPORTED;
+const ZXING_WASM_SCRIPT_SRC = 'lib/zxing-wasm/zxing-reader.iife.js';
+const ZXING_WASM_BASE_PATH = 'lib/zxing-wasm/';
+const ZXING_WASM_SCAN_INTERVAL_MS = 300;
+let zxingModuleReadyPromise = null;
 let scannerTarget = null;
 let scannerStream = null;
 let scannerDetector = null;
-let scannerRafId = null;
+let scannerLoopHandle = null;
+let scannerLoopKind = null; // 'raf' (native BarcodeDetector) or 'timeout' (WASM fallback)
+let scannerCanvas = null;
+let scannerCanvasCtx = null;
 let scannerFacingMode = 'environment';
 let addedByScanner = false;
 const BOOK_TYPE_ICONS = { 1: '📖', 2: '📱', 3: '🔖' };
@@ -2028,9 +2040,14 @@ editLookupBtn.addEventListener('click', () => runMetadataLookup({
 }));
 
 function stopScannerStream() {
-  if (scannerRafId !== null) {
-    cancelAnimationFrame(scannerRafId);
-    scannerRafId = null;
+  if (scannerLoopHandle !== null) {
+    if (scannerLoopKind === 'timeout') {
+      clearTimeout(scannerLoopHandle);
+    } else {
+      cancelAnimationFrame(scannerLoopHandle);
+    }
+    scannerLoopHandle = null;
+    scannerLoopKind = null;
   }
   if (scannerStream) {
     scannerStream.getTracks().forEach(track => track.stop());
@@ -2041,7 +2058,49 @@ function stopScannerStream() {
   }
 }
 
+function captureScannerFrame() {
+  if (!scannerCanvas) {
+    scannerCanvas = document.createElement('canvas');
+    scannerCanvasCtx = scannerCanvas.getContext('2d', { willReadFrequently: true });
+  }
+  scannerCanvas.width = scannerVideo.videoWidth;
+  scannerCanvas.height = scannerVideo.videoHeight;
+  scannerCanvasCtx.drawImage(scannerVideo, 0, 0);
+  return scannerCanvasCtx.getImageData(0, 0, scannerCanvas.width, scannerCanvas.height);
+}
+
 function startScanLoop() {
+  if (scannerDetector.kind === 'wasm') {
+    const detectWasmFrame = async () => {
+      if (!scannerStream || !scannerDetector) {
+        return;
+      }
+
+      if (scannerVideo.readyState >= 2 && scannerVideo.videoWidth > 0) {
+        try {
+          const imageData = captureScannerFrame();
+          const results = await scannerDetector.module.readBarcodes(imageData, {
+            formats: ['EAN13', 'EAN8'],
+            tryHarder: false
+          });
+          if (results.length > 0 && results[0].text) {
+            await onBarcodeDetected(results[0].text);
+            return;
+          }
+        } catch {
+          // Decode errors are normal when the frame doesn't contain a barcode yet.
+        }
+      }
+
+      scannerLoopKind = 'timeout';
+      scannerLoopHandle = setTimeout(detectWasmFrame, ZXING_WASM_SCAN_INTERVAL_MS);
+    };
+
+    scannerLoopKind = 'timeout';
+    scannerLoopHandle = setTimeout(detectWasmFrame, ZXING_WASM_SCAN_INTERVAL_MS);
+    return;
+  }
+
   const detectFrame = async () => {
     if (!scannerStream || !scannerDetector) {
       return;
@@ -2049,7 +2108,7 @@ function startScanLoop() {
 
     if (scannerVideo.readyState >= 2) {
       try {
-        const barcodes = await scannerDetector.detect(scannerVideo);
+        const barcodes = await scannerDetector.detector.detect(scannerVideo);
         if (barcodes.length > 0 && barcodes[0].rawValue) {
           await onBarcodeDetected(barcodes[0].rawValue);
           return;
@@ -2059,10 +2118,31 @@ function startScanLoop() {
       }
     }
 
-    scannerRafId = requestAnimationFrame(detectFrame);
+    scannerLoopKind = 'raf';
+    scannerLoopHandle = requestAnimationFrame(detectFrame);
   };
 
-  scannerRafId = requestAnimationFrame(detectFrame);
+  scannerLoopKind = 'raf';
+  scannerLoopHandle = requestAnimationFrame(detectFrame);
+}
+
+function loadZxingWasmScanner() {
+  if (zxingModuleReadyPromise) {
+    return zxingModuleReadyPromise;
+  }
+
+  zxingModuleReadyPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = ZXING_WASM_SCRIPT_SRC;
+    script.onload = () => resolve(window.ZXingWASM);
+    script.onerror = () => reject(new Error('Failed to load the barcode scanner fallback script.'));
+    document.body.appendChild(script);
+  }).then(ZXingWASM => ZXingWASM.prepareZXingModule({
+    overrides: { locateFile: path => ZXING_WASM_BASE_PATH + path },
+    fireImmediately: true
+  }).then(() => ZXingWASM));
+
+  return zxingModuleReadyPromise;
 }
 
 async function openBarcodeScanner(target) {
@@ -2075,12 +2155,24 @@ async function openBarcodeScanner(target) {
 
   scannerTarget = target;
 
+  let zxingModule = null;
+  if (!NATIVE_BARCODE_DETECTOR_SUPPORTED) {
+    try {
+      zxingModule = await loadZxingWasmScanner();
+    } catch {
+      target.messageEl.textContent = t('scanner.notSupportedError');
+      return;
+    }
+  }
+
   try {
     scannerStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: scannerFacingMode }, width: { ideal: 1280 }, height: { ideal: 720 } }
     });
     scannerVideo.srcObject = scannerStream;
-    scannerDetector = new BarcodeDetector({ formats: ['ean_13', 'ean_8'] });
+    scannerDetector = NATIVE_BARCODE_DETECTOR_SUPPORTED
+      ? { kind: 'native', detector: new BarcodeDetector({ formats: ['ean_13', 'ean_8'] }) }
+      : { kind: 'wasm', module: zxingModule };
     openDialog(scannerDialog, cancelScannerBtn);
     scannerStatus.textContent = t('scanner.scanningStatus');
     startScanLoop();

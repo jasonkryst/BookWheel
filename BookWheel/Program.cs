@@ -351,7 +351,10 @@ builder.Services.AddResponseCompression(options =>
 	options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[]
 	{
 		"application/javascript",
-		"application/manifest+json"
+		"application/manifest+json",
+		// GH #187: the vendored zxing-wasm reader binary (~950 KB raw) compresses to
+		// roughly a third of that size, matching the issue's "~300 KB" lazy-load budget.
+		"application/wasm"
 	});
 });
 
@@ -562,7 +565,10 @@ static string BuildContentSecurityPolicy(string nonce, bool googleAnalyticsEnabl
 	return "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; "
 		+ "img-src 'self' https: data:; font-src 'self'; style-src 'self'; manifest-src 'self'; worker-src 'self'; "
 		+ $"connect-src 'self'{analyticsConnect}; "
-		+ $"script-src 'self' 'nonce-{nonce}'{analyticsScript}";
+		// 'wasm-unsafe-eval' is required for WebAssembly.instantiate under Safari's
+		// stricter CSP interpretation (GH #187's zxing-wasm barcode scanner fallback);
+		// Chromium/Firefox already allow WASM compilation under 'self' alone.
+		+ $"script-src 'self' 'wasm-unsafe-eval' 'nonce-{nonce}'{analyticsScript}";
 }
 
 async Task WriteConfiguredIndexAsync(HttpContext context)
