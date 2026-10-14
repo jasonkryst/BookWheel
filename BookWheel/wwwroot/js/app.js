@@ -58,6 +58,7 @@ const recentPicksListEl = document.getElementById('recentPicksList');
 const recentPicksEmptyEl = document.getElementById('recentPicksEmpty');
 const canvas = document.getElementById('wheelCanvas');
 const ctx = canvas.getContext('2d');
+const wheelStage = document.querySelector('.wheel-wrap');
 const editDialog = document.getElementById('editDialog');
 const editForm = document.getElementById('editForm');
 const editBookId = document.getElementById('editBookId');
@@ -138,6 +139,7 @@ const settingsManageUsersPanel = document.getElementById('settingsManageUsersPan
 const settingsImportExportPanel = document.getElementById('settingsImportExportPanel');
 const settingsPreferencesPanel = document.getElementById('settingsPreferencesPanel');
 const analyticsConsentCheckbox = document.getElementById('analyticsConsentCheckbox');
+const spinCelebrationCheckbox = document.getElementById('spinCelebrationCheckbox');
 const bookInfoProviderSelect = document.getElementById('bookInfoProviderSelect');
 const appVersionEl = document.getElementById('appVersion');
 const toastRegion = document.getElementById('toastRegion');
@@ -212,6 +214,7 @@ const THEME_CYCLE = [DARK_THEME, LIGHT_THEME, HIGH_CONTRAST_THEME];
 const THEME_ICONS = { [DARK_THEME]: '☾', [LIGHT_THEME]: '☀', [HIGH_CONTRAST_THEME]: '◐' };
 const THEME_LABEL_KEYS = { [DARK_THEME]: 'theme.dark', [LIGHT_THEME]: 'theme.light', [HIGH_CONTRAST_THEME]: 'theme.highContrast' };
 const ANALYTICS_CONSENT_STORAGE_KEY = 'bookwheel-analytics-consent';
+const SPIN_CELEBRATION_STORAGE_KEY = 'bookwheel-spin-celebration';
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const dialogFocusReturnMap = new WeakMap();
 const BARCODE_SCANNER_SUPPORTED = typeof BarcodeDetector !== 'undefined';
@@ -455,6 +458,25 @@ function applyAnalyticsConsent() {
   if (analyticsConsentCheckbox) {
     analyticsConsentCheckbox.checked = !optedOut;
   }
+}
+
+function isSpinCelebrationOptedOut() {
+  return localStorage.getItem(SPIN_CELEBRATION_STORAGE_KEY) === 'false';
+}
+
+function isSpinCelebrationEnabled() {
+  return !isSpinCelebrationOptedOut() && !isReducedMotionEnabled();
+}
+
+function applySpinCelebrationPreference() {
+  if (spinCelebrationCheckbox) {
+    spinCelebrationCheckbox.checked = !isSpinCelebrationOptedOut();
+  }
+}
+
+function setSpinCelebrationConsent(optedIn) {
+  localStorage.setItem(SPIN_CELEBRATION_STORAGE_KEY, optedIn ? 'true' : 'false');
+  applySpinCelebrationPreference();
 }
 
 function setAnalyticsConsent(optedIn) {
@@ -2694,6 +2716,86 @@ booksNextPageBtn.addEventListener('click', () => {
   renderActiveBooks();
 });
 
+const WHEEL_TRANSITION_MS = 4000;
+const STOP_VIBRATE_PATTERN = [15, 40, 15, 40, 80];
+const CONFETTI_COLORS = ['#ff6b6b', '#4ecdc4', '#ffe66d', '#1a936f', '#845ec2'];
+let spinEffectTimers = [];
+let spinAudioContext = null;
+
+function clearScheduledSpinEffects() {
+  spinEffectTimers.forEach(id => clearTimeout(id));
+  spinEffectTimers = [];
+}
+
+function getSpinAudioContext() {
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) {
+    return null;
+  }
+  if (!spinAudioContext) {
+    spinAudioContext = new Ctx();
+  }
+  if (spinAudioContext.state === 'suspended') {
+    spinAudioContext.resume().catch(() => {});
+  }
+  return spinAudioContext;
+}
+
+function playSpinTick() {
+  const ctx = getSpinAudioContext();
+  if (!ctx) {
+    return;
+  }
+  const oscillator = ctx.createOscillator();
+  const gain = ctx.createGain();
+  oscillator.type = 'square';
+  oscillator.frequency.value = 1200;
+  gain.gain.setValueAtTime(0.08, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.04);
+  oscillator.connect(gain).connect(ctx.destination);
+  oscillator.start();
+  oscillator.stop(ctx.currentTime + 0.05);
+}
+
+// Slices pass the pointer at even angle intervals, but the CSS transition
+// decelerates (cubic-bezier ease-out), so equal-angle ticks need increasing
+// time gaps. easeOutCubic(x) = 1 - (1-x)^3 approximates that curve and is
+// cheaply invertible, so each tick's delay is solved directly instead of
+// polling the animation every frame.
+function scheduleSpinTicks(rotationDelta, sliceDegrees, durationMs) {
+  const tickCount = Math.floor(rotationDelta / sliceDegrees);
+  for (let tick = 1; tick <= tickCount; tick++) {
+    const angleProgress = tick / tickCount;
+    const timeProgress = 1 - Math.cbrt(1 - angleProgress);
+    spinEffectTimers.push(setTimeout(playSpinTick, timeProgress * durationMs));
+  }
+}
+
+function burstSpinConfetti() {
+  if (!wheelStage) {
+    return;
+  }
+  for (let i = 0; i < 24; i++) {
+    const piece = document.createElement('span');
+    piece.className = 'confetti-piece';
+    const angle = Math.random() * Math.PI * 2;
+    const distance = 80 + Math.random() * 110;
+    piece.style.setProperty('--confetti-x', `${Math.cos(angle) * distance}px`);
+    piece.style.setProperty('--confetti-y', `${Math.sin(angle) * distance}px`);
+    piece.style.setProperty('--confetti-rot', `${Math.random() * 540 - 270}deg`);
+    piece.style.background = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+    piece.addEventListener('animationend', () => piece.remove());
+    wheelStage.appendChild(piece);
+  }
+}
+
+function playSpinStopCelebration() {
+  if (navigator.vibrate) {
+    navigator.vibrate(STOP_VIBRATE_PATTERN);
+  }
+  burstSpinConfetti();
+}
+
 spinBtn.addEventListener('click', async () => {
   if (spinning || !activeBooks.length) {
     return;
@@ -2704,6 +2806,7 @@ spinBtn.addEventListener('click', async () => {
   spinBtn.disabled = true;
   spinBtn.textContent = t('wheel.spinningBusy');
   selectedBookEl.textContent = t('wheel.spinningBusy');
+  clearScheduledSpinEffects();
 
   try {
     const result = await requestJson('/api/books/spin', { method: 'POST' });
@@ -2722,13 +2825,19 @@ spinBtn.addEventListener('click', async () => {
     const slice = 360 / wheelBooks.length;
     const targetAngle = 360 - ((selectedIndex * slice) + slice / 2);
     const normalizedRotation = ((currentRotation % 360) + 360) % 360;
-    const fullSpins = isReducedMotionEnabled() ? 1 : 5;
+    const reducedMotion = isReducedMotionEnabled();
+    const fullSpins = reducedMotion ? 1 : 5;
     const rotationDelta = 360 * fullSpins + targetAngle - normalizedRotation;
-    const spinDelayMs = isReducedMotionEnabled() ? 120 : 4200;
+    const spinDelayMs = reducedMotion ? 120 : WHEEL_TRANSITION_MS + 200;
     currentRotation += rotationDelta;
     canvas.style.transform = `rotate(${currentRotation}deg)`;
 
-    setTimeout(async () => {
+    const celebrationEnabled = isSpinCelebrationEnabled();
+    if (celebrationEnabled) {
+      scheduleSpinTicks(rotationDelta, slice, WHEEL_TRANSITION_MS);
+    }
+
+    const revealResult = () => {
       activeBooks = result.activeBooks || [];
       clampCurrentPage();
       drawWheel();
@@ -2739,7 +2848,31 @@ spinBtn.addEventListener('click', async () => {
       spinBtn.disabled = activeBooks.length === 0;
       spinBtn.textContent = t('wheel.spinBtn');
       showToast(t('wheel.selectedToast', { title: selected.title }), 'success');
-    }, spinDelayMs);
+      if (celebrationEnabled) {
+        playSpinStopCelebration();
+      }
+    };
+
+    if (reducedMotion) {
+      // #wheelCanvas has `transition: none` under reduced motion, so no
+      // transitionend event will ever fire for this rotation.
+      spinEffectTimers.push(setTimeout(revealResult, spinDelayMs));
+    } else {
+      const onTransitionEnd = event => {
+        if (event.target !== canvas || event.propertyName !== 'transform') {
+          return;
+        }
+        canvas.removeEventListener('transitionend', onTransitionEnd);
+        clearTimeout(fallbackTimer);
+        revealResult();
+      };
+      canvas.addEventListener('transitionend', onTransitionEnd);
+      const fallbackTimer = setTimeout(() => {
+        canvas.removeEventListener('transitionend', onTransitionEnd);
+        revealResult();
+      }, spinDelayMs);
+      spinEffectTimers.push(fallbackTimer);
+    }
   } catch (error) {
     spinning = false;
     selectedBookEl.textContent = error.message;
@@ -3257,6 +3390,12 @@ if (analyticsConsentCheckbox) {
   });
 }
 
+if (spinCelebrationCheckbox) {
+  spinCelebrationCheckbox.addEventListener('change', () => {
+    setSpinCelebrationConsent(spinCelebrationCheckbox.checked);
+  });
+}
+
 if (bookInfoProviderSelect) {
   bookInfoProviderSelect.addEventListener('change', () => {
     savePreferencesIfAuthenticated();
@@ -3719,6 +3858,7 @@ syncLangSelect();
 
   applyTheme(getPreferredTheme());
   applyAnalyticsConsent();
+  applySpinCelebrationPreference();
   await loadAppVersion();
 
   try {
