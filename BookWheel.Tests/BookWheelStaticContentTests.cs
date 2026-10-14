@@ -432,7 +432,7 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
 
         var script = await response.Content.ReadAsStringAsync();
 
-        Assert.Contains("const BOOKS_PER_PAGE = 10", script, StringComparison.Ordinal);
+        Assert.Contains("const DEFAULT_BOOKS_PER_PAGE = 10", script, StringComparison.Ordinal);
         Assert.Contains("booksPagination", script, StringComparison.Ordinal);
         Assert.Contains("booksTotalCount", script, StringComparison.Ordinal);
         Assert.Contains("trimmedTitle", script, StringComparison.Ordinal);
@@ -1348,5 +1348,47 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
         // Sign-in refreshes this user's picks; sign-out clears the prior user's.
         Assert.Contains("await loadRecentPicks({ restoreSelection: true });", script, StringComparison.Ordinal);
         Assert.Contains("resetHomeView();", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Should_Provide_Library_Search_Filter_Sort_And_PageSize_Controls()
+    {
+        // GH #180: the active book list has a client-side view layer (search, type filter,
+        // sort, page size) persisted in localStorage.
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var html = await client.GetStringAsync("/index.html");
+        var script = await client.GetStringAsync("/js/app.js");
+
+        Assert.Contains("id=\"bookSearchInput\"", html, StringComparison.Ordinal);
+        Assert.Contains("type=\"search\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"bookTypeFilter\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"bookSortSelect\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"bookPageSizeSelect\"", html, StringComparison.Ordinal);
+        Assert.Contains("for=\"bookSearchInput\"", html, StringComparison.Ordinal);
+        Assert.Contains("for=\"bookTypeFilter\"", html, StringComparison.Ordinal);
+        Assert.Contains("for=\"bookSortSelect\"", html, StringComparison.Ordinal);
+        Assert.Contains("for=\"bookPageSizeSelect\"", html, StringComparison.Ordinal);
+
+        Assert.Contains("function getVisibleBooks()", script, StringComparison.Ordinal);
+        Assert.Contains("const DEFAULT_BOOK_SORT = 'title-asc'", script, StringComparison.Ordinal);
+        Assert.Contains("BOOK_SEARCH_DEBOUNCE_MS = 200", script, StringComparison.Ordinal);
+        Assert.Contains("'bookwheel.library.search'", script, StringComparison.Ordinal);
+        Assert.Contains("'bookwheel.library.type'", script, StringComparison.Ordinal);
+        Assert.Contains("'bookwheel.library.sort'", script, StringComparison.Ordinal);
+        Assert.Contains("'bookwheel.library.pageSize'", script, StringComparison.Ordinal);
+        Assert.Contains("lastSpunAtUtc", script, StringComparison.Ordinal);
+
+        // Pagination and the count operate on the filtered view, not the raw list.
+        Assert.Contains("books.countFiltered", script, StringComparison.Ordinal);
+        Assert.Contains("books.noMatchesHeading", script, StringComparison.Ordinal);
+
+        // Negative: the fixed page-size constant is gone.
+        Assert.DoesNotContain("BOOKS_PER_PAGE;", script.Replace("DEFAULT_BOOKS_PER_PAGE", ""), StringComparison.Ordinal);
+
+        var i18n = await client.GetStringAsync("/js/i18n.js");
+        Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(i18n, "noMatchesHeading:").Count);
+        Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(i18n, "countFiltered:").Count);
     }
 }

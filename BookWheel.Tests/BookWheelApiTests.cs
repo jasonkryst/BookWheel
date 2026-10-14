@@ -3463,6 +3463,47 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         Assert.Equal(HttpStatusCode.OK, completeResponse.StatusCode);
     }
 
+    [Fact]
+    public async Task Get_Books_Orders_By_Created_Time_And_Populates_LastSpunAtUtc()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new
+        {
+            username = "test-admin",
+            password = "test-password",
+            email = "test-setup@example.com"
+        });
+
+        // Titles are deliberately not alphabetical, so created-order is distinguishable.
+        var titles = new[] { "Zeta Created First", "Alpha Created Second", "Mid Created Third" };
+        foreach (var title in titles)
+        {
+            await AddBookAsync(client, title);
+        }
+
+        using var beforeSpin = await GetBooksDocumentAsync(client);
+        var beforeBooks = beforeSpin.RootElement.GetProperty("activeBooks").EnumerateArray().ToList();
+        Assert.Equal(titles, beforeBooks.Select(b => b.GetProperty("title").GetString()).ToArray());
+        Assert.All(beforeBooks, b => Assert.Equal(JsonValueKind.Null, b.GetProperty("lastSpunAtUtc").ValueKind));
+
+        var spinResponse = await client.PostAsync("/api/books/spin", content: null);
+        Assert.Equal(HttpStatusCode.OK, spinResponse.StatusCode);
+        using var spinDoc = await ReadJsonAsync(spinResponse);
+        var selectedId = spinDoc.RootElement.GetProperty("selected").GetProperty("id").GetGuid();
+
+        using var afterSpin = await GetBooksDocumentAsync(client);
+        var afterBooks = afterSpin.RootElement.GetProperty("activeBooks").EnumerateArray().ToList();
+        Assert.Equal(titles, afterBooks.Select(b => b.GetProperty("title").GetString()).ToArray());
+
+        var spun = afterBooks.Where(b => b.GetProperty("lastSpunAtUtc").ValueKind != JsonValueKind.Null).ToList();
+        var unspun = afterBooks.Where(b => b.GetProperty("lastSpunAtUtc").ValueKind == JsonValueKind.Null).ToList();
+        Assert.Single(spun);
+        Assert.Equal(selectedId, spun[0].GetProperty("id").GetGuid());
+        Assert.Equal(2, unspun.Count);
+    }
+
     private static async Task<Guid> AddBookAsync(HttpClient client, string title)
     {
         var response = await client.PostAsJsonAsync("/api/books", new { title });

@@ -24,6 +24,7 @@ This solution is split into separate application and test projects:
 - New-user onboarding uses admin-shared setup links instead of admin-supplied passwords
 - Signed-in users can change their own password (`POST /api/auth/password`, requires the current password; rate-limited to 5 attempts/minute per user); the current device stays signed in and all of the user's other sessions are signed out
 - Spin wheel renders crisply on HiDPI/retina displays, with arc-sized, contrast-checked slice labels that drop out gracefully on crowded wheels
+- Library search, filter, sort, and configurable page size for the active book list: search by title/author/ISBN (debounced), filter by book type, sort (title, author, date added, last spun; default Title A-Z), and show 10/25/50/All books per page. Counts and pagination reflect the filtered view, and the choices are persisted per browser in `localStorage` (GH #180)
 - "Recent picks" panel under the wheel shows **your own** last 10 spins with localized relative dates (the last pick survives reload); the panel and last-spin line are scoped to the signed-in user and are cleared on sign-out and refreshed on sign-in, so a shared device never shows another account's picks (GH #263). Stats includes the full spin history paged server-side (`GET /api/books/spin-history?page=&pageSize=`)
 - Administrator-generated password reset links (24-hour expiry) instead of direct password setting
 - Email-based account recovery: users can request a password reset link (`POST /api/auth/password-reset/request`, by username) or a reminder of their username (`POST /api/auth/forgot-username`, by email) from the login screen; both always return the same generic confirmation regardless of whether the account/email exists, to prevent account enumeration. Email is now a required, admin-set, globally-unique field on every account created via setup or by an administrator (existing accounts created before this feature keep working with no email until an administrator backfills one). Outbound email is sent via SMTP — see "Email (SMTP)" below for configuration. (GH #115)
@@ -559,7 +560,7 @@ Migration utility endpoints:
 
 Book endpoints (authentication required):
 
-- `GET /api/books`
+- `GET /api/books` — returns the authenticated user's active books ordered by `CreatedAtUtc` (then `Id`); each book carries `lastSpunAtUtc` (newest spin timestamp for that book, `null` if never spun)
 - `POST /api/books`
 - `PUT /api/books/{id}`
 - `DELETE /api/books/{id}`

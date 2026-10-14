@@ -16,11 +16,24 @@ public sealed class PostgresBookRepository : IBookRepository
     public async Task<IReadOnlyList<BookRecord>> GetAllAsync(Guid userId)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        var entities = await context.Books
+        var rows = await context.Books
             .Where(b => b.UserId == userId)
-            .OrderBy(b => b.Id)
+            .OrderBy(b => b.CreatedAtUtc)
+            .ThenBy(b => b.Id)
+            .Select(b => new
+            {
+                Entity = b,
+                LastSpunAtUtc = context.SpinSelections
+                    .Where(s => s.UserId == userId && s.BookId == b.Id)
+                    .Max(s => (DateTimeOffset?)s.SelectedAtUtc)
+            })
             .ToListAsync();
-        return entities.Select(ToRecord).ToList();
+        return rows.Select(row =>
+        {
+            var record = ToRecord(row.Entity);
+            record.LastSpunAtUtc = row.LastSpunAtUtc;
+            return record;
+        }).ToList();
     }
 
     public async Task<IReadOnlyList<BookRecord>> GetAllForExportAsync(Guid userId)
