@@ -21,9 +21,10 @@ public sealed class UpdateBookRequest
 
     public bool AllowDuplicate { get; set; }
 
-    [Range(1, 3, ErrorMessage = "Book type must be a valid type.")]
+    // GH #224: validated against the book_types table (not a numeric range) in
+    // BooksController, since the set of valid ids is data-driven, not fixed.
     public int BookTypeId { get; set; } = 1;
 
-    [Range(1, 2, ErrorMessage = "Book info provider must be a valid provider.")]
+    // GH #224: validated against the book_info_providers table in BooksController.
     public int? BookInfoProviderId { get; set; }
 }

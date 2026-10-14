@@ -10,10 +10,17 @@ namespace BookWheel.Controllers;
 public sealed class PreferencesController : ControllerBase
 {
     private readonly IUserPreferencesRepository _preferencesRepository;
+    private readonly IBookInfoProviderRepository _bookInfoProviders;
+    private readonly ApiMessageLocalizer _errors;
 
-    public PreferencesController(IUserPreferencesRepository preferencesRepository)
+    public PreferencesController(
+        IUserPreferencesRepository preferencesRepository,
+        IBookInfoProviderRepository bookInfoProviders,
+        ApiMessageLocalizer errors)
     {
         _preferencesRepository = preferencesRepository;
+        _bookInfoProviders = bookInfoProviders;
+        _errors = errors;
     }
 
     [HttpGet]
@@ -29,6 +36,12 @@ public sealed class PreferencesController : ControllerBase
     public async Task<IActionResult> Update([FromBody] UpdatePreferencesRequest request)
     {
         var userId = User.GetUserId();
+
+        if (request.PreferredBookInfoProviderId is not null
+            && !await _bookInfoProviders.ExistsAsync(request.PreferredBookInfoProviderId.Value))
+        {
+            return BadRequest(new { message = _errors.Localize("Book info provider must be a valid provider.") });
+        }
 
         var preferences = await _preferencesRepository.UpdateAsync(
             userId,

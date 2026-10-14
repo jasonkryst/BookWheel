@@ -10,6 +10,22 @@ This file was introduced alongside the README split in GH #198. Entries from
 (including everything before 3.2.0) predate a consistent per-commit version tag
 in this repository — see `git log` or the GitHub Releases page for that history.
 
+## [3.18.0]
+
+- Book types and book info providers are now data-driven instead of
+  hard-coded: a new `GET /api/reference` endpoint (no auth required) returns
+  the live contents of the `book_types`/`book_info_providers` tables, and the
+  frontend builds every related `<select>` (add-book, edit-book, the library
+  type filter, and the Preferences tab's book-info-source picker) from that
+  response instead of static `<option>` lists. `UpdateBookRequest.BookTypeId`/
+  `BookInfoProviderId` and `UpdatePreferencesRequest.PreferredBookInfoProviderId`
+  are now validated with a live existence check against those tables instead
+  of a hard-coded `[Range]`, and the bulk-import path's "unknown type falls
+  back to the default with a warning" behavior is sourced from the same live
+  set. This is Phase A of GH #224 (data-driven API/UI); Phase B (an
+  admin-only Settings tab to create/rename/reorder/retire book types) is a
+  follow-up.
+
 ## [3.17.0]
 
 - Split the frontend's translation catalogs out of `wwwroot/js/i18n.js` into

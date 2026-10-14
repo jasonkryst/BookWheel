@@ -225,8 +225,65 @@ let scannerDetector = null;
 let scannerRafId = null;
 let scannerFacingMode = 'environment';
 let addedByScanner = false;
-const BOOK_TYPE_ICONS = { 1: '📖', 2: '📱', 3: '🔖' };
-const BOOK_TYPE_I18N_KEYS = { 1: 'books.typePhysical', 2: 'books.typeDigital', 3: 'books.typeNookOnly' };
+// GH #224: populated from GET /api/reference by loadReferenceData() instead of
+// being hard-coded, so the set of book types/providers is data-driven.
+let BOOK_TYPES = [];
+let BOOK_INFO_PROVIDERS = [];
+const DEFAULT_BOOK_TYPE_ICON = '📖';
+
+function getBookTypeIcon(bookTypeId) {
+  const type = BOOK_TYPES.find(t => t.id === bookTypeId);
+  return (type && type.icon) || DEFAULT_BOOK_TYPE_ICON;
+}
+
+function getBookTypeLabelKey(bookTypeId) {
+  const type = BOOK_TYPES.find(t => t.id === bookTypeId);
+  return type ? type.i18nKey : null;
+}
+
+function createOptionElement(value, label, i18nKey) {
+  const option = document.createElement('option');
+  option.value = String(value);
+  option.textContent = label;
+  if (i18nKey) {
+    option.setAttribute('data-i18n', i18nKey);
+  }
+  return option;
+}
+
+function populateBookTypeSelect(selectEl, { includeAllOption = false } = {}) {
+  const { t } = window.BookWheelI18n;
+  selectEl.innerHTML = '';
+  if (includeAllOption) {
+    selectEl.appendChild(createOptionElement(0, t('books.filterAllTypes'), 'books.filterAllTypes'));
+  }
+  for (const type of BOOK_TYPES) {
+    const label = type.i18nKey ? t(type.i18nKey) : type.name;
+    selectEl.appendChild(createOptionElement(type.id, label, type.i18nKey));
+  }
+}
+
+function populateBookInfoProviderSelect(selectEl) {
+  selectEl.innerHTML = '';
+  for (const provider of BOOK_INFO_PROVIDERS) {
+    selectEl.appendChild(createOptionElement(provider.id, provider.name, null));
+  }
+}
+
+async function loadReferenceData() {
+  try {
+    const data = await requestJson('/api/reference');
+    BOOK_TYPES = data.bookTypes || [];
+    BOOK_INFO_PROVIDERS = data.bookInfoProviders || [];
+  } catch {
+    // If this fails the server itself is unreachable, in which case the rest
+    // of the app is broken too; leave the selects empty rather than throw.
+  }
+  populateBookTypeSelect(bookType);
+  populateBookTypeSelect(bookTypeFilter, { includeAllOption: true });
+  populateBookTypeSelect(editBookType);
+  populateBookInfoProviderSelect(bookInfoProviderSelect);
+}
 
 function showToast(message, type = 'info', options = {}) {
   if (!toastRegion || !message) {
@@ -1574,8 +1631,8 @@ function renderActiveBooks() {
     if (book.bookTypeId) {
       const typeIcon = document.createElement('span');
       typeIcon.className = 'book-type-badge';
-      typeIcon.textContent = BOOK_TYPE_ICONS[book.bookTypeId] || '📖';
-      const typeLabelKey = BOOK_TYPE_I18N_KEYS[book.bookTypeId];
+      typeIcon.textContent = getBookTypeIcon(book.bookTypeId);
+      const typeLabelKey = getBookTypeLabelKey(book.bookTypeId);
       if (typeLabelKey) {
         const typeLabel = t(typeLabelKey);
         typeIcon.title = typeLabel;
@@ -1635,8 +1692,8 @@ function renderSelectedBookResult(book) {
   if (book.bookTypeId) {
     const mediaTypeEl = document.createElement('span');
     mediaTypeEl.className = 'book-media-type-text';
-    const icon = BOOK_TYPE_ICONS[book.bookTypeId] || '';
-    const labelKey = BOOK_TYPE_I18N_KEYS[book.bookTypeId];
+    const icon = getBookTypeIcon(book.bookTypeId);
+    const labelKey = getBookTypeLabelKey(book.bookTypeId);
     mediaTypeEl.textContent = icon && labelKey ? `${icon} ${t(labelKey)}` : (labelKey ? t(labelKey) : icon);
     details.appendChild(mediaTypeEl);
   }
@@ -3681,8 +3738,8 @@ async function fetchAndRenderStats() {
     // Media type breakdown
     if (stats.typeBreakdown?.length) {
       stats.typeBreakdown.forEach(({ bookTypeId, spinCount }) => {
-        const icon = BOOK_TYPE_ICONS[bookTypeId] || '📖';
-        const labelKey = BOOK_TYPE_I18N_KEYS[bookTypeId];
+        const icon = getBookTypeIcon(bookTypeId);
+        const labelKey = getBookTypeLabelKey(bookTypeId);
         const label = labelKey ? `${icon} ${t(labelKey)}` : icon;
         const card = document.createElement('div');
         card.className = 'stats-summary-card';
@@ -3979,6 +4036,10 @@ syncLangSelect();
   applyAnalyticsConsent();
   applySpinCelebrationPreference();
   await loadAppVersion();
+  // Book type/provider <select> options come from the server (GH #224); this
+  // isn't auth-gated since Preferences (and its book-info-source select) is
+  // the one Settings tab visible even when logged out.
+  await loadReferenceData();
 
   try {
     const status = await requestJson('/api/auth/status');

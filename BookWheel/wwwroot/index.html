@@ -130,11 +130,9 @@
               <label for="bookIsbn" class="sr-only" data-i18n="books.isbnLabel">ISBN</label>
               <input id="bookIsbn" maxlength="20" placeholder="ISBN (optional)" aria-describedby="bookMessage" data-i18n-placeholder="books.isbnPlaceholder" />
               <label for="bookType" class="sr-only" data-i18n="books.typeLabel">Book type</label>
-              <select id="bookType">
-                <option value="1" data-i18n="books.typePhysical">Physical</option>
-                <option value="2" data-i18n="books.typeDigital">Digital</option>
-                <option value="3" data-i18n="books.typeNookOnly">Nook Only</option>
-              </select>
+              <!-- Options are rendered from GET /api/reference by app.js's
+                   populateBookTypeSelect(), not hard-coded here (GH #224). -->
+              <select id="bookType"></select>
             </div>
             <div class="book-add-actions">
               <button type="button" id="bookScanBtn" class="secondary icon-btn" title="Scan ISBN barcode" aria-label="Scan ISBN barcode" data-i18n-title="scanner.scanBtnTitle" data-i18n-aria-label="scanner.scanBtnLabel">
@@ -157,12 +155,9 @@
             </div>
             <div class="toolbar-field">
               <label for="bookTypeFilter" data-i18n="books.filterTypeLabel">Type</label>
-              <select id="bookTypeFilter">
-                <option value="0" data-i18n="books.filterAllTypes">All types</option>
-                <option value="1" data-i18n="books.typePhysical">Physical</option>
-                <option value="2" data-i18n="books.typeDigital">Digital</option>
-                <option value="3" data-i18n="books.typeNookOnly">Nook Only</option>
-              </select>
+              <!-- Options (including "All types") are rendered from GET
+                   /api/reference by app.js's populateBookTypeSelect() (GH #224). -->
+              <select id="bookTypeFilter"></select>
             </div>
             <div class="toolbar-field">
               <label for="bookSortSelect" data-i18n="books.sortLabel">Sort by</label>
@@ -348,10 +343,9 @@
         </label>
         <label class="settings-row">
           <span data-i18n="settings.bookInfoProviderLabel">Book info source</span>
-          <select id="bookInfoProviderSelect">
-            <option value="1">Open Library</option>
-            <option value="2">Google Books</option>
-          </select>
+          <!-- Options are rendered from GET /api/reference by app.js's
+               populateBookInfoProviderSelect() (GH #224). -->
+          <select id="bookInfoProviderSelect"></select>
         </label>
         <form id="changePasswordForm" class="stack">
           <h3 data-i18n="settings.changePasswordHeading">Change password</h3>
@@ -393,11 +387,9 @@
       </label>
       <label>
         <span data-i18n="books.typeLabel">Book type</span>
-        <select id="editBookType">
-          <option value="1" data-i18n="books.typePhysical">Physical</option>
-          <option value="2" data-i18n="books.typeDigital">Digital</option>
-          <option value="3" data-i18n="books.typeNookOnly">Nook Only</option>
-        </select>
+        <!-- Options are rendered from GET /api/reference by app.js's
+             populateBookTypeSelect() (GH #224). -->
+        <select id="editBookType"></select>
       </label>
       <div class="actions modal-actions">
         <button type="button" id="editScanBtn" class="secondary icon-btn" title="Scan ISBN barcode" aria-label="Scan ISBN barcode" data-i18n-title="scanner.scanBtnTitle" data-i18n-aria-label="scanner.scanBtnLabel">

@@ -2446,6 +2446,132 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
         Assert.Equal(1, doc.RootElement.GetProperty("bookInfoProviderId").GetInt32());
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task Add_Book_Accepts_Every_Seeded_BookTypeId(int bookTypeId)
+    {
+        // GH #224: BookTypeId is validated against the book_types table, not a
+        // numeric range, so this pins that every seeded type still round-trips.
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
+        await LoginAsync(client);
+
+        var response = await client.PostAsJsonAsync("/api/books", new { title = "Typed Book", bookTypeId });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var doc = await ReadJsonAsync(response);
+        Assert.Equal(bookTypeId, doc.RootElement.GetProperty("bookTypeId").GetInt32());
+    }
+
+    [Fact]
+    public async Task Add_Book_Rejects_An_Unknown_BookTypeId()
+    {
+        // GH #224: #224's whole point is that this is a live DB existence check,
+        // not a hard-coded range — pin that an id outside the seeded 1-3 range
+        // (not just "out of range", any non-existent id) is rejected.
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
+        await LoginAsync(client);
+
+        var response = await client.PostAsJsonAsync("/api/books", new { title = "Bad Type Book", bookTypeId = 999 });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        using var doc = await ReadJsonAsync(response);
+        Assert.Equal("Book type must be a valid type.", doc.RootElement.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task Add_Book_Rejects_An_Unknown_BookInfoProviderId()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
+        await LoginAsync(client);
+
+        var response = await client.PostAsJsonAsync("/api/books", new { title = "Bad Provider Book", bookInfoProviderId = 999 });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        using var doc = await ReadJsonAsync(response);
+        Assert.Equal("Book info provider must be a valid provider.", doc.RootElement.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task Update_Book_Rejects_An_Unknown_BookTypeId()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
+        await LoginAsync(client);
+
+        var addResponse = await client.PostAsJsonAsync("/api/books", new { title = "Editable Book", bookTypeId = 1 });
+        using var addDoc = await ReadJsonAsync(addResponse);
+        var id = addDoc.RootElement.GetProperty("id").GetGuid();
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/books/{id}", new { title = "Editable Book", bookTypeId = 999 });
+
+        Assert.Equal(HttpStatusCode.BadRequest, updateResponse.StatusCode);
+        using var doc = await ReadJsonAsync(updateResponse);
+        Assert.Equal("Book type must be a valid type.", doc.RootElement.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task Reference_Endpoint_Returns_Seeded_Book_Types_And_Providers_Without_Authentication()
+    {
+        // GH #224: non-sensitive, needed to render the Preferences tab's book-info-
+        // source select even when logged out, so this must not require auth.
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/reference");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var doc = await ReadJsonAsync(response);
+
+        var bookTypes = doc.RootElement.GetProperty("bookTypes").EnumerateArray().ToList();
+        Assert.Equal(3, bookTypes.Count);
+        Assert.Contains(bookTypes, t => t.GetProperty("id").GetInt32() == 1
+            && t.GetProperty("name").GetString() == "Physical"
+            && t.GetProperty("icon").GetString() == "📖"
+            && t.GetProperty("i18nKey").GetString() == "books.typePhysical");
+        Assert.Contains(bookTypes, t => t.GetProperty("id").GetInt32() == 3
+            && t.GetProperty("name").GetString() == "Nook Only"
+            && t.GetProperty("i18nKey").GetString() == "books.typeNookOnly");
+
+        var providers = doc.RootElement.GetProperty("bookInfoProviders").EnumerateArray().ToList();
+        Assert.Equal(2, providers.Count);
+        Assert.Contains(providers, p => p.GetProperty("id").GetInt32() == 1 && p.GetProperty("name").GetString() == "Open Library");
+        Assert.Contains(providers, p => p.GetProperty("id").GetInt32() == 2 && p.GetProperty("name").GetString() == "Google Books");
+    }
+
+    [Fact]
+    public async Task Put_Preferences_Rejects_An_Unknown_BookInfoProviderId()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
+        await LoginAsync(client);
+
+        var response = await client.PutAsJsonAsync("/api/preferences", new { preferredBookInfoProviderId = 999 });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        using var doc = await ReadJsonAsync(response);
+        Assert.Equal("Book info provider must be a valid provider.", doc.RootElement.GetProperty("message").GetString());
+    }
+
     [Fact]
     public async Task Add_Book_With_Invalid_Isbn_Returns_BadRequest()
     {

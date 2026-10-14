@@ -47,6 +47,10 @@ Auth endpoints:
 - `GET /health/live`
 - `GET /health/ready`
 
+Reference endpoint (no authentication required — non-sensitive, needed to render the Preferences tab even when logged out):
+
+- `GET /api/reference` — returns `bookTypes` (`id`, `name`, `icon`, `i18nKey` — `i18nKey` is `null` for a type with no built-in translation) and `bookInfoProviders` (`id`, `name`), read live from the `book_types`/`book_info_providers` tables. The frontend builds every book-type/provider `<select>` from this instead of hard-coding options.
+
 Preferences endpoints (authentication required):
 
 - `GET /api/preferences` — returns the authenticated user's `theme`, `analyticsConsentOptedOut`, `preferredBookInfoProviderId`, and `locale` (all `null`/`false` by default for a user who has never set one)

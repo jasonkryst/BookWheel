@@ -92,6 +92,12 @@ builder.Services.AddSingleton<ILoginThrottleRepository>(sp => sp.GetRequiredServ
 builder.Services.AddSingleton<PostgresUserPreferencesRepository>();
 builder.Services.AddSingleton<IUserPreferencesRepository>(sp => sp.GetRequiredService<PostgresUserPreferencesRepository>());
 
+builder.Services.AddSingleton<PostgresBookTypeRepository>();
+builder.Services.AddSingleton<IBookTypeRepository>(sp => sp.GetRequiredService<PostgresBookTypeRepository>());
+
+builder.Services.AddSingleton<PostgresBookInfoProviderRepository>();
+builder.Services.AddSingleton<IBookInfoProviderRepository>(sp => sp.GetRequiredService<PostgresBookInfoProviderRepository>());
+
 builder.Services.AddSingleton<DataMigrationService>();
 builder.Services.AddSingleton<PostgresMigrationService>();
 builder.Services.AddControllers()

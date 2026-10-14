@@ -22,6 +22,9 @@ public sealed class BooksController : ControllerBase
     private readonly IUserPreferencesRepository _preferencesRepository;
     private readonly IOptionsSnapshot<BookMetadataOptions> _metadataOptions;
 
+    private readonly IBookTypeRepository _bookTypes;
+    private readonly IBookInfoProviderRepository _bookInfoProviders;
+
     public BooksController(
         AppMetricsService metricsService,
         IBookRepository store,
@@ -30,7 +33,9 @@ public sealed class BooksController : ControllerBase
         BookMetadataLookupDispatcher metadataLookup,
         BookSearchLinksService searchLinks,
         IUserPreferencesRepository preferencesRepository,
-        IOptionsSnapshot<BookMetadataOptions> metadataOptions)
+        IOptionsSnapshot<BookMetadataOptions> metadataOptions,
+        IBookTypeRepository bookTypes,
+        IBookInfoProviderRepository bookInfoProviders)
     {
         _metricsService = metricsService;
         _store = store;
@@ -40,6 +45,8 @@ public sealed class BooksController : ControllerBase
         _searchLinks = searchLinks;
         _preferencesRepository = preferencesRepository;
         _metadataOptions = metadataOptions;
+        _bookTypes = bookTypes;
+        _bookInfoProviders = bookInfoProviders;
     }
 
     [HttpGet]
@@ -115,6 +122,7 @@ public sealed class BooksController : ControllerBase
             var restored = 0;
             var skipped = 0;
             var warnings = 0;
+            var validBookTypeIds = (await _bookTypes.GetAllAsync()).Select(t => t.Id).ToHashSet();
 
             foreach (var item in request.Books)
             {
@@ -156,7 +164,7 @@ public sealed class BooksController : ControllerBase
                 }
 
                 var bookTypeId = item.BookTypeId ?? 1;
-                if (item.BookTypeId is < 1 or > 3)
+                if (item.BookTypeId is not null && !validBookTypeIds.Contains(item.BookTypeId.Value))
                 {
                     bookTypeId = 1;
                     warnings += 1;
@@ -176,6 +184,21 @@ public sealed class BooksController : ControllerBase
 
     private static string NormalizeTitleForMatch(string title) => title.Trim().ToLowerInvariant();
 
+    private async Task<string?> ValidateBookReferenceIdsAsync(UpdateBookRequest request)
+    {
+        if (!await _bookTypes.ExistsAsync(request.BookTypeId))
+        {
+            return _errors.Localize("Book type must be a valid type.");
+        }
+
+        if (request.BookInfoProviderId is not null && !await _bookInfoProviders.ExistsAsync(request.BookInfoProviderId.Value))
+        {
+            return _errors.Localize("Book info provider must be a valid provider.");
+        }
+
+        return null;
+    }
+
     [HttpPost]
     public async Task<IActionResult> Add([FromBody] UpdateBookRequest request)
     {
@@ -190,6 +213,12 @@ public sealed class BooksController : ControllerBase
         if (!string.IsNullOrWhiteSpace(request.Isbn) && !IsbnValidator.TryNormalize(request.Isbn, out normalizedIsbn))
         {
             return BadRequest(new { message = _errors.Localize("The provided ISBN is not valid.") });
+        }
+
+        var referenceError = await ValidateBookReferenceIdsAsync(request);
+        if (referenceError is not null)
+        {
+            return BadRequest(new { message = referenceError });
         }
 
         try
@@ -234,6 +263,12 @@ public sealed class BooksController : ControllerBase
         if (!string.IsNullOrWhiteSpace(request.Isbn) && !IsbnValidator.TryNormalize(request.Isbn, out normalizedIsbn))
         {
             return BadRequest(new { message = _errors.Localize("The provided ISBN is not valid.") });
+        }
+
+        var referenceError = await ValidateBookReferenceIdsAsync(request);
+        if (referenceError is not null)
+        {
+            return BadRequest(new { message = referenceError });
         }
 
         try

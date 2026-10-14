@@ -1383,6 +1383,8 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
     [Fact]
     public async Task Home_Page_Should_Include_Book_Info_Provider_Select()
     {
+        // GH #224: the select's options are no longer static HTML — app.js builds
+        // them from GET /api/reference (see Frontend_Script_Should_Build_Book_Type_And_Provider_Selects_From_The_Reference_Api).
         var factory = _factory;
         using var client = factory.CreateClient();
 
@@ -1390,8 +1392,42 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
 
         Assert.Contains("id=\"bookInfoProviderSelect\"", html, StringComparison.Ordinal);
         Assert.Contains("data-i18n=\"settings.bookInfoProviderLabel\"", html, StringComparison.Ordinal);
-        Assert.Contains("<option value=\"1\">Open Library</option>", html, StringComparison.Ordinal);
-        Assert.Contains("<option value=\"2\">Google Books</option>", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<option value=\"1\">Open Library</option>", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<option value=\"2\">Google Books</option>", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Script_Should_Build_Book_Type_And_Provider_Selects_From_The_Reference_Api()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var html = await client.GetStringAsync("/");
+        var script = await client.GetStringAsync("/js/app.js");
+
+        // Positive: none of the four selects hard-code book-type/provider options
+        // in the static markup anymore.
+        Assert.DoesNotContain("<option value=\"1\" data-i18n=\"books.typePhysical\">", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<option value=\"2\" data-i18n=\"books.typeDigital\">", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<option value=\"3\" data-i18n=\"books.typeNookOnly\">", html, StringComparison.Ordinal);
+
+        // Positive: app.js fetches the reference data and builds options for all
+        // four selects from it instead.
+        Assert.Contains("async function loadReferenceData()", script, StringComparison.Ordinal);
+        Assert.Contains("requestJson('/api/reference')", script, StringComparison.Ordinal);
+        Assert.Contains("function populateBookTypeSelect(selectEl", script, StringComparison.Ordinal);
+        Assert.Contains("function populateBookInfoProviderSelect(selectEl)", script, StringComparison.Ordinal);
+        Assert.Contains("populateBookTypeSelect(bookType)", script, StringComparison.Ordinal);
+        Assert.Contains("populateBookTypeSelect(bookTypeFilter, { includeAllOption: true })", script, StringComparison.Ordinal);
+        Assert.Contains("populateBookTypeSelect(editBookType)", script, StringComparison.Ordinal);
+        Assert.Contains("populateBookInfoProviderSelect(bookInfoProviderSelect)", script, StringComparison.Ordinal);
+
+        // Negative: the book-type icon/i18n-key lookups are no longer static
+        // objects — they're resolved against the fetched reference data.
+        Assert.DoesNotContain("const BOOK_TYPE_ICONS = {", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("const BOOK_TYPE_I18N_KEYS = {", script, StringComparison.Ordinal);
+        Assert.Contains("function getBookTypeIcon(bookTypeId)", script, StringComparison.Ordinal);
+        Assert.Contains("function getBookTypeLabelKey(bookTypeId)", script, StringComparison.Ordinal);
     }
 
     [Fact]

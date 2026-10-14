@@ -27,7 +27,11 @@ public sealed class AuthorizationCoverageTests
         // MigrationController is class-level [AllowAnonymous] and enforces its own
         // "anonymous only before the first account, else admin" rule (retired by CORE-7).
         "MigrationController.Status",
-        "MigrationController.Run"
+        "MigrationController.Run",
+        // GH #224: book types/providers are non-sensitive reference data needed to
+        // render the Preferences tab's book-info-source select, which is visible
+        // even when logged out.
+        "ReferenceController.GetAsync"
     };
 
     private static readonly HashSet<string> ExpectedAdminActions = new(StringComparer.Ordinal)

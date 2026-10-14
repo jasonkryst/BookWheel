@@ -9,7 +9,7 @@ public sealed class UpdatePreferencesRequest
 
     public bool AnalyticsConsentOptedOut { get; set; }
 
-    [Range(1, 2, ErrorMessage = "Book info provider must be a valid provider.")]
+    // GH #224: validated against the book_info_providers table in PreferencesController.
     public int? PreferredBookInfoProviderId { get; set; }
 
     [SupportedLocale]
