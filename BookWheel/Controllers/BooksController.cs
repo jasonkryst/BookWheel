@@ -1,3 +1,4 @@
+using System.Globalization;
 using BookWheel.Models;
 using BookWheel.Services;
 using BookWheel.Storage;
@@ -338,7 +339,7 @@ public sealed class BooksController : ControllerBase
             Isbn = isbn,
             CoverUrl = metadata?.CoverUrl,
             ProviderId = metadata?.ProviderId,
-            Links = _searchLinks.BuildLinks(isbn, metadata?.Title, resolvedAuthor)
+            Links = _searchLinks.BuildLinks(isbn, metadata?.Title, resolvedAuthor, CultureInfo.CurrentUICulture.TwoLetterISOLanguageName)
         };
     }
 

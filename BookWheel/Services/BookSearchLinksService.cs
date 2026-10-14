@@ -1,58 +1,75 @@
 using BookWheel.Models;
+using Microsoft.Extensions.Options;
 
 namespace BookWheel.Services;
 
 public sealed class BookSearchLinksService
 {
-    public BookSearchLinks BuildLinks(string? isbn, string? title, string? author)
+    private readonly RetailerLinksOptions _options;
+
+    public BookSearchLinksService(IOptions<RetailerLinksOptions> options)
     {
-        return new BookSearchLinks
+        _options = options.Value;
+    }
+
+    // Retailers sharing a Name (e.g. three "Amazon" entries for .com/.es/.pl)
+    // are locale variants of the same slot: the one whose Locales contains the
+    // request's locale wins, falling back to the entry with an empty Locales
+    // list (the "default" variant). A retailer with no empty-Locales entry at
+    // all (e.g. Bookshop.org, scoped to ["es", "pl"]) simply doesn't appear
+    // for locales outside that list.
+    public List<BookSearchLink> BuildLinks(string? isbn, string? title, string? author, string locale = "en")
+    {
+        var textQuery = BuildTextQuery(title, author);
+        var links = new List<BookSearchLink>();
+
+        foreach (var group in _options.Retailers.Where(r => r.Enabled).GroupBy(r => r.Name, StringComparer.Ordinal))
         {
-            GoogleBooks = BuildGoogleBooksUrl(isbn, title, author),
-            OpenLibrary = BuildOpenLibraryUrl(isbn, title, author),
-            Goodreads = BuildGoodreadsUrl(isbn, title, author),
-            BarnesAndNoble = BuildBarnesAndNobleUrl(isbn, title, author),
-            Amazon = BuildAmazonUrl(isbn, title, author)
-        };
+            var retailer = group.FirstOrDefault(r => r.Locales.Contains(locale, StringComparer.OrdinalIgnoreCase))
+                ?? group.FirstOrDefault(r => r.Locales.Count == 0);
+
+            var url = BuildUrl(retailer, isbn, textQuery);
+            if (retailer is null || url is null)
+                continue;
+
+            links.Add(new BookSearchLink
+            {
+                Name = retailer.Name,
+                Url = url,
+                IsAffiliate = !string.IsNullOrWhiteSpace(retailer.AffiliateTag) && !string.IsNullOrWhiteSpace(retailer.AffiliateParam)
+            });
+        }
+
+        return links;
     }
 
-    private static string BuildGoogleBooksUrl(string? isbn, string? title, string? author)
+    private static string? BuildUrl(RetailerOptions? retailer, string? isbn, string textQuery)
     {
-        if (!string.IsNullOrWhiteSpace(isbn))
-            return $"https://books.google.com/books?vid=ISBN{Uri.EscapeDataString(isbn)}";
+        if (retailer is null)
+            return null;
 
-        return $"https://books.google.com/books?q={Uri.EscapeDataString(BuildTextQuery(title, author))}";
-    }
+        string url;
+        if (!string.IsNullOrWhiteSpace(isbn) && !string.IsNullOrWhiteSpace(retailer.IsbnUrlTemplate))
+        {
+            url = retailer.IsbnUrlTemplate.Replace("{isbn}", Uri.EscapeDataString(isbn));
+        }
+        else if (!string.IsNullOrWhiteSpace(retailer.TextUrlTemplate))
+        {
+            var query = !string.IsNullOrWhiteSpace(isbn) ? isbn : textQuery;
+            url = retailer.TextUrlTemplate.Replace("{query}", Uri.EscapeDataString(query));
+        }
+        else
+        {
+            return null;
+        }
 
-    private static string BuildOpenLibraryUrl(string? isbn, string? title, string? author)
-    {
-        if (!string.IsNullOrWhiteSpace(isbn))
-            return $"https://openlibrary.org/isbn/{Uri.EscapeDataString(isbn)}";
+        if (!string.IsNullOrWhiteSpace(retailer.AffiliateTag) && !string.IsNullOrWhiteSpace(retailer.AffiliateParam))
+        {
+            var separator = url.Contains('?') ? "&" : "?";
+            url += $"{separator}{Uri.EscapeDataString(retailer.AffiliateParam)}={Uri.EscapeDataString(retailer.AffiliateTag)}";
+        }
 
-        var url = $"https://openlibrary.org/search?q={Uri.EscapeDataString(title?.Trim() ?? string.Empty)}";
-        if (!string.IsNullOrWhiteSpace(author))
-            url += $"&author={Uri.EscapeDataString(author.Trim())}";
         return url;
-    }
-
-    private static string BuildGoodreadsUrl(string? isbn, string? title, string? author)
-    {
-        var query = !string.IsNullOrWhiteSpace(isbn) ? isbn : BuildTextQuery(title, author);
-        return $"https://www.goodreads.com/search?q={Uri.EscapeDataString(query)}";
-    }
-
-    private static string BuildBarnesAndNobleUrl(string? isbn, string? title, string? author)
-    {
-        if (!string.IsNullOrWhiteSpace(isbn))
-            return $"https://www.barnesandnoble.com/s/{Uri.EscapeDataString(isbn)}";
-
-        return $"https://www.barnesandnoble.com/s/{Uri.EscapeDataString(BuildTextQuery(title, author))}";
-    }
-
-    private static string BuildAmazonUrl(string? isbn, string? title, string? author)
-    {
-        var query = !string.IsNullOrWhiteSpace(isbn) ? isbn : BuildTextQuery(title, author);
-        return $"https://www.amazon.com/s?k={Uri.EscapeDataString(query)}";
     }
 
     private static string BuildTextQuery(string? title, string? author)

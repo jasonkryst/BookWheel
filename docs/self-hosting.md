@@ -70,6 +70,26 @@ ASP.NET Core environment variable (`Section__Key`, double underscore), or — fo
 | — | — | `BACKUP_KEEP_WEEKS` | `4` | Weekly backups to retain |
 | — | — | `BACKUP_KEEP_MONTHS` | `6` | Monthly backups to retain |
 
+## Retailer Links
+
+Book Search's "find this book online" links (`BookWheel/Models/RetailerLinksOptions.cs`) are configured under `RetailerLinks:Retailers`, an array rather than a flat set of keys, so there's no single `Section__Key` env var form for it — override entries by index instead (see below).
+
+Each entry has:
+
+| Field | Purpose |
+|---|---|
+| `Name` | Display name. Entries sharing the same `Name` are locale variants of one retailer "slot" — see below. |
+| `IsbnUrlTemplate` | Optional. Used when an ISBN is known; `{isbn}` is replaced with it. |
+| `TextUrlTemplate` | Used otherwise; `{query}` is replaced with the ISBN (if known but no `IsbnUrlTemplate` is set) or the title/author text. |
+| `Enabled` | Set `false` to hide this entry entirely. |
+| `AffiliateTag` | Empty by default — no monetization is configured out of the box. Set alongside `AffiliateParam` to opt in. |
+| `AffiliateParam` | The query-string parameter name the tag is appended under (e.g. `tag` for Amazon Associates). |
+| `Locales` | Language codes (`en`/`es`/`pl`) this entry applies to. Empty means "default" — used when no locale-specific entry sharing this `Name` matches the signed-in user's language. |
+
+The shipped defaults: Google Books, Open Library, and Goodreads (shown for every locale); Amazon, with regional domains for `en` (`.com`, the default), `es`, and `pl`; Barnes & Noble for `en`; and Bookshop.org for `es`/`pl`. Setting `AffiliateTag`+`AffiliateParam` on an entry makes its link open with `rel="sponsored noopener"` and shows a disclosure note under the links in the UI — neither happens unless both are set.
+
+Configuration binds array entries by index, so an env var or a higher-priority `appsettings.*.json` targets one entry at a time rather than replacing the whole list — for example, `RetailerLinks__Retailers__6__Enabled=false` disables just the 7th entry (Barnes & Noble in the shipped default order). To ship a fully custom retailer list, edit the array in `BookWheel/appsettings.json` directly.
+
 ## Version Stamping (CI/CD and Docker)
 
 `BookWheel/BookWheel.csproj`'s `InformationalVersion` is the single source of truth for the app version. The footer and `/api/version` read it from the built assembly's `AssemblyInformationalVersion` attribute at runtime; everything else derives from or is validated against this value:

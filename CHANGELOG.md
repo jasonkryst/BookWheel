@@ -10,6 +10,15 @@ This file was introduced alongside the README split in GH #198. Entries from
 (including everything before 3.2.0) predate a consistent per-commit version tag
 in this repository — see `git log` or the GitHub Releases page for that history.
 
+## [3.16.0]
+
+- Added configurable retailer links for Book Search: the retailer list (name,
+  ISBN/text URL templates, enabled flag, optional affiliate tag) moved from
+  hardcoded values into `RetailerLinks:Retailers` config, with locale-aware
+  defaults (regional Amazon domains for en/es/pl, Bookshop.org replacing
+  Barnes & Noble for es/pl) and an affiliate disclosure note shown only when
+  an affiliate tag is actually configured (none are, by default) (GH #208)
+
 ## [3.15.2]
 
 - Split the README into a short pitch/quickstart plus `docs/user-guide.md`,
