@@ -2571,6 +2571,58 @@ public sealed class BookWheelApiTests : IClassFixture<BookWheelWebAppFactory>, I
     }
 
     [Fact]
+    public async Task BookInfo_By_Isbn_Includes_Retailer_Links_With_No_Affiliate_Tags_By_Default()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
+        await LoginAsync(client);
+
+        var response = await client.GetAsync($"/api/books/info?isbn={FakeBookMetadataLookupService.KnownIsbn}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var doc = await ReadJsonAsync(response);
+
+        // GH #208: retailer links are returned as a configurable list, with no
+        // affiliate tags configured by default (scaffolding only).
+        var links = doc.RootElement.GetProperty("links").EnumerateArray().ToList();
+        Assert.Contains(links, l => l.GetProperty("name").GetString() == "Google Books"
+            && l.GetProperty("url").GetString() == $"https://books.google.com/books?vid=ISBN{FakeBookMetadataLookupService.KnownIsbn}");
+        Assert.All(links, l => Assert.False(l.GetProperty("isAffiliate").GetBoolean()));
+    }
+
+    [Theory]
+    [InlineData("en", "https://www.amazon.com/s?k=", "Barnes & Noble")]
+    [InlineData("es", "https://www.amazon.es/s?k=", "Bookshop.org")]
+    [InlineData("pl", "https://www.amazon.pl/s?k=", "Bookshop.org")]
+    public async Task BookInfo_Retailer_Links_Follow_The_Request_Locale(string acceptLanguage, string expectedAmazonUrlPrefix, string expectedSecondRetailer)
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/setup", new { username = "test-admin", password = "test-password",
+            email = "test-setup@example.com" });
+        await LoginAsync(client);
+
+        var request = new HttpRequestMessage(HttpMethod.Get, $"/api/books/info?isbn={FakeBookMetadataLookupService.KnownIsbn}");
+        request.Headers.Add("Accept-Language", acceptLanguage);
+
+        var response = await client.SendAsync(request);
+        using var doc = await ReadJsonAsync(response);
+        var links = doc.RootElement.GetProperty("links").EnumerateArray().ToList();
+
+        // Positive: the regional Amazon domain for this locale is used, and
+        // exactly one Amazon entry is present (not all locale variants at once).
+        var amazonLinks = links.Where(l => l.GetProperty("name").GetString() == "Amazon").ToList();
+        var amazon = Assert.Single(amazonLinks);
+        Assert.StartsWith(expectedAmazonUrlPrefix, amazon.GetProperty("url").GetString());
+
+        // Positive: Barnes & Noble (en) vs. Bookshop.org (es/pl) swap by locale.
+        Assert.Contains(links, l => l.GetProperty("name").GetString() == expectedSecondRetailer);
+    }
+
+    [Fact]
     public async Task Lookup_By_Isbn_Uses_Preferred_Provider_Then_Falls_Back()
     {
         var factory = _factory;

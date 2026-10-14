@@ -7,5 +7,5 @@ public sealed class BookInfoResult
     public string? Isbn { get; set; }
     public string? CoverUrl { get; set; }
     public int? ProviderId { get; set; }
-    public BookSearchLinks Links { get; set; } = new();
+    public List<BookSearchLink> Links { get; set; } = [];
 }

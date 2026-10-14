@@ -168,11 +168,8 @@ const bookInfoCoverImg = document.getElementById('bookInfoCoverImg');
 const bookInfoResultTitle = document.getElementById('bookInfoResultTitle');
 const bookInfoResultAuthor = document.getElementById('bookInfoResultAuthor');
 const bookInfoResultIsbn = document.getElementById('bookInfoResultIsbn');
-const bookInfoGoogleBooksLink = document.getElementById('bookInfoGoogleBooksLink');
-const bookInfoOpenLibraryLink = document.getElementById('bookInfoOpenLibraryLink');
-const bookInfoGoodreadsLink = document.getElementById('bookInfoGoodreadsLink');
-const bookInfoBnLink = document.getElementById('bookInfoBnLink');
-const bookInfoAmazonLink = document.getElementById('bookInfoAmazonLink');
+const bookInfoLinks = document.getElementById('bookInfoLinks');
+const bookInfoAffiliateDisclosure = document.getElementById('bookInfoAffiliateDisclosure');
 const bookInfoResultBackBtn = document.getElementById('bookInfoResultBackBtn');
 const bookInfoAddToWheelBtn = document.getElementById('bookInfoAddToWheelBtn');
 const cancelBookInfoBtn = document.getElementById('cancelBookInfoBtn');
@@ -4091,6 +4088,22 @@ function openBookInfoDialog() {
   openDialog(bookInfoDialog, bookInfoSearchBtn);
 }
 
+function renderBookInfoLinks(links) {
+  bookInfoLinks.innerHTML = '';
+
+  links.forEach(link => {
+    const anchor = document.createElement('a');
+    anchor.href = link.url;
+    anchor.target = '_blank';
+    anchor.rel = link.isAffiliate ? 'sponsored noopener' : 'noopener noreferrer';
+    anchor.className = 'secondary book-info-link-btn';
+    anchor.textContent = link.name;
+    bookInfoLinks.appendChild(anchor);
+  });
+
+  bookInfoAffiliateDisclosure.classList.toggle('hidden', !links.some(link => link.isAffiliate));
+}
+
 function renderBookInfoResult(result) {
   const { t } = window.BookWheelI18n;
   bookInfoCurrentResult = result;
@@ -4107,12 +4120,7 @@ function renderBookInfoResult(result) {
     bookInfoCoverImg.hidden = true;
   }
 
-  const links = result.links || {};
-  bookInfoGoogleBooksLink.href = links.googleBooks || '#';
-  bookInfoOpenLibraryLink.href = links.openLibrary || '#';
-  bookInfoGoodreadsLink.href = links.goodreads || '#';
-  bookInfoBnLink.href = links.barnesAndNoble || '#';
-  bookInfoAmazonLink.href = links.amazon || '#';
+  renderBookInfoLinks(result.links || []);
 
   showBookInfoPanel('result');
 }

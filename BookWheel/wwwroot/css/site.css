@@ -1301,6 +1301,11 @@ button:disabled {
   justify-content: center;
 }
 
+.book-info-affiliate-disclosure {
+  font-size: 0.8em;
+  margin: 4px 0 0;
+}
+
 .book-info-picker-list {
   max-height: 320px;
   overflow-y: auto;

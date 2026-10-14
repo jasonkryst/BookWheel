@@ -389,6 +389,36 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
     }
 
     [Fact]
+    public async Task Frontend_Should_Render_Configurable_Retailer_Links_With_Affiliate_Disclosure()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var htmlResponse = await client.GetAsync("/");
+        var html = await htmlResponse.Content.ReadAsStringAsync();
+
+        // Positive: GH #208 replaced the five hardcoded retailer anchors with
+        // an empty container the script populates from the server's
+        // (now-configurable) link list, plus a disclosure line.
+        Assert.Contains("id=\"bookInfoLinks\" class=\"book-info-links\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"bookInfoAffiliateDisclosure\"", html, StringComparison.Ordinal);
+
+        // Negative: none of the old fixed per-retailer anchors remain.
+        Assert.DoesNotContain("id=\"bookInfoGoogleBooksLink\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("id=\"bookInfoAmazonLink\"", html, StringComparison.Ordinal);
+
+        var scriptResponse = await client.GetAsync("/js/app.js");
+        var script = await scriptResponse.Content.ReadAsStringAsync();
+
+        // Positive: each link is rendered with its own rel, switching to
+        // "sponsored noopener" only when the server marked it as an affiliate
+        // link, and the disclosure note is shown only when at least one is.
+        Assert.Contains("function renderBookInfoLinks(links) {", script, StringComparison.Ordinal);
+        Assert.Contains("link.isAffiliate ? 'sponsored noopener' : 'noopener noreferrer'", script, StringComparison.Ordinal);
+        Assert.Contains("!links.some(link => link.isAffiliate)", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Frontend_Script_Should_Render_Cover_And_Author_For_Spin_Selection()
     {
         var factory = _factory;
