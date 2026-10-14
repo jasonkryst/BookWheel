@@ -83,8 +83,8 @@ This solution is split into separate application and test projects:
 
 Book Wheel supports English, Spanish, and Polish.
 
-- A gear-icon Settings button opens the consolidated Settings dialog; its Preferences tab holds the theme switcher and a language dropdown, and the language choice persists in the browser's `localStorage`. The button is positioned inline in the toolbar when logged in, and in the corner of the login/setup card when logged out. When logged out, or when the signed-in user isn't an administrator, the Manage users and/or Import/Export tabs are hidden and Preferences is the only tab shown.
-- On first visit, the language defaults to the browser's language if it's one of the supported three, otherwise English.
+- A gear-icon Settings button opens the consolidated Settings dialog; its Preferences tab holds the theme switcher and a language dropdown. The button is positioned inline in the toolbar when logged in, and in the corner of the login/setup card when logged out. When logged out, or when the signed-in user isn't an administrator, the Manage users and/or Import/Export tabs are hidden and Preferences is the only tab shown.
+- On first visit, the language defaults to the browser's language if it's one of the supported three, otherwise English; the choice is cached in the browser's `localStorage` for logged-out use, but for a signed-in user it is also saved server-side (alongside theme) and takes precedence on login, so it follows that user to a new device (GH #203).
 - The frontend sends the selected language as an `Accept-Language` header on every API call, so server-generated error messages (e.g. "Book title is required.") come back already translated.
 - Frontend strings live in `BookWheel/wwwroot/js/i18n.js`; backend error-message translations live in `BookWheel/Resources/SharedErrors*.resx`, looked up through `ApiMessageLocalizer`.
 
@@ -523,8 +523,8 @@ Auth endpoints:
 
 Preferences endpoints (authentication required):
 
-- `GET /api/preferences` — returns the authenticated user's `theme`, `analyticsConsentOptedOut`, and `preferredBookInfoProviderId` (all `null`/`false` by default for a user who has never set one)
-- `PUT /api/preferences` — replaces all three preference values in one call; `theme` must be `dark`, `light`, or `high-contrast` (or omitted/`null`), and `preferredBookInfoProviderId` must be a known provider id (or omitted/`null`)
+- `GET /api/preferences` — returns the authenticated user's `theme`, `analyticsConsentOptedOut`, `preferredBookInfoProviderId`, and `locale` (all `null`/`false` by default for a user who has never set one)
+- `PUT /api/preferences` — replaces all four preference values in one call; `theme` must be `dark`, `light`, or `high-contrast` (or omitted/`null`), `preferredBookInfoProviderId` must be a known provider id (or omitted/`null`), and `locale` must be one of the supported language codes (`en`, `es`, `pl`, or omitted/`null`)
 
 Operational endpoint (admin only):
 

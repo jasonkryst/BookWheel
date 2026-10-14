@@ -473,6 +473,12 @@ function applyPreferences(preferences) {
   if (bookInfoProviderSelect) {
     bookInfoProviderSelect.value = String(preferences.preferredBookInfoProviderId || 1);
   }
+  if (preferences.locale && window.BookWheelI18n.SUPPORTED_LOCALES.includes(preferences.locale)) {
+    window.BookWheelI18n.setLocale(preferences.locale);
+    if (langSelect) {
+      langSelect.value = preferences.locale;
+    }
+  }
 }
 
 async function loadAndApplyPreferences() {
@@ -496,7 +502,8 @@ async function savePreferencesIfAuthenticated() {
       body: JSON.stringify({
         theme: document.documentElement.getAttribute('data-theme') || DARK_THEME,
         analyticsConsentOptedOut: isAnalyticsOptedOut(),
-        preferredBookInfoProviderId: bookInfoProviderSelect ? (parseInt(bookInfoProviderSelect.value, 10) || null) : null
+        preferredBookInfoProviderId: bookInfoProviderSelect ? (parseInt(bookInfoProviderSelect.value, 10) || null) : null,
+        locale: window.BookWheelI18n.getCurrentLocale()
       })
     });
   } catch (error) {
@@ -3247,6 +3254,7 @@ if (settingsPreferencesTabBtn) {
 if (langSelect) {
   langSelect.addEventListener('change', () => {
     window.BookWheelI18n.setLocale(langSelect.value);
+    savePreferencesIfAuthenticated();
   });
 }
 
