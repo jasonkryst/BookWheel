@@ -819,6 +819,37 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
         Assert.Contains("grid-template-columns: minmax(0, 1fr) minmax(160px, 220px) minmax(160px, 220px) auto;", toolsRule, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(".book-title-btn")]
+    [InlineData(".book-row-author")]
+    [InlineData(".lookup-picker-row-title")]
+    public async Task Frontend_Styles_Should_Constrain_Book_Row_Text_To_Its_Row_Width_So_Ellipsis_Can_Apply(string selector)
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/css/site.css");
+        var css = await response.Content.ReadAsStringAsync();
+
+        // Positive: these titles/authors render inside a <button> or <span>,
+        // which default to shrink-to-fit (inline-block/inline) sizing with no
+        // width constraint of their own. Without an explicit width, a long
+        // title just grows wider than its row instead of being clipped —
+        // white-space: nowrap + overflow: hidden + text-overflow: ellipsis
+        // never actually engage, since there's nothing to clip against. A
+        // long title (e.g. "The Confessions of Jean-Jacques Rousseau") then
+        // pushed its row — and, before the page-level overflow-x: hidden
+        // safety net, the whole page — wider than the viewport on mobile.
+        var ruleStart = css.IndexOf(selector + " {", StringComparison.Ordinal);
+        Assert.True(ruleStart >= 0, $"Expected a {selector} rule.");
+        var rule = css.Substring(ruleStart, css.IndexOf('}', ruleStart) - ruleStart);
+
+        Assert.Contains("display: block;", rule, StringComparison.Ordinal);
+        Assert.Contains("width: 100%;", rule, StringComparison.Ordinal);
+        Assert.Contains("white-space: nowrap;", rule, StringComparison.Ordinal);
+        Assert.Contains("text-overflow: ellipsis;", rule, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Frontend_Styles_Should_Keep_Settings_Dialog_Responsive()
     {

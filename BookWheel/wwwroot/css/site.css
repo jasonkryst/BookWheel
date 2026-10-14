@@ -563,6 +563,8 @@ button:disabled {
 }
 
 .lookup-picker-row-title {
+  display: block;
+  width: 100%;
   font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -570,6 +572,8 @@ button:disabled {
 }
 
 .book-title-btn {
+  display: block;
+  width: 100%;
   background: transparent;
   color: var(--text);
   padding: 0;
@@ -582,6 +586,8 @@ button:disabled {
 }
 
 .book-row-author {
+  display: block;
+  width: 100%;
   font-size: 0.8rem;
   opacity: 0.7;
   overflow: hidden;
