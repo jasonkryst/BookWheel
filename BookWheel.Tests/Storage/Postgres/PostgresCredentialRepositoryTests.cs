@@ -233,4 +233,34 @@ public sealed class PostgresCredentialRepositoryTests : IAsyncLifetime
 
         Assert.Null(username);
     }
+
+    [Fact]
+    public async Task RecordLoginAsync_Sets_LastLoginAtUtc()
+    {
+        var admin = await _repository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");
+        var loginAt = DateTimeOffset.UtcNow;
+
+        await _repository.RecordLoginAsync(admin.UserId, loginAt);
+
+        var reloaded = await _repository.FindByIdAsync(admin.UserId);
+        Assert.NotNull(reloaded);
+        Assert.Equal(loginAt, reloaded!.LastLoginAtUtc);
+    }
+
+    [Fact]
+    public async Task RecordLoginAsync_For_Unknown_User_DoesNotThrow()
+    {
+        await _repository.RecordLoginAsync(Guid.NewGuid(), DateTimeOffset.UtcNow);
+    }
+
+    [Fact]
+    public async Task FindByIdAsync_Before_Any_Login_Has_Null_LastLoginAtUtc()
+    {
+        var admin = await _repository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");
+
+        var reloaded = await _repository.FindByIdAsync(admin.UserId);
+
+        Assert.NotNull(reloaded);
+        Assert.Null(reloaded!.LastLoginAtUtc);
+    }
 }

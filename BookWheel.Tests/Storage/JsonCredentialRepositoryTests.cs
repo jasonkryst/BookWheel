@@ -250,6 +250,25 @@ public sealed class JsonCredentialRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task RecordLoginAsync_Sets_LastLoginAtUtc()
+    {
+        var admin = await _repository.CreateInitialAccountAsync("admin-one", "correct-password", "admin-one@example.com");
+        var loginAt = DateTimeOffset.UtcNow;
+
+        await _repository.RecordLoginAsync(admin.UserId, loginAt);
+
+        var reloaded = await _repository.FindByIdAsync(admin.UserId);
+        Assert.NotNull(reloaded);
+        Assert.Equal(loginAt, reloaded!.LastLoginAtUtc);
+    }
+
+    [Fact]
+    public async Task RecordLoginAsync_For_Unknown_User_DoesNotThrow()
+    {
+        await _repository.RecordLoginAsync(Guid.NewGuid(), DateTimeOffset.UtcNow);
+    }
+
+    [Fact]
     public async Task ReadUsers_With_Corrupted_Credential_File_Throws_And_Quarantines()
     {
         var dataDirectory = Path.Combine(_contentRoot, "App_Data");

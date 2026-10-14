@@ -18,4 +18,5 @@ public interface ICredentialRepository
     Task<CredentialRecord?> FindByUsernameAsync(string username);
     Task<CredentialRecord?> FindByIdAsync(Guid userId);
     Task<string?> FindUsernameByEmailAsync(string email);
+    Task RecordLoginAsync(Guid userId, DateTimeOffset loginAtUtc);
 }
