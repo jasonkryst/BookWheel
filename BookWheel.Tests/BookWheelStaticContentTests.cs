@@ -1264,6 +1264,84 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
     }
 
     [Fact]
+    public async Task Frontend_Script_Should_Fall_Back_To_A_Wasm_Decoder_When_BarcodeDetector_Is_Unavailable()
+    {
+        // GH #187: iOS Safari and Firefox don't implement the native BarcodeDetector
+        // API, so the scanner falls back to a lazy-loaded WASM decoder (zxing-wasm)
+        // behind the same openBarcodeScanner interface.
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: the fallback is feature-detected separately from native support,
+        // and the overall "supported" flag is true if either path works.
+        Assert.Contains("NATIVE_BARCODE_DETECTOR_SUPPORTED = typeof BarcodeDetector !== 'undefined'", script, StringComparison.Ordinal);
+        Assert.Contains("WASM_BARCODE_SCANNER_SUPPORTED = typeof WebAssembly !== 'undefined'", script, StringComparison.Ordinal);
+        Assert.Contains("BARCODE_SCANNER_SUPPORTED = NATIVE_BARCODE_DETECTOR_SUPPORTED || WASM_BARCODE_SCANNER_SUPPORTED", script, StringComparison.Ordinal);
+
+        // Positive: the decoder script is only referenced via a lazy loader, not a
+        // static <script> tag, so it's fetched only when the scanner actually opens.
+        Assert.Contains("function loadZxingWasmScanner()", script, StringComparison.Ordinal);
+        Assert.Contains("lib/zxing-wasm/zxing-reader.iife.js", script, StringComparison.Ordinal);
+        Assert.Contains("if (!NATIVE_BARCODE_DETECTOR_SUPPORTED)", script, StringComparison.Ordinal);
+        Assert.Contains("zxingModule = await loadZxingWasmScanner()", script, StringComparison.Ordinal);
+
+        // Positive: the WASM binary is loaded from this app's own vendored copy, not
+        // zxing-wasm's default jsDelivr CDN (self-hosted/offline/CSP requirement).
+        Assert.Contains("locateFile: path => ZXING_WASM_BASE_PATH + path", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("jsdelivr", script, StringComparison.OrdinalIgnoreCase);
+
+        // Positive: the same EAN-13/EAN-8 restriction applies to the fallback decoder
+        // (zxing-wasm's canonical format names differ from BarcodeDetector's).
+        Assert.Contains("formats: ['EAN13', 'EAN8']", script, StringComparison.Ordinal);
+
+        // Positive: the WASM path polls on a timer instead of every animation frame
+        // (a WASM decode is far more expensive per call than the native detector).
+        Assert.Contains("ZXING_WASM_SCAN_INTERVAL_MS", script, StringComparison.Ordinal);
+        Assert.Contains("setTimeout(detectWasmFrame, ZXING_WASM_SCAN_INTERVAL_MS)", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Vendored_Zxing_Wasm_Decoder_Should_Be_Served_But_Not_Precached_By_The_Service_Worker()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var scriptResponse = await client.GetAsync("/lib/zxing-wasm/zxing-reader.iife.js");
+        Assert.Equal(HttpStatusCode.OK, scriptResponse.StatusCode);
+
+        var wasmResponse = await client.GetAsync("/lib/zxing-wasm/zxing_reader.wasm");
+        Assert.Equal(HttpStatusCode.OK, wasmResponse.StatusCode);
+        Assert.Equal("application/wasm", wasmResponse.Content.Headers.ContentType?.MediaType);
+
+        var licenseResponse = await client.GetAsync("/lib/zxing-wasm/LICENSE.txt");
+        Assert.Equal(HttpStatusCode.OK, licenseResponse.StatusCode);
+
+        // Negative: GH #187's explicit acceptance criterion is that the decoder is
+        // downloaded only on first scanner open — precaching it in the service
+        // worker's install-time shell would download it for every visitor.
+        var sw = await client.GetStringAsync("/sw.js");
+        Assert.DoesNotContain("zxing", sw, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Csp_Should_Allow_Wasm_Compilation_For_The_Scanner_Fallback()
+    {
+        // GH #187: Safari's CSP implementation requires 'wasm-unsafe-eval' in
+        // script-src for WebAssembly.instantiate to work at all — without it, the
+        // zxing-wasm fallback would silently fail on exactly the browser it targets.
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var csp = Assert.Single(response.Headers.GetValues("Content-Security-Policy-Report-Only"));
+
+        Assert.Contains("script-src 'self' 'wasm-unsafe-eval'", csp, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Frontend_Script_Should_Release_Camera_On_Scanner_Close()
     {
         var factory = _factory;

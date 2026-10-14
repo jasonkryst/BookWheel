@@ -10,6 +10,18 @@ This file was introduced alongside the README split in GH #198. Entries from
 (including everything before 3.2.0) predate a consistent per-commit version tag
 in this repository — see `git log` or the GitHub Releases page for that history.
 
+## [3.18.0]
+
+- Added a barcode-scanner fallback for browsers without the native
+  `BarcodeDetector` API (iOS Safari, Firefox): the scanner now lazy-loads a
+  vendored WASM decoder ([zxing-wasm](https://github.com/Sec-ant/zxing-wasm))
+  the first time it's opened in one of those browsers, behind the same
+  `openBarcodeScanner` interface used by the native path. The decoder is
+  served from this app's own static files (`wwwroot/lib/zxing-wasm/`), not a
+  CDN, so it works fully offline/self-hosted. Added `'wasm-unsafe-eval'` to
+  the CSP's `script-src`, which Safari requires for `WebAssembly.instantiate`
+  to work at all. GH #187.
+
 ## [3.17.0]
 
 - Split the frontend's translation catalogs out of `wwwroot/js/i18n.js` into

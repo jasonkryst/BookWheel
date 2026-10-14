@@ -28,6 +28,7 @@ Book Wheel/
 
 - Frontend behavior is implemented in `BookWheel/wwwroot/js/app.js`.
 - The wheel UI and styles are in `BookWheel/wwwroot/index.html` and `BookWheel/wwwroot/css/site.css`.
+- There's no frontend build step or npm toolchain — `wwwroot` is plain, hand-written JS/CSS/HTML served as static files. A third-party frontend library (e.g. `wwwroot/lib/zxing-wasm/`, the barcode-scanner WASM fallback) is vendored directly into `wwwroot/lib/<name>/` with its license file, rather than pulled from a CDN or added via a bundler, so self-hosted deployments stay fully offline-capable.
 
 ## API Overview
 
