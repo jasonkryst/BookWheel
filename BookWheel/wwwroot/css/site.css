@@ -401,6 +401,31 @@ button:disabled {
   transition: transform 4s cubic-bezier(0.15, 0.8, 0.2, 1);
 }
 
+.confetti-piece {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 14px;
+  margin: -7px 0 0 -4px;
+  opacity: 1;
+  pointer-events: none;
+  animation: confetti-burst 900ms ease-out forwards;
+}
+
+@keyframes confetti-burst {
+  to {
+    transform: translate(var(--confetti-x), var(--confetti-y)) rotate(var(--confetti-rot));
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confetti-piece {
+    display: none;
+  }
+}
+
 .pointer {
   position: absolute;
   top: -2px;

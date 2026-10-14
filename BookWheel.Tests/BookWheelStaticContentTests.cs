@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.RegularExpressions;
 
 namespace BookWheel.Tests;
 
@@ -351,6 +352,54 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
         // not rendered unconditionally.
         Assert.Contains("if (book.coverUrl)", script, StringComparison.Ordinal);
         Assert.Contains("if (book.author)", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Should_Reveal_Spin_Result_On_Transitionend_With_Opt_In_Celebration_Effects()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var htmlResponse = await client.GetAsync("/");
+        var html = await htmlResponse.Content.ReadAsStringAsync();
+
+        // Positive: a Preferences toggle exists for the celebration effects,
+        // defaulted on like the other opt-out preference checkboxes.
+        Assert.Contains("id=\"spinCelebrationCheckbox\" type=\"checkbox\" checked", html, StringComparison.Ordinal);
+
+        var scriptResponse = await client.GetAsync("/js/app.js");
+        var script = await scriptResponse.Content.ReadAsStringAsync();
+
+        // Positive: the spin result is revealed by a transitionend listener
+        // (filtered to the wheel's own transform transition) rather than a
+        // bare setTimeout, so it can't desync from the CSS animation; a
+        // fallback timer still exists in case the event never fires.
+        var spinHandlerStart = script.IndexOf("spinBtn.addEventListener('click'", StringComparison.Ordinal);
+        Assert.True(spinHandlerStart >= 0, "Expected a spinBtn click handler.");
+        var spinHandlerBody = script.Substring(spinHandlerStart, Math.Min(4000, script.Length - spinHandlerStart));
+        Assert.Contains("addEventListener('transitionend'", spinHandlerBody, StringComparison.Ordinal);
+        Assert.Contains("event.propertyName !== 'transform'", spinHandlerBody, StringComparison.Ordinal);
+        Assert.Contains("fallbackTimer", spinHandlerBody, StringComparison.Ordinal);
+
+        // Positive: celebration effects (tick audio, haptics, confetti) are
+        // gated behind both the reduced-motion check and the preference toggle.
+        Assert.Contains("function isSpinCelebrationEnabled() {", script, StringComparison.Ordinal);
+        Assert.Contains("!isSpinCelebrationOptedOut() && !isReducedMotionEnabled()", script, StringComparison.Ordinal);
+        Assert.Contains("navigator.vibrate(STOP_VIBRATE_PATTERN)", script, StringComparison.Ordinal);
+        Assert.Contains("scheduleSpinTicks(rotationDelta, slice, WHEEL_TRANSITION_MS)", spinHandlerBody, StringComparison.Ordinal);
+
+        // Negative: the tick/vibrate/confetti calls must be conditional on
+        // celebrationEnabled, not unconditional on every spin.
+        var celebrationGateCount = Regex.Matches(spinHandlerBody, Regex.Escape("if (celebrationEnabled) {")).Count;
+        Assert.Equal(2, celebrationGateCount);
+        Assert.Contains("scheduleSpinTicks(rotationDelta, slice, WHEEL_TRANSITION_MS);", spinHandlerBody, StringComparison.Ordinal);
+        Assert.Contains("playSpinStopCelebration();", spinHandlerBody, StringComparison.Ordinal);
+
+        var cssResponse = await client.GetAsync("/css/site.css");
+        var css = await cssResponse.Content.ReadAsStringAsync();
+
+        Assert.Contains(".confetti-piece", css, StringComparison.Ordinal);
+        Assert.Contains("@keyframes confetti-burst", css, StringComparison.Ordinal);
     }
 
     [Fact]
