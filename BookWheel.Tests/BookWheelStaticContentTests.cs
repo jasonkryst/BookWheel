@@ -850,7 +850,7 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
         // Positive: theme cycling and system-preference detection include
         // the new high-contrast state.
         Assert.Contains("HIGH_CONTRAST_THEME = 'high-contrast'", script, StringComparison.Ordinal);
-        Assert.Contains("THEME_CYCLE = [DARK_THEME, LIGHT_THEME, HIGH_CONTRAST_THEME]", script, StringComparison.Ordinal);
+        Assert.Contains("THEME_CYCLE = [SYSTEM_THEME, DARK_THEME, LIGHT_THEME, HIGH_CONTRAST_THEME]", script, StringComparison.Ordinal);
         Assert.Contains("prefers-contrast: more", script, StringComparison.Ordinal);
         Assert.Contains("--wheel-slice-", script, StringComparison.Ordinal);
 
@@ -858,6 +858,41 @@ public sealed class BookWheelStaticContentTests : IClassFixture<BookWheelWebAppF
         // palette, since a hardcoded array can't be re-themed for
         // high-contrast mode.
         Assert.DoesNotContain("['#38bdf8', '#60a5fa', '#818cf8', '#f472b6', '#34d399', '#fbbf24']", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Frontend_Script_Should_Add_A_Follow_System_Theme_That_Tracks_Live_Os_Changes()
+    {
+        var factory = _factory;
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/js/app.js");
+        var script = await response.Content.ReadAsStringAsync();
+
+        // Positive: "system" is a real, storable preference distinct from a
+        // resolved dark/light/high-contrast value (GH #232) — the preference
+        // getter can return it, and it's the default when nothing is saved
+        // yet, rather than immediately resolving and pinning a concrete theme.
+        Assert.Contains("const SYSTEM_THEME = 'system'", script, StringComparison.Ordinal);
+        Assert.Contains("function resolveSystemTheme() {", script, StringComparison.Ordinal);
+        Assert.Contains("function resolveDisplayTheme(preference) {", script, StringComparison.Ordinal);
+        Assert.Contains("return THEME_CYCLE.includes(persisted) ? persisted : SYSTEM_THEME;", script, StringComparison.Ordinal);
+
+        // Positive: live matchMedia listeners re-resolve and re-apply the
+        // theme when the OS color-scheme or contrast preference changes,
+        // but only while the user is actually following the system setting.
+        Assert.Contains("prefersColorSchemeDark.addEventListener('change', reapplySystemThemeIfFollowing)", script, StringComparison.Ordinal);
+        Assert.Contains("prefersContrastMore.addEventListener('change', reapplySystemThemeIfFollowing)", script, StringComparison.Ordinal);
+        Assert.Contains("function reapplySystemThemeIfFollowing() {", script, StringComparison.Ordinal);
+        Assert.Contains("if (getPreferredTheme() === SYSTEM_THEME) {", script, StringComparison.Ordinal);
+
+        // Negative: an explicit choice must keep persisting as that explicit
+        // value, not get silently overwritten by the currently-resolved
+        // display theme on an unrelated event (e.g. a locale change used to
+        // reapply the DOM's data-theme attribute directly, which would have
+        // pinned "system" to whatever it last resolved to).
+        Assert.DoesNotContain("document.documentElement.getAttribute('data-theme') || DARK_THEME", script, StringComparison.Ordinal);
+        Assert.Contains("applyTheme(getPreferredTheme());", script, StringComparison.Ordinal);
     }
 
     [Fact]

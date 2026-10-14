@@ -208,15 +208,18 @@ let bookSortValue = DEFAULT_BOOK_SORT;
 let booksPageSizeValue = String(DEFAULT_BOOKS_PER_PAGE);
 let bookSearchDebounceTimer = null;
 const THEME_STORAGE_KEY = 'bookwheel-theme';
+const SYSTEM_THEME = 'system';
 const DARK_THEME = 'dark';
 const LIGHT_THEME = 'light';
 const HIGH_CONTRAST_THEME = 'high-contrast';
-const THEME_CYCLE = [DARK_THEME, LIGHT_THEME, HIGH_CONTRAST_THEME];
-const THEME_ICONS = { [DARK_THEME]: '☾', [LIGHT_THEME]: '☀', [HIGH_CONTRAST_THEME]: '◐' };
-const THEME_LABEL_KEYS = { [DARK_THEME]: 'theme.dark', [LIGHT_THEME]: 'theme.light', [HIGH_CONTRAST_THEME]: 'theme.highContrast' };
+const THEME_CYCLE = [SYSTEM_THEME, DARK_THEME, LIGHT_THEME, HIGH_CONTRAST_THEME];
+const THEME_ICONS = { [SYSTEM_THEME]: '🖥', [DARK_THEME]: '☾', [LIGHT_THEME]: '☀', [HIGH_CONTRAST_THEME]: '◐' };
+const THEME_LABEL_KEYS = { [SYSTEM_THEME]: 'theme.system', [DARK_THEME]: 'theme.dark', [LIGHT_THEME]: 'theme.light', [HIGH_CONTRAST_THEME]: 'theme.highContrast' };
 const ANALYTICS_CONSENT_STORAGE_KEY = 'bookwheel-analytics-consent';
 const SPIN_CELEBRATION_STORAGE_KEY = 'bookwheel-spin-celebration';
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const prefersColorSchemeDark = window.matchMedia('(prefers-color-scheme: dark)');
+const prefersContrastMore = window.matchMedia('(prefers-contrast: more)');
 const dialogFocusReturnMap = new WeakMap();
 const BARCODE_SCANNER_SUPPORTED = typeof BarcodeDetector !== 'undefined';
 let scannerTarget = null;
@@ -411,37 +414,55 @@ function setWheelBooksFromActive(shuffleWheel = false) {
   renderWheelAccessibilitySummary();
 }
 
-function getPreferredTheme() {
-  const persisted = localStorage.getItem(THEME_STORAGE_KEY);
-  if (THEME_CYCLE.includes(persisted)) {
-    return persisted;
-  }
-
-  if (window.matchMedia('(prefers-contrast: more)').matches) {
+// The system preference itself (not just the absence of a saved one): kept
+// separate from an explicit dark/light/high-contrast pick so a later OS
+// theme change can still be followed live, instead of getting pinned the
+// first time it's resolved to a concrete value.
+function resolveSystemTheme() {
+  if (prefersContrastMore.matches) {
     return HIGH_CONTRAST_THEME;
   }
 
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? DARK_THEME : LIGHT_THEME;
+  return prefersColorSchemeDark.matches ? DARK_THEME : LIGHT_THEME;
+}
+
+function resolveDisplayTheme(preference) {
+  return preference === SYSTEM_THEME ? resolveSystemTheme() : preference;
+}
+
+function getPreferredTheme() {
+  const persisted = localStorage.getItem(THEME_STORAGE_KEY);
+  return THEME_CYCLE.includes(persisted) ? persisted : SYSTEM_THEME;
 }
 
 function applyTheme(theme) {
-  const resolvedTheme = THEME_CYCLE.includes(theme) ? theme : DARK_THEME;
-  document.documentElement.setAttribute('data-theme', resolvedTheme);
-  localStorage.setItem(THEME_STORAGE_KEY, resolvedTheme);
+  const resolvedPreference = THEME_CYCLE.includes(theme) ? theme : SYSTEM_THEME;
+  const resolvedDisplayTheme = resolveDisplayTheme(resolvedPreference);
+  document.documentElement.setAttribute('data-theme', resolvedDisplayTheme);
+  localStorage.setItem(THEME_STORAGE_KEY, resolvedPreference);
 
   if (themeToggleBtn) {
     const { t } = window.BookWheelI18n;
-    const nextTheme = THEME_CYCLE[(THEME_CYCLE.indexOf(resolvedTheme) + 1) % THEME_CYCLE.length];
+    const nextTheme = THEME_CYCLE[(THEME_CYCLE.indexOf(resolvedPreference) + 1) % THEME_CYCLE.length];
     const nextThemeLabel = t(THEME_LABEL_KEYS[nextTheme]);
     themeToggleBtn.setAttribute('aria-label', t('theme.switchTo', { label: nextThemeLabel }));
     themeToggleBtn.setAttribute('title', t('theme.switchTo', { label: nextThemeLabel }));
     if (themeToggleIcon) {
-      themeToggleIcon.textContent = THEME_ICONS[resolvedTheme];
+      themeToggleIcon.textContent = THEME_ICONS[resolvedPreference];
     }
   }
 
   drawWheel();
 }
+
+function reapplySystemThemeIfFollowing() {
+  if (getPreferredTheme() === SYSTEM_THEME) {
+    applyTheme(SYSTEM_THEME);
+  }
+}
+
+prefersColorSchemeDark.addEventListener('change', reapplySystemThemeIfFollowing);
+prefersContrastMore.addEventListener('change', reapplySystemThemeIfFollowing);
 
 function isAnalyticsOptedOut() {
   return localStorage.getItem(ANALYTICS_CONSENT_STORAGE_KEY) === 'false';
@@ -523,7 +544,7 @@ async function savePreferencesIfAuthenticated() {
     await requestJson('/api/preferences', {
       method: 'PUT',
       body: JSON.stringify({
-        theme: document.documentElement.getAttribute('data-theme') || DARK_THEME,
+        theme: getPreferredTheme(),
         analyticsConsentOptedOut: isAnalyticsOptedOut(),
         preferredBookInfoProviderId: bookInfoProviderSelect ? (parseInt(bookInfoProviderSelect.value, 10) || null) : null,
         locale: window.BookWheelI18n.getCurrentLocale()
@@ -536,8 +557,8 @@ async function savePreferencesIfAuthenticated() {
 }
 
 function toggleTheme() {
-  const currentTheme = document.documentElement.getAttribute('data-theme') || DARK_THEME;
-  const currentIndex = THEME_CYCLE.indexOf(currentTheme);
+  const currentPreference = getPreferredTheme();
+  const currentIndex = THEME_CYCLE.indexOf(currentPreference);
   const nextTheme = THEME_CYCLE[(currentIndex + 1) % THEME_CYCLE.length];
   applyTheme(nextTheme);
   savePreferencesIfAuthenticated();
@@ -3897,7 +3918,7 @@ if (closeStatsBtn) {
 
 window.addEventListener('bookwheel:locale-changed', () => {
   syncLangSelect();
-  applyTheme(document.documentElement.getAttribute('data-theme') || DARK_THEME);
+  applyTheme(getPreferredTheme());
   renderWheelAccessibilitySummary();
   if (!loginView.classList.contains('hidden')) {
     setAuthMode(authMode);

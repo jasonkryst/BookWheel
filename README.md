@@ -527,7 +527,7 @@ Auth endpoints:
 Preferences endpoints (authentication required):
 
 - `GET /api/preferences` — returns the authenticated user's `theme`, `analyticsConsentOptedOut`, `preferredBookInfoProviderId`, and `locale` (all `null`/`false` by default for a user who has never set one)
-- `PUT /api/preferences` — replaces all four preference values in one call; `theme` must be `dark`, `light`, or `high-contrast` (or omitted/`null`), `preferredBookInfoProviderId` must be a known provider id (or omitted/`null`), and `locale` must be one of the supported language codes (`en`, `es`, `pl`, or omitted/`null`)
+- `PUT /api/preferences` — replaces all four preference values in one call; `theme` must be `system`, `dark`, `light`, or `high-contrast` (or omitted/`null`), `preferredBookInfoProviderId` must be a known provider id (or omitted/`null`), and `locale` must be one of the supported language codes (`en`, `es`, `pl`, or omitted/`null`)
 
 Operational endpoint (admin only):
 
@@ -642,11 +642,11 @@ Additional project documentation is available in:
 
 ## Theme Toggle
 
-The application includes a theme control (inside the Settings dialog's Preferences tab, opened via the gear-icon button) that cycles through dark, light, and high-contrast modes.
+The application includes a theme control (inside the Settings dialog's Preferences tab, opened via the gear-icon button) that cycles through **Follow system**, dark, light, and high-contrast modes.
 
-- Theme choice is persisted in browser `localStorage` under `bookwheel-theme`.
-- On first load, when no saved preference exists, the UI follows the system contrast preference (`prefers-contrast: more`) if set, otherwise the system color preference (`prefers-color-scheme`).
-- The toggle updates the root `data-theme` attribute (`dark`, `light`, or `high-contrast`) so CSS variables can switch the entire palette, including the icon/label shown on the toggle button.
+- Theme choice is persisted in browser `localStorage` under `bookwheel-theme` as `system`, `dark`, `light`, or `high-contrast`.
+- **Follow system** (the default for a user who hasn't made an explicit choice) tracks the OS color-scheme (`prefers-color-scheme`) and contrast (`prefers-contrast: more`) preferences live via `matchMedia` change listeners — including while the app stays open, not just on next load — without pinning whatever it last resolved to. Choosing dark/light/high-contrast explicitly persists that exact choice instead, and keeps it even if the OS preference changes (GH #232).
+- The toggle updates the root `data-theme` attribute to the *resolved* value (`dark`, `light`, or `high-contrast` — never `system` itself) so CSS variables can switch the entire palette; the toggle button's own icon/label reflect the stored preference (so it shows "Follow system" rather than whatever that currently resolves to).
 - The high-contrast theme uses a pure black/white/yellow palette, solid (non-blended) surfaces, thicker borders, and a colorblind-distinguishable wheel-slice palette so every theme meets accessibility contrast expectations.
 
 ## Import and Export (JSON)

@@ -79,6 +79,7 @@
       theme: {
         switchThemeLabel: 'Switch theme',
         switchTo: 'Switch to {label}',
+        system: 'Follow system',
         dark: 'Dark mode',
         light: 'Light mode',
         highContrast: 'High contrast mode'
@@ -442,6 +443,7 @@
       theme: {
         switchThemeLabel: 'Cambiar tema',
         switchTo: 'Cambiar a {label}',
+        system: 'Seguir al sistema',
         dark: 'Modo oscuro',
         light: 'Modo claro',
         highContrast: 'Modo de alto contraste'
@@ -805,6 +807,7 @@
       theme: {
         switchThemeLabel: 'Zmień motyw',
         switchTo: 'Przełącz na {label}',
+        system: 'Zgodnie z systemem',
         dark: 'Tryb ciemny',
         light: 'Tryb jasny',
         highContrast: 'Tryb wysokiego kontrastu'
