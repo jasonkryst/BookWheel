@@ -16,10 +16,14 @@ const SHELL_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
+  // Deliberately does not force activation here: a new worker installed
+  // while a tab is open would otherwise swap app.js/the API contract under
+  // that tab without warning. It waits until the page asks it to take over
+  // (see the 'message' handler below), driven by the update-available toast
+  // in app.js.
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => cache.addAll(SHELL_ASSETS))
-      .then(() => self.skipWaiting())
   );
 });
 
@@ -33,6 +37,12 @@ self.addEventListener('activate', (event) => {
       ))
       .then(() => self.clients.claim())
   );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('fetch', (event) => {
