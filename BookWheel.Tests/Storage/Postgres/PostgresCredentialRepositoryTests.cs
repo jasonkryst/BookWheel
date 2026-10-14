@@ -244,7 +244,10 @@ public sealed class PostgresCredentialRepositoryTests : IAsyncLifetime
 
         var reloaded = await _repository.FindByIdAsync(admin.UserId);
         Assert.NotNull(reloaded);
-        Assert.Equal(loginAt, reloaded!.LastLoginAtUtc);
+        Assert.NotNull(reloaded!.LastLoginAtUtc);
+        // Postgres "timestamp with time zone" only stores microsecond precision, so a
+        // round-tripped value can be a fraction of a microsecond off .NET's 100ns ticks.
+        Assert.True((loginAt - reloaded.LastLoginAtUtc!.Value).Duration() < TimeSpan.FromMilliseconds(1));
     }
 
     [Fact]
